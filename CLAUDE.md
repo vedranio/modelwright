@@ -4,7 +4,7 @@ A local design tool that produces a structured spec — an entity relationship d
 
 ## Current phase
 
-**Phase 1 — Foundation.** See `docs/phase-1-brief.md`. No canvas in this phase. Do not start phase 2 work (React Flow, nodes, edges) until phase 1's "done means" has been verified and committed.
+**Phase 2 — ERD canvas.** See `docs/phase-2-brief.md`. Phase 1 (foundation) is complete and merged. Build the shared canvas layer and editable-document plumbing generically so phase 3 can reuse them, but build nothing flow-specific. Do not start phase 3 work until phase 2's "done means" has been verified and committed.
 
 Phases, in order:
 
