@@ -3,3 +3,5 @@ pnpm-lock.yaml
 # Briefs and docs are authored outside this repo's tooling; never reformat them.
 docs
 CLAUDE.md
+# Fixtures are canonical serialiser output; Prettier formats JSON differently.
+**/fixtures/**
