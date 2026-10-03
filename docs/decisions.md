@@ -123,3 +123,19 @@ The server rejects requests whose `Host` isn't its own loopback address, or whos
 ### Briefs and docs are excluded from Prettier
 
 `docs/` and `CLAUDE.md` are in `.prettierignore`. They are authored outside this repo's tooling and pushed to GitHub; a formatter rewrite would create noisy diffs against the source of truth.
+
+## 2026-10-03 — Phase 1 server details
+
+### A symlinked `.design/` is refused
+
+`init` and every write require `<project>/.design` to be a real directory, checked with `lstat`. A symlink there gets a 409.
+
+**Why:** "writes only inside `.design/`" should mean physically, not just by path. A `.design` symlink would redirect writes anywhere on disk. No real project needs one.
+
+### Writes require an existing `.design/`
+
+`PUT /api/design/:file` returns 409 if `.design/` doesn't exist rather than creating it. Creating `.design/` is `init`'s job, so a write can never initialise a project as a side effect.
+
+### Shared API shapes live in the schema package
+
+`ProjectSummary` and `ApiErrorBody` sit in `packages/schema/src/api.ts`, beside `DesignError`, so the server and `ProjectClient` share one definition. They are not part of the `.design/` file contract and change without a `schemaVersion` bump.

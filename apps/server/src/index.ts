@@ -1,9 +1,9 @@
 import { serve } from '@hono/node-server';
 import { createApp } from './app';
+import { SERVER_HOST, SERVER_PORT, defaultHomeDir } from './config';
 
-export const HOST = '127.0.0.1';
-export const PORT = 4301;
+const app = createApp({ homeDir: defaultHomeDir() });
 
-serve({ fetch: createApp().fetch, hostname: HOST, port: PORT }, (info) => {
+serve({ fetch: app.fetch, hostname: SERVER_HOST, port: SERVER_PORT }, (info) => {
   console.log(`modelwright server listening on http://${info.address}:${info.port}`);
 });

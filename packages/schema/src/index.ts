@@ -24,3 +24,4 @@ export {
 } from './parse';
 export { stringifyConfig, stringifyDesign, stringifyErd, stringifyFlows } from './stringify';
 export { defaultConfig, defaultErd, defaultFlows } from './defaults';
+export type { ApiErrorBody, ProjectSummary } from './api';
