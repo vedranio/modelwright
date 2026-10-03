@@ -1,0 +1,58 @@
+{
+  "schemaVersion": 1,
+  "entities": [
+    {
+      "id": "user",
+      "name": "User",
+      "attributes": [
+        {
+          "id": "user-email",
+          "name": "email"
+        },
+        {
+          "id": "user-name",
+          "name": "display name"
+        }
+      ]
+    },
+    {
+      "id": "note",
+      "name": "Note",
+      "attributes": [
+        {
+          "id": "note-title",
+          "name": "title"
+        },
+        {
+          "id": "note-body",
+          "name": "body"
+        },
+        {
+          "id": "note-updated",
+          "name": "updated at",
+          "note": "set on every save"
+        }
+      ]
+    }
+  ],
+  "relationships": [
+    {
+      "id": "user-notes",
+      "from": "user",
+      "to": "note",
+      "fromCard": "one",
+      "toCard": "zero-many",
+      "label": "owns"
+    }
+  ],
+  "layout": {
+    "user": {
+      "x": 0,
+      "y": 0
+    },
+    "note": {
+      "x": 320,
+      "y": 0
+    }
+  }
+}
