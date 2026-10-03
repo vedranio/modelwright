@@ -78,3 +78,48 @@ Phase one ends when you can point the tool at a folder, see three empty views, h
 **Claude Design** for anything judged by looking at it: the app shell and view toggle, the entity card, the lo-fi screen card (name / sees / can do), the device frame, empty states. Exports go into `design-refs/` and Claude Code is pointed at them — "match this" beats describing it. Later, once a project's lo-fi flows are settled, Claude Design is also where screens go hi-fi.
 
 **Claude Code** for everything else: one phase per session, plan mode first, commit at each milestone, Vitest on the schema and file I/O layer, browser tool to verify canvases against design refs, and eventually a `/build-from-design` skill in each project repo that reads `erd.json` → schema/migrations and `flows.json` → route and screen stubs. A Mermaid export is a cheap add that makes both diagrams readable in GitHub too.
+
+## 2026-10-03 — Phase 1 planning decisions
+
+Settled in the phase 1 interview before any code was written. Each changes or sharpens something the brief left open.
+
+### `init` fills missing files instead of refusing on an existing `.design/`
+
+`POST /api/projects/init` writes only the files that are missing from `.design/` and never overwrites one. It returns 409 only when all three already exist.
+
+**Why:** the brief had a dead end — a `.design/` folder with one or two files is reported as `initialised: false` by `open`, but `init` refused because the folder existed. Filling the gaps is safe because nothing is ever overwritten.
+
+### Unknown keys are rejected, not stripped
+
+Every object in the v1 schema is strict. An unrecognised key is a validation error with its issue path.
+
+**Why:** zod strips unknown keys by default, so a hand-edit typo (`desciption`) would silently vanish on the next save. Rejecting it surfaces the mistake where the user can see and fix it, which is the point of the validation surface. Phase 2+ adding fields means a `schemaVersion` bump anyway.
+
+### Dedicated ports: web 4300, server 4301
+
+Both use `strictPort`, so a clash fails loudly rather than drifting to another port.
+
+**Why:** Vite's default 5173 is also the port most designed projects' own dev servers run on — including the phase 1 fixture's preview URL. The tool must not collide with the thing it previews.
+
+### Origin/Host guard on the server
+
+The server rejects requests whose `Host` isn't its own loopback address, or whose `Origin` (when present) isn't the web app's.
+
+**Why:** binding to `127.0.0.1` stops other machines, not other websites. Without the guard, any page open in the browser could POST to the server and create or overwrite `.design/` files in any folder, and DNS rebinding could read them. The guard is small and closes both.
+
+### Smaller defaults
+
+- **Id uniqueness is scoped to the collection.** Entities, relationships, screens and transitions are unique file-wide; attributes per entity, states per screen, CTAs per state. Transitions address a CTA as screen → state → cta, so nothing needs global uniqueness.
+- **Layout is optional per node.** Every `layout` key must reference a real node, but a node may have no layout entry — phase 2 places unpositioned nodes.
+- **Canonical serialisation.** Keys are written in the schema's declared order (`schemaVersion` first, `layout` last), 2-space indent, trailing newline, array order preserved. Re-saving an untouched file produces no diff.
+- **The schema package ships as TypeScript source** inside the workspace, with no build step. The server's production build bundles it.
+- **Renaming a project updates its recents entry** so the picker never shows a stale name.
+- **Re-read on window focus** is included (the brief's nice-to-have), suppressed while the name field is being edited.
+
+### Tooling: TypeScript pinned to 6.0
+
+`typescript@latest` is 7.0, but typescript-eslint supports only `<6.1`. TypeScript stays on 6.0.x until typescript-eslint supports 7; revisit then.
+
+### Briefs and docs are excluded from Prettier
+
+`docs/` and `CLAUDE.md` are in `.prettierignore`. They are authored outside this repo's tooling and pushed to GitHub; a formatter rewrite would create noisy diffs against the source of truth.
