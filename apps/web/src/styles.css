@@ -166,6 +166,7 @@ label {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
+  white-space: normal;
 }
 
 .recent-name {
@@ -197,7 +198,8 @@ label {
   display: flex;
   flex-direction: column;
   min-width: 0;
-  flex: 1;
+  /* Keep room for the name; on narrow windows the toggle and actions wrap below instead. */
+  flex: 1 1 14rem;
 }
 
 .project-name {
@@ -209,13 +211,24 @@ label {
   padding: 0 0.25rem;
   margin-left: -0.25rem;
   text-align: left;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 button.project-name:hover {
   border-color: var(--line);
 }
 
+.project-name-wrap {
+  display: flex;
+  align-items: baseline;
+  min-width: 0;
+}
+
 .project-name-input {
+  width: 100%;
   font-weight: 600;
   font-size: 1.05rem;
   padding: 0 0.25rem;

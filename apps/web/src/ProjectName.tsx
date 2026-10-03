@@ -98,6 +98,7 @@ export function ProjectName({
         aria-label="Project name"
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
+        onFocus={(e) => e.currentTarget.select()}
         onBlur={() => void save()}
         onKeyDown={onKeyDown}
         disabled={saving}
