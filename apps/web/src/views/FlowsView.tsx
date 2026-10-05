@@ -10,7 +10,8 @@ import { SaveStatusPill } from '../editing/SaveStatusPill';
 import type { EditableDoc } from '../editing/useEditableDoc';
 import { connectedCtas, screensById, transitionEndpoints } from '../flows/endpoints';
 import { SCREEN_WIDTH, estimateScreenSize } from '../flows/metrics';
-import { addScreen, moveScreens } from '../flows/ops';
+import { FlowsEditorContext, type EditTarget, type FlowsEditor } from '../flows/editor';
+import { addScreen, deleteScreens, deleteTransitions, moveScreens } from '../flows/ops';
 import { ScreenNode, type ScreenNodeType } from '../flows/ScreenNode';
 import { TransitionEdge, type TransitionEdgeType } from '../flows/TransitionEdge';
 import '../flows/flows.css';
@@ -59,6 +60,7 @@ function FlowsCanvas({
   flows: Flows;
   edit: EditableDoc<'flows'>;
 }) {
+  const [editing, setEditing] = useState<EditTarget | null>(null);
   const [dragging, setDragging] = useState<Record<string, XYPosition>>({});
   const selection = useSelection();
   const measurements = useMeasurements();
@@ -79,6 +81,8 @@ function FlowsCanvas({
       }, options),
     [applyDoc],
   );
+
+  const editor = useMemo<FlowsEditor>(() => ({ apply, editing, setEditing }), [apply, editing]);
 
   const flow = useMemo(() => toFlow(flows), [flows]);
   const nodes = useMemo(
@@ -110,13 +114,21 @@ function FlowsCanvas({
     if (Object.keys(moved).length > 0) setDragging((d) => ({ ...d, ...moved }));
   };
 
-  /** Adds a screen with its top-left near `at`. */
+  /** Adds a screen with its top-left near `at`, and opens its name for typing. */
   const createScreen = (at: XYPosition) => {
-    apply(
-      (doc) =>
-        addScreen(doc, { x: at.x + NEW_SCREEN_OFFSET.x, y: at.y + NEW_SCREEN_OFFSET.y }).flows,
-    );
-    selection.clear();
+    let id: string | null = null;
+    apply((doc) => {
+      const result = addScreen(doc, {
+        x: at.x + NEW_SCREEN_OFFSET.x,
+        y: at.y + NEW_SCREEN_OFFSET.y,
+      });
+      id = result.id;
+      return result.flows;
+    });
+    if (id) {
+      selection.clear();
+      setEditing({ kind: 'name', screenId: id, selectAll: true });
+    }
   };
 
   const addAtCentre = () => {
@@ -150,64 +162,80 @@ function FlowsCanvas({
   );
 
   return (
-    <div ref={container} className="canvas-host" onDoubleClick={onDoubleClick}>
-      <Canvas<ScreenNodeType, TransitionEdgeType>
-        viewportKey={`flows:${projectPath}`}
-        nodes={nodes}
-        edges={edges}
-        nodeTypes={NODE_TYPES}
-        edgeTypes={EDGE_TYPES}
-        onInit={(i) => {
-          instance.current = i;
-        }}
-        onNodesChange={onNodesChange}
-        onEdgesChange={selection.onEdgesChange}
-        onNodeDragStop={(_e, _node, dragged) => {
-          apply(
-            (doc) => moveScreens(doc, Object.fromEntries(dragged.map((n) => [n.id, n.position]))),
-            { saveNow: true },
-          );
-          setDragging({});
-        }}
-        isValidConnection={() => false}
-        onBeforeDelete={() => Promise.resolve(false)}
-        toolbarActions={
-          <button
-            type="button"
-            className="btn btn-quiet btn-tight toolbar-add"
-            onClick={addAtCentre}
-          >
-            <span className="toolbar-add-plus" aria-hidden="true">
-              +
-            </span>
-            Add screen
-            <Kbd>S</Kbd>
-          </button>
-        }
-        status={
-          <SaveStatusPill
-            status={edit.status}
-            issues={edit.issues}
-            onRetry={() => void edit.flush()}
-          />
-        }
-        overlay={
-          flows.screens.length === 0 && (
-            <EmptyCard
-              title="No screens yet"
-              actions={
-                <button type="button" className="btn btn-primary" onClick={addAtCentre}>
-                  Add screen
-                  <Kbd>S</Kbd>
-                </button>
-              }
+    <FlowsEditorContext.Provider value={editor}>
+      <div ref={container} className="canvas-host" onDoubleClick={onDoubleClick}>
+        <Canvas<ScreenNodeType, TransitionEdgeType>
+          viewportKey={`flows:${projectPath}`}
+          nodes={nodes}
+          edges={edges}
+          nodeTypes={NODE_TYPES}
+          edgeTypes={EDGE_TYPES}
+          onInit={(i) => {
+            instance.current = i;
+          }}
+          onNodesChange={onNodesChange}
+          onEdgesChange={selection.onEdgesChange}
+          onNodeDragStop={(_e, _node, dragged) => {
+            apply(
+              (doc) => moveScreens(doc, Object.fromEntries(dragged.map((n) => [n.id, n.position]))),
+              { saveNow: true },
+            );
+            setDragging({});
+          }}
+          isValidConnection={() => false}
+          onBeforeDelete={({ nodes: goneNodes, edges: goneEdges }) => {
+            // Flows deletes never ask (decisions.md); undo arrives in phase 5.
+            apply((doc) =>
+              deleteTransitions(
+                deleteScreens(
+                  doc,
+                  goneNodes.map((n) => n.id),
+                ),
+                goneEdges.map((e) => e.id),
+              ),
+            );
+            selection.clear();
+            // The document change removes them; React Flow mustn't remove them a second time.
+            return Promise.resolve(false);
+          }}
+          toolbarActions={
+            <button
+              type="button"
+              className="btn btn-quiet btn-tight toolbar-add"
+              onClick={addAtCentre}
             >
-              Screens are the places a user can be. Add one, then connect it to others.
-            </EmptyCard>
-          )
-        }
-      />
-    </div>
+              <span className="toolbar-add-plus" aria-hidden="true">
+                +
+              </span>
+              Add screen
+              <Kbd>S</Kbd>
+            </button>
+          }
+          status={
+            <SaveStatusPill
+              status={edit.status}
+              issues={edit.issues}
+              onRetry={() => void edit.flush()}
+            />
+          }
+          overlay={
+            flows.screens.length === 0 && (
+              <EmptyCard
+                title="No screens yet"
+                actions={
+                  <button type="button" className="btn btn-primary" onClick={addAtCentre}>
+                    Add screen
+                    <Kbd>S</Kbd>
+                  </button>
+                }
+              >
+                Screens are the places a user can be. Add one, then connect it to others.
+              </EmptyCard>
+            )
+          }
+        />
+      </div>
+    </FlowsEditorContext.Provider>
   );
 }
 

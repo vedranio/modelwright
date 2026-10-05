@@ -331,3 +331,12 @@ There's no phase 3 design, so both are built from tokens in the entity card's la
 - **Labels** sit above the middle of the path's longest horizontal run, beside the line, as on the ERD.
 - **Generic canvas CSS moved to `canvas/canvas.css`:** `.anchor-handle`, `.edge-label`, `.canvas-host`, `.editable`, `.inline-input`, the popover field styles and the toolbar "+" button. These sat in `erd.css` but both views use them. The selectors are unchanged and load in the same order, so the ERD looks the same.
 - **Not done (out of scope):** routing around cards other than the transition's own two. A long backward edge can cross unrelated cards.
+
+## 2026-10-06 — Phase 3 milestone 4: editing screens
+
+- **Hover controls take no space,** as on the ERD. The screen header shows "+ notes" (when there are none) and "+ state" at its right. A state header shows "make default" (except on the first) and ×. Each sees item and CTA row shows ×. A single-state screen has no state header, so its last state can't be deleted from the UI.
+- **"+ state" sits in the screen header** for single- and multi-state screens alike. It appends a state and opens its name, selected.
+- **Each list ends in an always-visible "+ Add item" / "+ Add CTA" row,** like the ERD's "+ Add attribute". It replaces the read-only "Nothing yet".
+- **Clearing an existing sees item, CTA, state or screen name doesn't delete it:** an empty commit keeps the old text, and × deletes.
+- **Tab order** lives in `flows/tabOrder.ts` (pure, tested) and follows the planning decision. Name → notes skips the first state's name and goes straight to its sees items, as the brief orders it. Later states are entered at their name.
+- **Screen delete** (Delete or Backspace on a selection) goes through `onBeforeDelete`, which applies `deleteScreens` and `deleteTransitions` without asking.
