@@ -7,15 +7,23 @@ import {
   type InternalNode,
 } from '@xyflow/react';
 import { orthogonalPath, type Rect } from '../canvas/edgeGeometry';
-import { routeTransition } from './route';
+import { routeTransition, type Fan } from './route';
+import { TransitionPopover } from './TransitionPopover';
 
 export type TransitionEdgeType = Edge<
   {
     label?: string;
-    /** Shift of the path's first turn, so transitions fanning out of one CTA stay apart. */
-    offset: number;
+    /** Its place among transitions from the same CTA, which fan out at separate columns. */
+    fan: Fan;
     /** Which track a path going round the cards takes, counted per source screen. */
     track: number;
+    /** e.g. "Login › Default › Sign in", for the popover. */
+    fromText: string;
+    toScreenName: string;
+    toStates: readonly { id: string; name: string }[];
+    toStateId?: string;
+    /** Whether this is the only thing selected, so its editing popover shows. */
+    editing: boolean;
   },
   'transition'
 >;
@@ -52,7 +60,7 @@ export function TransitionEdge({
     tip,
     sourceRect,
     targetRect,
-    data?.offset ?? 0,
+    data?.fan,
     data?.track ?? 0,
   );
   // The line stops at the arrowhead's base so its end doesn't poke through the tip.
@@ -66,6 +74,23 @@ export function TransitionEdge({
         className="transition-arrow"
         d={`M ${lineEnd.x} ${tip.y - ARROW_HALF_WIDTH} L ${tip.x} ${tip.y} L ${lineEnd.x} ${tip.y + ARROW_HALF_WIDTH} Z`}
       />
+      {data?.editing && (
+        <EdgeLabelRenderer>
+          <div
+            className="edge-popover-anchor"
+            style={{ transform: `translate(-50%, 0) translate(${label.x}px, ${label.y}px)` }}
+          >
+            <TransitionPopover
+              transitionId={id}
+              fromText={data.fromText}
+              toScreenName={data.toScreenName}
+              toStates={data.toStates}
+              toStateId={data.toStateId}
+              label={data.label ?? ''}
+            />
+          </div>
+        </EdgeLabelRenderer>
+      )}
       {data?.label && (
         <EdgeLabelRenderer>
           <div

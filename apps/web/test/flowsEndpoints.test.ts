@@ -3,6 +3,7 @@ import type { Flows, Transition } from '@modelwright/schema';
 import {
   SCREEN_HANDLE,
   connectedCtas,
+  fanPlaces,
   ctaHandle,
   screensById,
   stateHandle,
@@ -77,5 +78,19 @@ describe('connectedCtas', () => {
     const connected = connectedCtas(notesFlows());
     expect(connected.has('login-default:login-submit')).toBe(true);
     expect(connected.has('login-error:login-retry')).toBe(false);
+  });
+});
+
+describe('fanPlaces', () => {
+  it('numbers transitions that share a CTA', () => {
+    const { flows, id } = addTransition(
+      notesFlows(),
+      { screenId: 'login', stateId: 'login-default', ctaId: 'login-submit' },
+      { screenId: 'login', stateId: 'login-error' },
+    );
+    const places = fanPlaces(flows);
+    expect(places.get('t1')).toEqual({ index: 0, count: 2 });
+    expect(places.get(must(id))).toEqual({ index: 1, count: 2 });
+    expect(places.get('t2')).toEqual({ index: 0, count: 1 });
   });
 });

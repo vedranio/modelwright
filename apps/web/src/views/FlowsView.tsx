@@ -1,17 +1,23 @@
 import { useCallback, useMemo, useRef, useState, type MouseEvent } from 'react';
-import type { NodeChange, ReactFlowInstance, XYPosition } from '@xyflow/react';
+import type { NodeChange, OnConnectEnd, ReactFlowInstance, XYPosition } from '@xyflow/react';
 import type { Flows } from '@modelwright/schema';
 import { Canvas } from '../canvas/Canvas';
-import { fanOffsets } from '../canvas/edgeGeometry';
 import { placeNodes } from '../canvas/placement';
 import { useMeasurements } from '../canvas/useMeasurements';
 import { useSelection } from '../canvas/useSelection';
 import { SaveStatusPill } from '../editing/SaveStatusPill';
 import type { EditableDoc } from '../editing/useEditableDoc';
-import { connectedCtas, screensById, transitionEndpoints } from '../flows/endpoints';
+import { connectedCtas, fanPlaces, screensById, transitionEndpoints } from '../flows/endpoints';
 import { SCREEN_WIDTH, estimateScreenSize } from '../flows/metrics';
+import { ctaForHandle, dropTarget } from '../flows/connect';
 import { FlowsEditorContext, type EditTarget, type FlowsEditor } from '../flows/editor';
-import { addScreen, deleteScreens, deleteTransitions, moveScreens } from '../flows/ops';
+import {
+  addScreen,
+  addTransition,
+  deleteScreens,
+  deleteTransitions,
+  moveScreens,
+} from '../flows/ops';
 import { ScreenNode, type ScreenNodeType } from '../flows/ScreenNode';
 import { TransitionEdge, type TransitionEdgeType } from '../flows/TransitionEdge';
 import '../flows/flows.css';
@@ -23,9 +29,6 @@ import { EmptyCard } from './common';
 
 const NODE_TYPES = { screen: ScreenNode };
 const EDGE_TYPES = { transition: TransitionEdge };
-
-/** Space between transitions fanning out of one CTA, at their first turn. */
-const FAN_SPACING = 12;
 
 /** Where a new screen's top-left sits relative to the point it's created at. */
 const NEW_SCREEN_OFFSET = { x: -SCREEN_WIDTH / 2, y: -20 };
@@ -62,6 +65,7 @@ function FlowsCanvas({
 }) {
   const [editing, setEditing] = useState<EditTarget | null>(null);
   const [dragging, setDragging] = useState<Record<string, XYPosition>>({});
+  const [connecting, setConnecting] = useState(false);
   const selection = useSelection();
   const measurements = useMeasurements();
   const instance = useRef<ReactFlowInstance<ScreenNodeType, TransitionEdgeType> | null>(null);
@@ -98,10 +102,49 @@ function FlowsCanvas({
       }),
     [flow, dragging, selection.selectedNodes, measurements.sizes],
   );
-  const edges = useMemo(
-    () => flow.edges.map((e) => ({ ...e, selected: selection.selectedEdges.has(e.id) })),
-    [flow, selection.selectedEdges],
-  );
+  const edges = useMemo(() => {
+    // The popover shows when one transition, and nothing else, is selected. Only count what
+    // still exists: a deleted item's id can linger in the selection.
+    const selectedEdges = flow.edges.filter((e) => selection.selectedEdges.has(e.id));
+    const anyNodeSelected = flow.nodes.some((n) => selection.selectedNodes.has(n.id));
+    const lone = !anyNodeSelected && selectedEdges.length === 1 ? selectedEdges[0]?.id : null;
+    return flow.edges.map((e) => ({
+      ...e,
+      selected: selection.selectedEdges.has(e.id),
+      ...(e.data && { data: { ...e.data, editing: e.id === lone } }),
+    }));
+  }, [flow, selection.selectedEdges, selection.selectedNodes]);
+
+  /**
+   * Dropping a connection dragged from a CTA: on a state header it leads to that state,
+   * anywhere else on a card to that screen's default state (see `dropTarget`). The new
+   * transition is selected, which opens its popover.
+   */
+  const onConnectEnd: OnConnectEnd = (event, connection) => {
+    setConnecting(false);
+    const screenId = connection.fromNode?.id;
+    const handleId = connection.fromHandle?.id;
+    const point = 'changedTouches' in event ? event.changedTouches[0] : event;
+    if (!screenId || !handleId || !point) return;
+    const from = ctaForHandle(flows, screenId, handleId);
+    if (!from) return;
+    const under = document.elementFromPoint(point.clientX, point.clientY);
+    const to = dropTarget(flows, from, {
+      screenId: under?.closest<HTMLElement>('.react-flow__node')?.dataset.id ?? null,
+      stateId: under?.closest<HTMLElement>('[data-state-header]')?.dataset.stateHeader ?? null,
+    });
+    if (!to) return;
+    let id: string | null = null;
+    apply((doc) => {
+      const result = addTransition(doc, from, to);
+      id = result.id;
+      return result.flows;
+    });
+    if (id) {
+      selection.clear();
+      selection.onEdgesChange([{ type: 'select', id, selected: true }]);
+    }
+  };
 
   const onNodesChange = (changes: NodeChange<ScreenNodeType>[]) => {
     selection.onNodesChange(changes);
@@ -163,7 +206,11 @@ function FlowsCanvas({
 
   return (
     <FlowsEditorContext.Provider value={editor}>
-      <div ref={container} className="canvas-host" onDoubleClick={onDoubleClick}>
+      <div
+        ref={container}
+        className={`canvas-host${connecting ? ' connecting' : ''}`}
+        onDoubleClick={onDoubleClick}
+      >
         <Canvas<ScreenNodeType, TransitionEdgeType>
           viewportKey={`flows:${projectPath}`}
           nodes={nodes}
@@ -182,6 +229,9 @@ function FlowsCanvas({
             );
             setDragging({});
           }}
+          onConnectStart={() => setConnecting(true)}
+          onConnectEnd={onConnectEnd}
+          // Only dropping onto a card counts (onConnectEnd); never connect handle to handle.
           isValidConnection={() => false}
           onBeforeDelete={({ nodes: goneNodes, edges: goneEdges }) => {
             // Flows deletes never ask (decisions.md); undo arrives in phase 5.
@@ -273,11 +323,7 @@ function toFlow(flows: Flows): { nodes: ScreenNodeType[]; edges: TransitionEdgeT
     };
   });
   const screens = screensById(flows);
-  const offsets = fanOffsets(
-    flows.transitions,
-    (t) => `${t.from.screenId}:${t.from.stateId}:${t.from.ctaId}`,
-    FAN_SPACING,
-  );
+  const fans = fanPlaces(flows);
   // Each screen's outgoing transitions get their own track, so loops round it stay apart.
   const tracks = new Map<string, number>();
   const nextTrack = new Map<string, number>();
@@ -288,15 +334,24 @@ function toFlow(flows: Flows): { nodes: ScreenNodeType[]; edges: TransitionEdgeT
   }
   const edges = flows.transitions.flatMap((t): TransitionEdgeType[] => {
     const ends = transitionEndpoints(screens, t);
-    if (!ends) return [];
+    const fromScreen = screens.get(t.from.screenId);
+    const toScreen = screens.get(t.to.screenId);
+    if (!ends || !fromScreen || !toScreen) return [];
+    const fromState = fromScreen.states.find((st) => st.id === t.from.stateId);
+    const cta = fromState?.ctas.find((c) => c.id === t.from.ctaId);
     return [
       {
         id: t.id,
         type: 'transition',
         ...ends,
         data: {
-          offset: offsets.get(t.id) ?? 0,
+          fan: fans.get(t.id) ?? { index: 0, count: 1 },
           track: tracks.get(t.id) ?? 0,
+          fromText: [fromScreen.name, fromState?.name, cta?.label].join(' › '),
+          toScreenName: toScreen.name,
+          toStates: toScreen.states.map((st) => ({ id: st.id, name: st.name })),
+          ...(t.to.stateId !== undefined && { toStateId: t.to.stateId }),
+          editing: false,
           ...(t.label !== undefined && { label: t.label }),
         },
       },

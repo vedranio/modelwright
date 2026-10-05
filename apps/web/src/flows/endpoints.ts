@@ -59,3 +59,17 @@ export function screensById(flows: Flows): Map<string, Screen> {
 export function connectedCtas(flows: Flows): Set<string> {
   return new Set(flows.transitions.map((t) => `${t.from.stateId}:${t.from.ctaId}`));
 }
+
+/** Each transition's place among those starting from the same CTA, which fan out apart. */
+export function fanPlaces(flows: Flows): Map<string, { index: number; count: number }> {
+  const groups = new Map<string, string[]>();
+  for (const t of flows.transitions) {
+    const key = `${t.from.screenId}\u0000${t.from.stateId}\u0000${t.from.ctaId}`;
+    groups.set(key, [...(groups.get(key) ?? []), t.id]);
+  }
+  const places = new Map<string, { index: number; count: number }>();
+  for (const ids of groups.values()) {
+    ids.forEach((id, index) => places.set(id, { index, count: ids.length }));
+  }
+  return places;
+}

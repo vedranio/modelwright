@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Point, Rect } from '../src/canvas/edgeGeometry';
-import { CLEARANCE, STUB, TRACK_SPACING, routeTransition } from '../src/flows/route';
+import { CLEARANCE, FAN_SPACING, STUB, TRACK_SPACING, routeTransition } from '../src/flows/route';
 
 const card = (x: number, y: number, height = 200): Rect => ({ x, y, width: 260, height });
 const right = (r: Rect) => r.x + r.width;
@@ -35,12 +35,14 @@ describe('routeTransition', () => {
     ]);
   });
 
-  it('fans transitions from one CTA apart by their offset', () => {
-    const a = card(0, 0);
+  it('turns transitions fanning out of one CTA at separate columns, loops included', () => {
+    const a = card(0, 0, 300);
     const b = card(400, 0);
-    const one = routeTransition({ x: 260, y: 50 }, { x: 400, y: 20 }, a, b, -6);
-    const two = routeTransition({ x: 260, y: 50 }, { x: 400, y: 20 }, a, b, 6);
-    expect(two.points[1]?.x).toBe((one.points[1]?.x ?? 0) + 12);
+    const fan = (index: number) => ({ index, count: 2 });
+    const forward = routeTransition({ x: 260, y: 50 }, { x: 400, y: 20 }, a, b, fan(0));
+    const loop = routeTransition({ x: 260, y: 50 }, { x: 0, y: 200 }, a, a, fan(1), 3);
+    expect(forward.points[1]?.x).toBe(260 + STUB);
+    expect(loop.points[1]?.x).toBe(260 + STUB + FAN_SPACING);
   });
 
   it('loops a same-card transition round the card without crossing it', () => {
@@ -73,8 +75,8 @@ describe('routeTransition', () => {
 
   it('pushes later tracks further out', () => {
     const a = card(0, 0, 300);
-    const first = routeTransition({ x: 260, y: 40 }, { x: 0, y: 20 }, a, a, 0, 0);
-    const second = routeTransition({ x: 260, y: 40 }, { x: 0, y: 20 }, a, a, 0, 1);
+    const first = routeTransition({ x: 260, y: 40 }, { x: 0, y: 20 }, a, a, undefined, 0);
+    const second = routeTransition({ x: 260, y: 40 }, { x: 0, y: 20 }, a, a, undefined, 1);
     expect(second.points[1]?.x).toBe((first.points[1]?.x ?? 0) + TRACK_SPACING);
     expect(second.points[2]?.y).toBe((first.points[2]?.y ?? 0) - TRACK_SPACING);
   });

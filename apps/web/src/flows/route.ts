@@ -6,6 +6,14 @@ export const STUB = 20;
 export const CLEARANCE = 24;
 /** Space between paths going round the same card, so each loop keeps its own track. */
 export const TRACK_SPACING = 8;
+/** Space between the first turns of transitions fanning out of one CTA. */
+export const FAN_SPACING = 12;
+
+/** A transition's place among those starting from the same CTA. */
+export interface Fan {
+  index: number;
+  count: number;
+}
 
 export interface Route {
   points: Point[];
@@ -23,23 +31,27 @@ export interface Route {
  *   between them, otherwise above or below both, whichever is shorter. A transition to another
  *   state of its own card loops round that card without crossing its contents.
  *
- * `offset` shifts the path's first vertical run (and lane), so transitions fanning out of one
- * CTA stay apart and individually clickable. `track` (0, 1, 2…) pushes a path going round the
- * cards further out, so several loops round one card don't run on top of each other.
+ * Transitions fanning out of one CTA (`fan.count` > 1) each turn at their own column,
+ * `FAN_SPACING` apart from the CTA outwards, so they separate straight away and stay
+ * individually clickable. `track` (0, 1, 2…) pushes a path going round the cards further out,
+ * so several loops round one card don't run on top of each other.
  */
 export function routeTransition(
   source: Point,
   target: Point,
   sourceRect: Rect,
   targetRect: Rect,
-  offset = 0,
+  fan: Fan = { index: 0, count: 1 },
   track = 0,
 ): Route {
   const outX = source.x + STUB;
   const inX = target.x - STUB;
+  const fanned = fan.count > 1;
+  /** The column a fanned transition turns at. */
+  const fanX = outX + fan.index * FAN_SPACING;
 
   if (inX - outX >= 0) {
-    const midX = (outX + inX) / 2 + offset;
+    const midX = fanned ? Math.min(fanX, inX) : (outX + inX) / 2;
     const points = simplifyPath([
       source,
       { x: midX, y: source.y },
@@ -50,10 +62,11 @@ export function routeTransition(
   }
 
   const spread = track * TRACK_SPACING;
-  const right =
-    Math.max(rightOf(sourceRect), rightOf(targetRect)) + STUB + spread + Math.abs(offset);
+  const clear = Math.max(rightOf(sourceRect), rightOf(targetRect)) + STUB;
+  // A fanned loop turns at its own column (past both cards), so it parts from its siblings.
+  const right = fanned ? Math.max(fanX, clear) : clear + spread;
   const left = Math.min(sourceRect.x, targetRect.x) - STUB - spread;
-  const lane = laneY(source, target, sourceRect, targetRect, spread) + offset;
+  const lane = laneY(source, target, sourceRect, targetRect, spread);
   const points = simplifyPath([
     source,
     { x: right, y: source.y },

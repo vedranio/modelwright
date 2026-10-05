@@ -340,3 +340,9 @@ There's no phase 3 design, so both are built from tokens in the entity card's la
 - **Clearing an existing sees item, CTA, state or screen name doesn't delete it:** an empty commit keeps the old text, and × deletes.
 - **Tab order** lives in `flows/tabOrder.ts` (pure, tested) and follows the planning decision. Name → notes skips the first state's name and goes straight to its sees items, as the brief orders it. Later states are entered at their name.
 - **Screen delete** (Delete or Backspace on a selection) goes through `onBeforeDelete`, which applies `deleteScreens` and `deleteTransitions` without asking.
+
+## 2026-10-06 — Phase 3 milestone 5: editing transitions
+
+- **Connecting** follows the ERD pattern: `onConnectEnd` looks under the pointer for a `[data-state-header]` and a card (`.react-flow__node`), and `isValidConnection` is always false. The CTA is found from the drag's source handle by matching every CTA's handle id (`flows/connect.ts`), rather than by parsing the id: schema ids may contain any character. The drop rules are pure and tested (`dropTarget`). While a drag is in progress, hovering a header outlines it in accent, so you can see what you'll target.
+- **Popover:** a read-only "From", a "To" select ("<Screen> (default state)" omits `stateId`; then "<Screen> › <State>" for every state, including the first), the label (Enter or blur saves, Escape restores), and Delete. `LabelField` moved to `editing/` and is shared with the ERD popover, unchanged.
+- **Fan-out (supersedes milestone 3's 12-unit offsets):** transitions from one CTA turn at their own column, 12 units apart going out from the CTA. Loops in the group turn at their column too, once past both cards. With centred offsets, a forward edge and a loop from the same CTA could end up 2 units apart and overlap.
