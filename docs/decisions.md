@@ -260,3 +260,42 @@ There's no design for these yet. Both are built from the existing tokens and jud
 - **An empty ERD shows 05's "No entities yet" card over the canvas, toolbar and save status included.** 04 draws the same empty canvas without the card; the two designs can't both hold, and 05 is the one about empty states.
 - **Timings and canvas geometry in TypeScript:** the autosave delay (500 ms, from the brief), "Copied" feedback (1.5 s), card size estimates, marker geometry, corner radius and new-entity offset are behaviour and canvas units in `.ts` modules, not CSS values. Everything CSS draws comes from `tokens.css`.
 - **Verified with simulated input, not a real trackpad:** scroll to pan (wheel), pinch to zoom (ctrl+wheel) and Shift-click (a synthesized Shift keydown; the browser tool's modifier flag alone doesn't produce one). These want a check by hand on a real trackpad and keyboard.
+
+## 2026-10-06 — Phase 3 planning decisions
+
+Settled in the phase 3 interview before any code was written. The brief's "Decisions this brief makes" stand, except where these change them.
+
+### No confirmations on Flows deletes (supersedes brief §6)
+
+Deleting screens, states, CTAs and transitions never asks, including when it cascades to transitions or retargets them. The cascades still happen exactly as the brief's table says. The ERD keeps its prompts.
+
+**Why:** confirmations are a stopgap for missing undo, and undo is coming in phase 5. Two "done means" items change from "asks first" to "deletes without asking, and the file validates". With nothing to word, there's no flows `deletion.ts`, and `erd/deletion.ts` stays in `erd/`.
+
+### "Make default" follows the default
+
+A transition without `stateId` targets whichever state is first. After "make default" it points at the new default, and nothing in the file is rewritten. This matches the schema's meaning of an omitted `stateId`, and `deleteState`'s retargeting relies on the same rule.
+
+### Tab path through a screen card
+
+name → notes → the first state's sees items in order. Tab on the last sees item, or on an empty sees draft, opens the first CTA (or a new CTA draft). CTAs go in order, then to the next state's name in a multi-state screen. Tab after the last field ends editing. Enter continues within a list, and Enter on an empty draft ends entry. This gives the "type, Enter, type, Enter" route from sees items to CTAs that the brief needs.
+
+### A new state copies the default state's sees items
+
+It's named "State", has no CTAs, is inserted after the state it was added from (at the end from the card's "+ add state"), and opens with its name selected. States usually differ from the default by an item or two, such as Error adding "error message".
+
+### Dropping a CTA on its own card
+
+Dropping on the CTA's own screen, anywhere outside a state header, makes a same-screen transition to the default state (no `stateId`), e.g. Error › "Try again" → Login. It does nothing only when the target would be the CTA's own state: its own state header, or anywhere on the card when the CTA sits in the default state.
+
+### Flows empty state gets its button (supersedes the phase 2 entry)
+
+The phase 2 entry left 05's "Add screen S" button off because adding screens didn't work yet. Now that S works, the button follows 05.
+
+## 2026-10-06 — Phase 3 milestone 0: shared pieces promoted out of `erd/`
+
+- `editing/InlineField.tsx`: moved unchanged.
+- `editing/ids.ts`: `newId(prefix, existing, random?)` over every prefix (`ent`, `attr`, `rel`, `scr`, `st`, `cta`, `tr`), with the same alphabet, length and collision retry. Each document's `idsIn` stays with its own editor.
+- `canvas/placement.ts`: `placeNodes(nodes, layout, sizeOf)`, the phase 2 algorithm over any node with an id. `erd/placement.ts` keeps `placeEntities` as a one-line wrapper.
+- `canvas/edgeGeometry.ts`: `Side`, `Rect`, `Point`, `sideAngle`, `CORNER_RADIUS`, `fanOffsets` (the general form of parallel offsets) and `orthogonalPath`, a rounded-corner path through waypoints. `floatingEnds` is crow's-foot-specific in practice (ends float to facing sides), so it stays in `erd/`, and `parallelOffsets` becomes a wrapper over `fanOffsets`. The ERD still draws with React Flow's `getSmoothStepPath`, so its edges are unchanged. Flows routes through `orthogonalPath`, because it needs waypoints that go around cards.
+- `editing/editor.ts`: `DocEditor<Doc, Target>`, `createEditorContext` and `isEditingTarget` (every key matches, except `selectAll`). `erd/editor.ts` keeps `EditTarget`, `isEditing` and `useErdEditor` as thin instantiations.
+- `erd/deletion.ts` stays put, since Flows deletes don't ask.

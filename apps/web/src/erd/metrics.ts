@@ -1,4 +1,5 @@
 import type { Entity } from '@modelwright/schema';
+import type { Size } from '../canvas/placement';
 
 /**
  * Entity card geometry in canvas units, used to place unpositioned entities without measuring
@@ -12,11 +13,6 @@ const ATTRIBUTE_ROW_HEIGHT = 28;
 const ATTRIBUTE_NOTE_HEIGHT = 16;
 /** The list's padding, the "No attributes" line, and room for the "+ Add attribute" row. */
 const FOOTER_HEIGHT = 48;
-
-export interface Size {
-  width: number;
-  height: number;
-}
 
 export function estimateEntitySize(entity: Entity): Size {
   return {

@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import type { Entity, Erd, Position } from '@modelwright/schema';
-import { estimateEntitySize, type Size } from '../src/erd/metrics';
-import { GRID_COLUMNS, PLACEMENT_GAP, placeEntities } from '../src/erd/placement';
+import { GRID_COLUMNS, PLACEMENT_GAP, type Size } from '../src/canvas/placement';
+import { estimateEntitySize } from '../src/erd/metrics';
+import { placeEntities } from '../src/erd/placement';
 import { must } from './helpers';
 
 function entity(id: string, attributes = 0): Entity {

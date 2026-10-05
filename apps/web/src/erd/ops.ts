@@ -1,5 +1,6 @@
 import type { Attribute, Cardinality, Entity, Erd, Layout, Position } from '@modelwright/schema';
-import { idsIn, newId } from './ids';
+import { newId } from '../editing/ids';
+import { idsIn } from './ids';
 
 /**
  * Every edit to an ERD is one of these pure functions: `(erd, …args) => erd`, with no React and
