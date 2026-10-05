@@ -35,9 +35,156 @@
   text-overflow: ellipsis;
 }
 
-.screen-states {
-  margin: 0;
-  padding: var(--space-2) var(--space-3);
-  list-style: none;
+.screen-notes {
+  margin-top: var(--space-0);
+  color: var(--color-text-muted);
+  overflow-wrap: anywhere;
+}
+
+/* States */
+
+.screen-state {
   border-top: var(--border-w) solid var(--color-border);
+}
+
+.state-head {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--state-head-h);
+  padding: 0 var(--space-3);
+  background: var(--color-surface-sunken);
+  font-weight: var(--weight-medium);
+}
+
+.screen-state:last-child .state-body {
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+}
+
+.state-name {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.state-tag {
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-sm);
+  background: var(--color-accent-subtle);
+  font-size: var(--text-xs);
+  line-height: var(--text-xs-lh);
+  font-weight: var(--weight-regular);
+  color: var(--color-accent);
+}
+
+.state-body {
+  padding: var(--space-1) 0 var(--space-2);
+}
+
+.list-caption {
+  padding: var(--space-1) var(--space-3) 0;
+  font-size: var(--text-xs);
+  line-height: var(--text-xs-lh);
+  color: var(--color-text-faint);
+}
+
+.list-empty {
+  padding: 0 var(--space-3);
+  color: var(--color-text-faint);
+}
+
+.sees,
+.ctas {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sees-item {
+  position: relative;
+  padding: 0 var(--space-3) 0 calc(var(--space-3) + var(--space-3));
+  color: var(--color-text-muted);
+  overflow-wrap: anywhere;
+}
+
+/* A short dash marks each thing the user sees. */
+.sees-item::before {
+  content: '';
+  position: absolute;
+  left: var(--space-3);
+  top: calc(var(--text-sm-lh) / 2);
+  width: var(--space-1);
+  border-top: var(--border-w) solid var(--color-text-faint);
+}
+
+.cta-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-height: var(--cta-row-h);
+  padding: 0 var(--space-3);
+}
+
+/* A CTA reads as a lo-fi button. */
+.cta-label {
+  max-width: 100%;
+  padding: 0 var(--space-2);
+  border: var(--border-w) solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Handles */
+
+.react-flow__handle.target-handle {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Hollow when no transition starts from the CTA (a dead end), filled when one does. */
+.react-flow__handle.cta-handle {
+  width: var(--space-2);
+  height: var(--space-2);
+  min-width: 0;
+  min-height: 0;
+  border: var(--border-w) solid var(--color-text-faint);
+  border-radius: var(--radius-full);
+  background: var(--color-surface);
+}
+
+.react-flow__handle.cta-handle.connected {
+  border-color: var(--color-text-muted);
+  background: var(--color-text-muted);
+}
+
+/* Transition edges */
+
+.canvas .transition-line {
+  stroke: var(--color-text-faint);
+  stroke-width: var(--border-w);
+}
+
+.transition-arrow {
+  fill: var(--color-text-faint);
+}
+
+.canvas .react-flow__edge:hover .transition-line {
+  stroke: var(--color-text-muted);
+}
+
+.canvas .react-flow__edge:hover .transition-arrow {
+  fill: var(--color-text-muted);
+}
+
+.canvas .react-flow__edge.selected .transition-line {
+  stroke: var(--color-accent);
+}
+
+.canvas .react-flow__edge.selected .transition-arrow {
+  fill: var(--color-accent);
 }

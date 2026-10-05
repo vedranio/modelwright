@@ -1,15 +1,18 @@
 import { useCallback, useMemo, useRef, useState, type MouseEvent } from 'react';
-import type { Edge, NodeChange, ReactFlowInstance, XYPosition } from '@xyflow/react';
+import type { NodeChange, ReactFlowInstance, XYPosition } from '@xyflow/react';
 import type { Flows } from '@modelwright/schema';
 import { Canvas } from '../canvas/Canvas';
+import { fanOffsets } from '../canvas/edgeGeometry';
 import { placeNodes } from '../canvas/placement';
 import { useMeasurements } from '../canvas/useMeasurements';
 import { useSelection } from '../canvas/useSelection';
 import { SaveStatusPill } from '../editing/SaveStatusPill';
 import type { EditableDoc } from '../editing/useEditableDoc';
+import { connectedCtas, screensById, transitionEndpoints } from '../flows/endpoints';
 import { SCREEN_WIDTH, estimateScreenSize } from '../flows/metrics';
 import { addScreen, moveScreens } from '../flows/ops';
 import { ScreenNode, type ScreenNodeType } from '../flows/ScreenNode';
+import { TransitionEdge, type TransitionEdgeType } from '../flows/TransitionEdge';
 import '../flows/flows.css';
 import { useShortcut } from '../shortcuts';
 import { Kbd } from '../ui';
@@ -18,6 +21,10 @@ import { DocStateView } from './DocStateView';
 import { EmptyCard } from './common';
 
 const NODE_TYPES = { screen: ScreenNode };
+const EDGE_TYPES = { transition: TransitionEdge };
+
+/** Space between transitions fanning out of one CTA, at their first turn. */
+const FAN_SPACING = 12;
 
 /** Where a new screen's top-left sits relative to the point it's created at. */
 const NEW_SCREEN_OFFSET = { x: -SCREEN_WIDTH / 2, y: -20 };
@@ -55,7 +62,7 @@ function FlowsCanvas({
   const [dragging, setDragging] = useState<Record<string, XYPosition>>({});
   const selection = useSelection();
   const measurements = useMeasurements();
-  const instance = useRef<ReactFlowInstance<ScreenNodeType> | null>(null);
+  const instance = useRef<ReactFlowInstance<ScreenNodeType, TransitionEdgeType> | null>(null);
   const container = useRef<HTMLDivElement>(null);
 
   const { apply: applyDoc } = edit;
@@ -144,11 +151,12 @@ function FlowsCanvas({
 
   return (
     <div ref={container} className="canvas-host" onDoubleClick={onDoubleClick}>
-      <Canvas<ScreenNodeType, Edge>
+      <Canvas<ScreenNodeType, TransitionEdgeType>
         viewportKey={`flows:${projectPath}`}
         nodes={nodes}
         edges={edges}
         nodeTypes={NODE_TYPES}
+        edgeTypes={EDGE_TYPES}
         onInit={(i) => {
           instance.current = i;
         }}
@@ -216,24 +224,55 @@ function withPlacement(flows: Flows): Flows {
 }
 
 /** The document as React Flow nodes and edges. Unpositioned screens are placed in memory only. */
-function toFlow(flows: Flows): { nodes: ScreenNodeType[]; edges: Edge[] } {
+function toFlow(flows: Flows): { nodes: ScreenNodeType[]; edges: TransitionEdgeType[] } {
   const positions = placeNodes(flows.screens, flows.layout, estimateScreenSize);
+  const connected = connectedCtas(flows);
   const nodes = flows.screens.map((screen): ScreenNodeType => {
     // An initial size lets React Flow show a new card at once instead of hiding it until measured.
     const size = estimateScreenSize(screen);
+    const own = new Set(
+      screen.states.flatMap((st) =>
+        st.ctas.map((c) => `${st.id}:${c.id}`).filter((key) => connected.has(key)),
+      ),
+    );
     return {
       id: screen.id,
       type: 'screen',
       position: positions[screen.id] ?? { x: 0, y: 0 },
-      data: { screen },
+      data: { screen, connected: own },
       initialWidth: size.width,
       initialHeight: size.height,
     };
   });
-  const edges = flows.transitions.map((t): Edge => ({
-    id: t.id,
-    source: t.from.screenId,
-    target: t.to.screenId,
-  }));
+  const screens = screensById(flows);
+  const offsets = fanOffsets(
+    flows.transitions,
+    (t) => `${t.from.screenId}:${t.from.stateId}:${t.from.ctaId}`,
+    FAN_SPACING,
+  );
+  // Each screen's outgoing transitions get their own track, so loops round it stay apart.
+  const tracks = new Map<string, number>();
+  const nextTrack = new Map<string, number>();
+  for (const t of flows.transitions) {
+    const n = nextTrack.get(t.from.screenId) ?? 0;
+    tracks.set(t.id, n);
+    nextTrack.set(t.from.screenId, n + 1);
+  }
+  const edges = flows.transitions.flatMap((t): TransitionEdgeType[] => {
+    const ends = transitionEndpoints(screens, t);
+    if (!ends) return [];
+    return [
+      {
+        id: t.id,
+        type: 'transition',
+        ...ends,
+        data: {
+          offset: offsets.get(t.id) ?? 0,
+          track: tracks.get(t.id) ?? 0,
+          ...(t.label !== undefined && { label: t.label }),
+        },
+      },
+    ];
+  });
   return { nodes, edges };
 }

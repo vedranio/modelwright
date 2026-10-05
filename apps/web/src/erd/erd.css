@@ -79,11 +79,6 @@
   color: var(--color-text-faint);
 }
 
-.anchor-handle {
-  opacity: 0;
-  pointer-events: none;
-}
-
 /* Relationship edges */
 
 .canvas .crowsfoot-line {
@@ -107,54 +102,7 @@
   stroke: var(--color-accent);
 }
 
-.edge-label {
-  position: absolute;
-  padding: 0 var(--space-1);
-  border-radius: var(--radius-sm);
-  background: var(--color-bg);
-  font-size: var(--text-xs);
-  line-height: var(--text-xs-lh);
-  color: var(--color-text-muted);
-  white-space: nowrap;
-  pointer-events: none;
-}
-
-.edge-label.selected {
-  color: var(--color-accent);
-}
-
 /* Editing */
-
-.canvas-host {
-  position: absolute;
-  inset: 0;
-}
-
-.editable {
-  cursor: text;
-  border-radius: var(--radius-sm);
-}
-
-.inline-input {
-  width: 100%;
-  min-width: 0;
-  height: var(--text-md-lh);
-  margin: 0;
-  padding: 0 var(--space-1);
-  margin-left: calc(-1 * var(--space-1) - var(--border-w));
-  border: var(--border-w) solid var(--color-accent);
-  border-radius: var(--radius-sm);
-  box-shadow: 0 0 0 var(--focus-ring-w) var(--color-focus-ring);
-  background: var(--color-surface);
-  font: inherit;
-  color: inherit;
-  caret-color: var(--color-accent);
-  outline: none;
-}
-
-.inline-input::placeholder {
-  color: var(--color-text-faint);
-}
 
 .entity-name-input {
   font-size: var(--text-md);
@@ -171,6 +119,7 @@
 }
 
 /* Shown on hover at the header's right, taking no space, so cards don't change size. */
+
 .entity-affordance {
   position: absolute;
   top: var(--space-3);
@@ -264,15 +213,9 @@
   color: var(--color-text-muted);
 }
 
-.entity-add-plus,
-.toolbar-add-plus {
+.entity-add-plus {
   font-size: var(--text-glyph);
   color: var(--color-accent);
-}
-
-.btn.toolbar-add {
-  font-weight: var(--weight-medium);
-  color: var(--color-text);
 }
 
 /* Connecting */
@@ -293,80 +236,4 @@
 .react-flow__node:hover .connect-handle,
 .react-flow__node.selected .connect-handle {
   opacity: 1;
-}
-
-.react-flow__connection-path {
-  fill: none;
-  stroke: var(--color-accent);
-  stroke-width: var(--border-w);
-}
-
-/* Relationship popover */
-
-.edge-popover-anchor {
-  position: absolute;
-  padding-top: var(--space-5);
-  pointer-events: all;
-  z-index: 5;
-}
-
-.edge-popover {
-  width: var(--entity-w);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  padding: var(--space-3);
-  border-radius: var(--radius-lg);
-  background: var(--color-surface);
-  box-shadow: var(--shadow-md);
-  font-size: var(--text-sm);
-  line-height: var(--text-sm-lh);
-  cursor: default;
-}
-
-.edge-field {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  min-width: 0;
-}
-
-.edge-field-label {
-  font-size: var(--text-xs);
-  line-height: var(--text-xs-lh);
-  color: var(--color-text-muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.edge-select {
-  height: var(--control-h);
-  padding: 0 var(--space-2);
-  border: var(--border-w) solid var(--color-border-strong);
-  border-radius: var(--radius-md);
-  background: var(--color-surface);
-  font: inherit;
-  color: inherit;
-  cursor: pointer;
-}
-
-.edge-select:focus {
-  outline: none;
-  border-color: var(--color-accent);
-  box-shadow: 0 0 0 var(--focus-ring-w) var(--color-focus-ring);
-}
-
-.edge-input {
-  width: 100%;
-}
-
-.edge-popover-actions {
-  display: flex;
-  justify-content: space-between;
-  margin-top: var(--space-1);
-}
-
-.edge-delete:hover {
-  color: var(--color-error);
 }

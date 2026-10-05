@@ -315,3 +315,19 @@ These follow the phase 2 conventions. Calls the brief left open:
 - **`addTransition` refuses missing ends** (`id: null`, same document): an unknown CTA, screen, or a `stateId` not on the target screen. It doesn't refuse a CTA's own state; that's the canvas's rule (decision "Dropping a CTA on its own card"), not the document's.
 - **`updateTransition(flows, id, { label?, stateId? })`:** `stateId: null` targets the default by removing the key, and a state that isn't on the target screen is ignored. Changing the target screen isn't offered.
 - **Deleting a default state** makes the next state the default, and transitions into it are retargeted to that new default.
+
+## 2026-10-06 — Phase 3 milestone 3: screen card and transition edges
+
+There's no phase 3 design, so both are built from tokens in the entity card's language, to be judged at the gate.
+
+- **Card:** the entity card's surface, radius, shadow and selection ring, `--screen-w` wide. The header holds the semibold name, with optional notes as a muted line. Each state body has a faint "Sees" caption over dash-marked muted items, and a "Does" caption over CTA rows drawn as small outlined lo-fi buttons. An empty list reads "Nothing yet". Multi-state screens give each state a sunken header row (`--state-head-h`) with its name, and a "default" tag in accent on the first.
+- **Handles:** each CTA row has a source handle on the card's right edge, hollow (faint ring) with no transitions and filled (muted) with one or more. Target handles on the screen header and on shown state headers are invisible anchors; the arrowhead marks the target.
+- **Endpoints** (`flows/endpoints.ts`, pure and tested): the source handle is `cta:<stateId>:<ctaId>`, since CTA ids are only unique per state. The target is `state:<stateId>` when `to.stateId` is set and the screen shows state headers, otherwise `screen`.
+- **Routing** (`flows/route.ts`, pure and tested) goes from the source card's right edge to the target card's left edge, with a 20-unit stub at each end and an 8-unit filled arrowhead.
+  - **Forward:** when there's room between the cards, the path jogs once in the middle.
+  - **Otherwise (backward edges and same-screen loops):** the path goes out past the right of both cards, along a lane, and back in from the left of both. The lane runs through the gap between stacked cards when there's room, otherwise round the top or bottom, whichever is shorter. So a loop never crosses its own card.
+  - **Fan-out:** transitions from one CTA fan out 12 units apart at their first turn.
+  - **Tracks:** each screen's outgoing transitions get their own track, 8 units further out per track, so several loops round one card don't overlap.
+- **Labels** sit above the middle of the path's longest horizontal run, beside the line, as on the ERD.
+- **Generic canvas CSS moved to `canvas/canvas.css`:** `.anchor-handle`, `.edge-label`, `.canvas-host`, `.editable`, `.inline-input`, the popover field styles and the toolbar "+" button. These sat in `erd.css` but both views use them. The selectors are unchanged and load in the same order, so the ERD looks the same.
+- **Not done (out of scope):** routing around cards other than the transition's own two. A long backward edge can cross unrelated cards.

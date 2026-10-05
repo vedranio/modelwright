@@ -51,7 +51,7 @@ export function fanOffsets<T extends { id: string }>(
  * dropped first, so callers can pass waypoints without tidying them.
  */
 export function orthogonalPath(points: readonly Point[], radius = CORNER_RADIUS): string {
-  const pts = simplify(points);
+  const pts = simplifyPath(points);
   const [first] = pts;
   if (!first) return '';
   let d = `M ${first.x} ${first.y}`;
@@ -71,7 +71,8 @@ export function orthogonalPath(points: readonly Point[], radius = CORNER_RADIUS)
   return d;
 }
 
-function simplify(points: readonly Point[]): Point[] {
+/** The same path without repeated points or points in the middle of a straight run. */
+export function simplifyPath(points: readonly Point[]): Point[] {
   const out: Point[] = [];
   for (const p of points) {
     const last = out[out.length - 1];
