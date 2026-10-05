@@ -305,3 +305,13 @@ The phase 2 entry left 05's "Add screen S" button off because adding screens did
 - **`Shell` hosts two independent `useEditableDoc`s.** Switching views flushes only the one being left. The focus re-read waits while either is dirty. Reload asks if either is dirty and names which ("ERD and Flows"), then discards both. Close flushes both and names whichever failed.
 - **`FlowsView` mirrors `ErdView`:** the shared `Canvas`, `useSelection`, `useMeasurements` and `withPlacement` (via `placeNodes` and `estimateScreenSize`), with viewport key `flows:<path>`. `addScreen` and `moveScreens` land in `flows/ops.ts` now, because the toolbar and drag need them. The rest of the operations follow in milestone 2.
 - **`--screen-w` is 260px,** 20 wider than an entity, to fit a CTA row with its handle. `SCREEN_WIDTH` in `flows/metrics.ts` must agree with it.
+
+## 2026-10-06 — Phase 3 milestone 2: flow operations
+
+These follow the phase 2 conventions. Calls the brief left open:
+
+- **Sees items and CTAs take an optional initial text** (`addSeesItem(…, afterIndex?, text = '')`, `addCta(…, afterCtaId?, label = '')`), so the editor writes a draft once, with its text, rather than adding an empty item and then updating it. With no text they add an empty item, as `addAttribute` does.
+- **An unknown `after` position appends.** `afterStateId`, `afterIndex` and `afterCtaId` are placement hints; a missing state or screen is still a no-op.
+- **`addTransition` refuses missing ends** (`id: null`, same document): an unknown CTA, screen, or a `stateId` not on the target screen. It doesn't refuse a CTA's own state; that's the canvas's rule (decision "Dropping a CTA on its own card"), not the document's.
+- **`updateTransition(flows, id, { label?, stateId? })`:** `stateId: null` targets the default by removing the key, and a state that isn't on the target screen is ignored. Changing the target screen isn't offered.
+- **Deleting a default state** makes the next state the default, and transitions into it are retargeted to that new default.
