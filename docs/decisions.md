@@ -387,3 +387,19 @@ Settled in the phase 4 interview before any code was written. The brief's "Decis
 - **A blank project name is refused by `renameProject`** (same object back), because the schema requires one. The header still says "Name can’t be empty".
 - **URL rules** (`preview/url.ts`) prefix a bare host, with or without port and path (`localhost`, `localhost:5173/app`, `[::1]:3000`), with `http://`. The URL is saved exactly as entered (no trailing slash from `URL.href`). A stored URL is checked without prefixing, so a hand-edited `localhost:5173` shows the invalid-URL state, with the fix one Enter away in its field.
 - **`UrlField`** is the single input for preview URLs. `FieldError` moved from the picker to `ui.tsx` so both share it.
+
+## 2026-10-06 — Phase 4 milestone 2: preview check
+
+- **`POST /api/preview/check`** takes `{ url }` and returns `PreviewCheck` (`packages/schema/src/api.ts`, an API shape, so no `schemaVersion` bump). It sits behind the existing guard and reads no files.
+- **The request:**
+  - It's a GET with `redirect: 'manual'`, following redirects itself so each hop is validated. A redirect to a non-http(s) URL or to the tool counts as `invalid`, and more than 5 redirects as `unreachable`.
+  - One 3-second deadline covers the whole check, redirects included.
+  - Every response body is cancelled unread. The detail is one of a fixed set of messages or the refusing header's value (clipped to 160 characters), never an error message or body text.
+- **The tool's origin** for `frame-ancestors` is the request's `Origin` (the address you're actually using), or `http://localhost:4300` when there's none (curl, tests).
+- **`frame-ancestors` matching** (`frameHeaders.ts`) covers:
+  - `'none'` (ignored beside other sources, per the spec), `'self'` and `*`
+  - scheme sources, with `http:` also matching `https`
+  - host sources with optional scheme, `*.` subdomain wildcards, explicit or `*` ports, and default ports when the port is omitted
+  - Nonces, hashes and other keywords never match.
+- **The URL rule is duplicated on the server** (absolute http(s), not loopback on 4300/4301, not the request's origin), because the server can't import `apps/web`. Both copies point at each other.
+- **Failure details:** "Connection refused", "Host not found", "No response within 3 s — it may still be starting", "Certificate not trusted (<code>)", "Too many redirects (more than 5)", otherwise "Couldn’t connect (<code>)".

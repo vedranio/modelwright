@@ -5,6 +5,7 @@ export {
   ProjectClientError,
   type DesignDoc,
   type DesignKind,
+  type PreviewCheck,
   type ProjectClient,
   type ProjectSummary,
 } from './ProjectClient';

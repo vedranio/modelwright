@@ -44,6 +44,9 @@ export function createHttpClient(baseUrl = '/api'): ProjectClient {
     async writeDesign(path, file, doc) {
       await send('PUT', `/design/${file}${query(path)}`, doc);
     },
+    async checkPreview(url) {
+      return (await send('POST', '/preview/check', { url })).json();
+    },
   };
 }
 
