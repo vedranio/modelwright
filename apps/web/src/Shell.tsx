@@ -102,7 +102,9 @@ export function Shell({ project, onClose }: Props) {
       </header>
 
       <main className="view" role="tabpanel">
-        {view === 'erd' && <ErdView state={docs.erd} onReload={onReload} />}
+        {view === 'erd' && (
+          <ErdView projectPath={project.path} state={docs.erd} onReload={onReload} />
+        )}
         {view === 'flows' && <FlowsView state={docs.flows} onReload={onReload} />}
         {view === 'ui' && <UiView state={docs.config} onReload={onReload} />}
       </main>

@@ -183,3 +183,21 @@ The design doesn't show the tag, but a folder that was opened and never initiali
 Checked by hand at the milestone 0 gate: both Chrome and Safari reload the page on ⌘R even though the app calls `preventDefault`. The browser handles the shortcut before the page sees it. The earlier Chromium check passed only because the test sent the key straight to the page, which skips the browser's own shortcut handling.
 
 The web build no longer intercepts ⌘R, and every ⌘R hint is gone; under the hint rule, a hint shows only for a shortcut that works. The Reload buttons stay. Electron can bind ⌘R through its application menu, so the hint comes back with the Electron wrap. Until then ⌘R reloads the whole page: the app reopens the last project, and from milestone 4 the `beforeunload` warning protects unsaved edits.
+
+## 2026-10-05 — Phase 2 milestone 1: canvas foundation
+
+### Canvas behaviour
+
+- **Fit never zooms past 100%,** on first open or with Fit/⇧1, so a two-entity diagram isn't blown up to 200%. Padding is 20% of the viewport.
+- **Shift-click adds to the selection** (`multiSelectionKeyCode="Shift"`), as the brief asks; React Flow's default is ⌘. Shift+drag also draws a selection box.
+- **⇧1 is matched by physical key** (`code === 'Digit1'`), so it works on layouts where Shift+1 isn't `!`.
+- **Selection is kept by id** in `canvas/useSelection` and merged into the nodes and edges that views derive from the document. React Flow's nodes are controlled, so without this, clicks select nothing.
+- **The box around a multi-selection is invisible.** The selected cards show their own state.
+- **Viewport keys** are `viewport:<view>:<projectPath>`, so ERD and Flows remember their viewports separately.
+- **Canvas animation and background values** are read from `tokens.css` at runtime (`canvas/tokens.ts`), so `--dot-grid-gap` and `--duration-fast` stay the single source.
+
+### Placement estimates sizes
+
+`placement.ts` estimates card sizes from the attribute count (`erd/metrics.ts`) rather than measuring the DOM, so it stays pure and runs the same before anything renders. The estimates are generous, and overestimating only adds space. `ENTITY_WIDTH` in `metrics.ts` and `--entity-w` in `tokens.css` must agree; each points at the other.
+
+Unpositioned entities go in one row below the positioned ones, left-aligned with them. With nothing positioned, they form a four-column grid from the origin.
