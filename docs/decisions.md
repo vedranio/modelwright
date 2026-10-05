@@ -201,3 +201,12 @@ The web build no longer intercepts ⌘R, and every ⌘R hint is gone; under the 
 `placement.ts` estimates card sizes from the attribute count (`erd/metrics.ts`) rather than measuring the DOM, so it stays pure and runs the same before anything renders. The estimates are generous, and overestimating only adds space. `ENTITY_WIDTH` in `metrics.ts` and `--entity-w` in `tokens.css` must agree; each points at the other.
 
 Unpositioned entities go in one row below the positioned ones, left-aligned with them. With nothing positioned, they form a four-column grid from the origin.
+
+## 2026-10-05 — Phase 2 milestone 2: ERD operations
+
+- **A missing target is a no-op, not an error.** An operation on an entity, attribute or relationship that no longer exists returns the document unchanged (the same object). `addAttribute` and `addRelationship` return `id: null`. An edit racing a delete, such as a blur committing a rename on an entity that was just deleted, shouldn't crash the editor.
+- **Unchanged edits return the same object.** React can skip re-rendering, and the autosave won't mark the document dirty for nothing.
+- **Blank optional strings remove their key.** An empty or whitespace-only description, note or label deletes the field rather than writing `""`, so the file never holds empty optionals.
+- **Positions are rounded to whole canvas units** on `addEntity` and `moveEntities`, so a drag writes `"x": 412`, not `"x": 412.38671875`.
+- **New attributes start with an empty name.** The schema allows it, and the editor drops the row if entry ends with it still empty.
+- **New ids are unique across the whole file,** though the schema only requires attribute ids to be unique within their entity. That's simpler and never wrong.
