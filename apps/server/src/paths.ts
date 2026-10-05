@@ -32,6 +32,14 @@ export async function resolveProjectDir(raw: unknown): Promise<string> {
   return dir;
 }
 
+/** `path` with `home` replaced by `~`, for display. Paths outside home are returned unchanged. */
+export function tildify(p: string, home: string): string {
+  const base = path.resolve(home);
+  if (p === base) return '~';
+  const prefix = base.endsWith(path.sep) ? base : base + path.sep;
+  return p.startsWith(prefix) ? `~${path.sep}${p.slice(prefix.length)}` : p;
+}
+
 export function designDir(projectDir: string): string {
   return path.join(projectDir, DESIGN_DIR);
 }

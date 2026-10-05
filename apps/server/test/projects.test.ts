@@ -1,10 +1,21 @@
 import { mkdir, readFile, rm, symlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { parseDesignJson, type DesignKind } from '@modelwright/schema';
-import { designPath, json, listDesignDir, readDesignText, useSandbox } from './helpers';
+import { parseDesignJson, type DesignKind, type ProjectSummary } from '@modelwright/schema';
+import { FIXED_NOW, designPath, json, listDesignDir, readDesignText, useSandbox } from './helpers';
 
 const sb = useSandbox();
+
+/** What open and init return for a project folder directly inside the sandbox home. */
+function opened(dir: string, name: string, initialised: boolean) {
+  return {
+    path: dir,
+    displayPath: `~/${path.basename(dir)}`,
+    name,
+    initialised,
+    lastOpenedAt: FIXED_NOW,
+  };
+}
 
 describe('POST /api/projects/open', () => {
   it('returns 404 for a missing path', async () => {
@@ -36,13 +47,13 @@ describe('POST /api/projects/open', () => {
     const dir = await sb.emptyProject('my-app');
     const res = await sb.call('POST', '/api/projects/open', { path: dir });
     expect(res.status).toBe(200);
-    expect(await json(res)).toEqual({ path: dir, name: 'my-app', initialised: false });
+    expect(await json(res)).toEqual(opened(dir, 'my-app', false));
   });
 
   it('reports an initialised project with its config name', async () => {
     const dir = await sb.notesProject();
     const res = await sb.call('POST', '/api/projects/open', { path: dir });
-    expect(await json(res)).toEqual({ path: dir, name: 'Notes', initialised: true });
+    expect(await json(res)).toEqual(opened(dir, 'Notes', true));
   });
 
   it('normalises the path', async () => {
@@ -62,7 +73,7 @@ describe('POST /api/projects/open', () => {
     const dir = await sb.notesProject('broken');
     await writeFile(designPath(dir, 'config'), '{ nope');
     const res = await sb.call('POST', '/api/projects/open', { path: dir });
-    expect(await json(res)).toEqual({ path: dir, name: 'broken', initialised: true });
+    expect(await json(res)).toEqual(opened(dir, 'broken', true));
   });
 });
 
@@ -71,7 +82,7 @@ describe('POST /api/projects/init', () => {
     const dir = await sb.emptyProject();
     const res = await sb.call('POST', '/api/projects/init', { path: dir, name: 'Shop' });
     expect(res.status).toBe(201);
-    expect(await json(res)).toEqual({ path: dir, name: 'Shop', initialised: true });
+    expect(await json(res)).toEqual(opened(dir, 'Shop', true));
     expect(await listDesignDir(dir)).toEqual(['config.json', 'erd.json', 'flows.json']);
 
     for (const kind of ['erd', 'flows', 'config'] as DesignKind[]) {
@@ -129,11 +140,7 @@ describe('POST /api/projects/init', () => {
 describe('recents', () => {
   const open = (dir: string) => sb.call('POST', '/api/projects/open', { path: dir });
   const recent = async () =>
-    (await json(await sb.call('GET', '/api/projects/recent'))) as {
-      path: string;
-      name: string;
-      initialised: boolean;
-    }[];
+    (await json(await sb.call('GET', '/api/projects/recent'))) as ProjectSummary[];
 
   it('starts empty', async () => {
     expect(await recent()).toEqual([]);
@@ -144,10 +151,7 @@ describe('recents', () => {
     const b = await sb.notesProject('b');
     await open(a);
     await open(b);
-    expect(await recent()).toEqual([
-      { path: b, name: 'Notes', initialised: true },
-      { path: a, name: 'a', initialised: false },
-    ]);
+    expect(await recent()).toEqual([opened(b, 'Notes', true), opened(a, 'a', false)]);
   });
 
   it('dedupes by path and moves a reopened project to the top', async () => {
@@ -162,7 +166,7 @@ describe('recents', () => {
   it('adds initialised projects with their new name', async () => {
     const dir = await sb.emptyProject();
     await sb.call('POST', '/api/projects/init', { path: dir, name: 'Fresh' });
-    expect(await recent()).toEqual([{ path: dir, name: 'Fresh', initialised: true }]);
+    expect(await recent()).toEqual([opened(dir, 'Fresh', true)]);
   });
 
   it('removes an entry', async () => {
@@ -189,7 +193,7 @@ describe('recents', () => {
     const dir = await sb.emptyProject();
     await open(dir);
     const stored = JSON.parse(await readFile(path.join(sb.home, 'recents.json'), 'utf8'));
-    expect(stored.projects).toEqual([{ path: dir, name: 'empty' }]);
+    expect(stored.projects).toEqual([{ path: dir, name: 'empty', lastOpenedAt: FIXED_NOW }]);
   });
 
   it('treats a corrupt recents file as empty', async () => {
@@ -211,6 +215,60 @@ describe('recents', () => {
     const dir = await sb.notesProject();
     await open(dir);
     await rm(dir, { recursive: true });
-    expect(await recent()).toEqual([{ path: dir, name: 'Notes', initialised: false }]);
+    expect(await recent()).toEqual([opened(dir, 'Notes', false)]);
+  });
+
+  it('stamps lastOpenedAt on each open and keeps it across a rename', async () => {
+    const dir = await sb.notesProject();
+    await open(dir);
+    sb.now = new Date('2026-10-06T12:30:00.000Z');
+    await open(dir);
+    expect((await recent())[0]?.lastOpenedAt).toBe('2026-10-06T12:30:00.000Z');
+
+    const config = JSON.parse(await readDesignText(dir, 'config'));
+    await sb.call('PUT', `/api/design/config?path=${encodeURIComponent(dir)}`, {
+      ...config,
+      name: 'Renamed',
+    });
+    expect((await recent())[0]).toMatchObject({
+      name: 'Renamed',
+      lastOpenedAt: '2026-10-06T12:30:00.000Z',
+    });
+  });
+
+  it('lists entries written before lastOpenedAt existed, without a time', async () => {
+    const dir = await sb.notesProject();
+    await mkdir(sb.home, { recursive: true });
+    await writeFile(
+      path.join(sb.home, 'recents.json'),
+      JSON.stringify({ projects: [{ path: dir, name: 'Notes' }] }),
+    );
+    const [entry] = await recent();
+    expect(entry).toEqual({ path: dir, displayPath: '~/notes', name: 'Notes', initialised: true });
+  });
+});
+
+describe('displayPath', () => {
+  it('shows the home directory itself as ~', async () => {
+    const res = await sb.call('POST', '/api/projects/open', { path: sb.root });
+    expect((await json(res)).displayPath).toBe('~');
+  });
+
+  it('shortens nested folders under home', async () => {
+    const dir = path.join(sb.root, 'Code', 'notes-app');
+    await mkdir(dir, { recursive: true });
+    const res = await sb.call('POST', '/api/projects/open', { path: dir });
+    expect((await json(res)).displayPath).toBe('~/Code/notes-app');
+  });
+
+  it('leaves paths outside home unchanged, including lookalike prefixes', async () => {
+    const sibling = `${sb.root}-sibling`;
+    await mkdir(sibling);
+    try {
+      const res = await sb.call('POST', '/api/projects/open', { path: sibling });
+      expect((await json(res)).displayPath).toBe(sibling);
+    } finally {
+      await rm(sibling, { recursive: true, force: true });
+    }
   });
 });

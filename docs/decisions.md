@@ -139,3 +139,41 @@ The server rejects requests whose `Host` isn't its own loopback address, or whos
 ### Shared API shapes live in the schema package
 
 `ProjectSummary` and `ApiErrorBody` sit in `packages/schema/src/api.ts`, beside `DesignError`, so the server and `ProjectClient` share one definition. They are not part of the `.design/` file contract and change without a `schemaVersion` bump.
+
+## 2026-10-05 — Phase 2 planning decisions
+
+Settled in the phase 2 interview before any code was written.
+
+### The brief's decisions stand as written
+
+Crow's-foot semantics (`fromCard` at the `from` end; `many` is one-or-more, `zero-many` zero-or-more); new relationships default to `one` → `zero-many`; autosave about 500 ms after the last edit and immediately on drag stop, view switch and close; local edits win while dirty; opening a project never writes; the viewport lives in `localStorage`; confirmation stands in for undo; the picker is a modal that can't be dismissed with no project open; IBM Plex Mono, self-hosted; `lastOpenedAt` and `displayPath` are the only server changes; a keyboard hint shows only for a shortcut that works; no self-relationships from the UI.
+
+### Empty states follow the hint rule, not the letter of 05
+
+- **Flows:** 05's heading and copy, without the "Add screen S" button. Adding screens is phase 3; a button that does nothing would break the hint rule.
+- **ERD:** the 05 card without its button until milestone 4, when "Add entity E" works. From milestone 1 the card floats over the dot-grid canvas, with the toolbar still visible.
+- **UI:** with no preview URL, only 05's card. With a URL set, phase 1's URL and device list stay, restyled with tokens.
+
+### ⌘R reloads the design files
+
+The page intercepts ⌘R (Ctrl+R off macOS) on keydown and calls `preventDefault`, verified in Chromium. Safari is to be checked at the milestone 0 gate; if it doesn't comply, the ⌘R hints are hidden in the web build and left for Electron. ⇧⌘R is left alone so a hard reload is still possible. As with every shortcut, it doesn't fire while a text field has focus.
+
+### Ids use a lowercase alphabet
+
+`ent_`, `attr_` and `rel_` are followed by 8 characters from `a-z0-9` (nanoid `customAlphabet`), retried on collision with existing ids. nanoid's default alphabet includes `-` and `_`, which makes ids harder to read in diffs.
+
+### External edits while dirty: last writer wins
+
+If `erd.json` changes on disk while there are unsaved local edits, the next autosave overwrites that change. There's no file watching in this phase. Revisit alongside undo and file watching.
+
+### Recents rows keep the "not initialised" tag
+
+The design doesn't show the tag, but a folder that was opened and never initialised is still listed, so it keeps a faint tag. Relative times count calendar days in local time: today, yesterday, N days ago, last week, N weeks ago, last month, N months ago, last year, N years ago.
+
+### Smaller calls
+
+- The README's `size / line-height` type tokens are split into pairs (`--text-sm` and `--text-sm-lh`), because a CSS custom property can't hold both halves usefully.
+- Tokens added for values the design HTML uses but the README doesn't name: `--border-w`, `--focus-ring-w`, `--tracking-tight`, `--text-glyph`, `--logo-size`, `--status-dot`, `--dot-grid-*`, `--picker-main-w`, `--recent-row-h`, `--empty-card-w`, `--problems-w`, `--chip-h` and `--name-input-min-w`.
+- A missing folder reads "No folder at that path", as in 02, rather than echoing the server's message with the full path.
+- Copy problems falls back to a hidden textarea and `execCommand('copy')` when the Clipboard API is refused, as it is in some embedded browsers.
+- `design-refs/` is in `.prettierignore`. Like `docs/`, it's authored outside this repo's tooling.

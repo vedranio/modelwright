@@ -3,6 +3,7 @@ import { ProjectPicker } from './ProjectPicker';
 import { Shell } from './Shell';
 import { useProjectClient, type ProjectSummary } from './platform';
 import { loadPref, savePref } from './storage';
+import { Logo } from './ui';
 
 const OPEN_PROJECT_KEY = 'openProject';
 
@@ -42,5 +43,14 @@ export function App() {
 
   if (restoring) return null;
   if (project) return <Shell key={project.path} project={project} onClose={close} />;
-  return <ProjectPicker onOpen={open} initialError={restoreError} />;
+  return (
+    <div className="shell">
+      <header className="shell-header shell-header-empty">
+        <Logo />
+        <span className="app-name">modelwright</span>
+      </header>
+      <main className="view dot-grid" aria-hidden="true" />
+      <ProjectPicker onOpen={open} initialError={restoreError} />
+    </div>
+  );
 }

@@ -9,11 +9,15 @@ const NOTES_FIXTURE = fileURLToPath(
   new URL('../../../packages/schema/test/fixtures/notes', import.meta.url),
 );
 
+export const FIXED_NOW = '2026-10-05T09:00:00.000Z';
+
 export interface Sandbox {
   /** Root of this test's temp directory. */
   root: string;
   /** modelwright's home (recents) for this test. */
   home: string;
+  /** What the app's clock returns. Tests may move it. */
+  now: Date;
   app: ReturnType<typeof createApp>;
   /** Sends a request as the web app would, through the guard. */
   call(
@@ -35,7 +39,13 @@ export function useSandbox(): Sandbox {
   beforeEach(async () => {
     sandbox.root = await mkdtemp(path.join(os.tmpdir(), 'modelwright-test-'));
     sandbox.home = path.join(sandbox.root, 'home');
-    sandbox.app = createApp({ homeDir: sandbox.home });
+    sandbox.now = new Date(FIXED_NOW);
+    // The sandbox root stands in for the user's home, so project folders display as `~/<name>`.
+    sandbox.app = createApp({
+      homeDir: sandbox.home,
+      userHome: sandbox.root,
+      now: () => sandbox.now,
+    });
 
     sandbox.call = (method, url, body, headers = {}) =>
       Promise.resolve(

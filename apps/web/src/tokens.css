@@ -1,0 +1,101 @@
+/*
+ * The design tokens from design-refs/phase 1 designs/README.md, under their exact names.
+ * Every colour, size, radius, spacing, shadow and duration in apps/web comes from this file.
+ * Tokens below "Added in phase 2" have no README entry: they hold design values the README
+ * doesn't name, or values the canvas needs. Each was reported when added.
+ */
+
+:root {
+  /* Colour */
+  --color-bg: #f7f7f5;
+  --color-surface: #ffffff;
+  --color-surface-sunken: #f1f1ee;
+  --color-surface-hover: #ebebe7;
+  --color-border: #e4e4e0;
+  --color-border-strong: #cfcfca;
+  --color-dot: #d6d6d1;
+  --color-text: #1c1c1a;
+  --color-text-muted: #6a6a65;
+  --color-text-faint: #9b9b95;
+  --color-accent: #3e55cf;
+  --color-accent-hover: #3447b5;
+  --color-accent-subtle: #eceffb;
+  --color-on-accent: #ffffff;
+  --color-on-accent-muted: #c9d0f5;
+  --color-focus-ring: #3e55cf33;
+  --color-success: #2e7d50;
+  --color-warning: #a15c07;
+  --color-warning-subtle: #fbf3e6;
+  --color-error: #bf3a30;
+  --color-error-subtle: #fbedeb;
+  --color-error-ring: #bf3a3026;
+  --color-scrim: #1c1c1a3d;
+
+  /* Type. The README's `size / line-height` pairs are split into two tokens each. */
+  --font-mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+  --text-xs: 11px;
+  --text-xs-lh: 16px;
+  --text-sm: 12px;
+  --text-sm-lh: 18px;
+  --text-md: 13px;
+  --text-md-lh: 20px;
+  --text-lg: 16px;
+  --text-lg-lh: 24px;
+  --text-xl: 20px;
+  --text-xl-lh: 28px;
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --tracking-label: 0.04em;
+
+  /* Radius */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+  --radius-full: 999px;
+
+  /* Size */
+  --header-h: 44px;
+  --control-h: 28px;
+  --control-h-lg: 36px;
+  --segment-h: 24px;
+  --modal-w: 960px;
+  --modal-h: 640px;
+
+  /* Spacing */
+  --space-0: 2px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+  --space-9: 96px;
+
+  /* Shadow · motion */
+  --shadow-sm: 0 1px 2px #1c1c1a0f, 0 0 0 1px #1c1c1a0a;
+  --shadow-md: 0 4px 16px #1c1c1a14, 0 1px 3px #1c1c1a0f;
+  --shadow-lg: 0 24px 64px #1c1c1a29, 0 2px 8px #1c1c1a14;
+  --duration-fast: 120ms;
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --press-scale: 0.98;
+
+  /* Added in phase 2: values used by the design HTML that the README doesn't name. */
+  --border-w: 1px;
+  --focus-ring-w: 3px;
+  --tracking-tight: -0.01em;
+  --text-glyph: 14px; /* + and − glyphs in the canvas toolbar */
+  --logo-size: 16px;
+  --status-dot: 6px;
+  --dot-grid-gap: 16px;
+  --dot-grid-radius: 1px;
+  --dot-grid-fade: 1.2px;
+  --picker-main-w: 520px;
+  --recent-row-h: 56px;
+  --empty-card-w: 288px;
+  --problems-w: 720px;
+  --chip-h: 20px;
+  --name-input-min-w: 144px;
+}

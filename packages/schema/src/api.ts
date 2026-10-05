@@ -7,10 +7,14 @@
 export interface ProjectSummary {
   /** Absolute, normalised path to the project folder. */
   path: string;
+  /** `path` with the user's home directory shown as `~`. Computed by the server, which knows home. */
+  displayPath: string;
   /** The `config.json` name when it parses, otherwise the folder name. */
   name: string;
   /** Whether `.design/` exists with all three files. */
   initialised: boolean;
+  /** ISO timestamp of the last successful open. Absent for recents written before it was recorded. */
+  lastOpenedAt?: string;
 }
 
 /** Body of every non-validation error response (validation errors use `DesignError`). */

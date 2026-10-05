@@ -73,17 +73,17 @@ export function ProjectName({
         {editable ? (
           <button
             type="button"
-            className="project-name"
+            className="inline-name"
             onClick={startEditing}
             title="Rename project"
           >
             {name}
           </button>
         ) : (
-          <span className="project-name">{name}</span>
+          <span className="inline-name static">{name}</span>
         )}
         {error && (
-          <span className="error inline" role="alert">
+          <span className="inline-error" role="alert">
             {error}
           </span>
         )}
@@ -94,7 +94,8 @@ export function ProjectName({
   return (
     <form className="project-name-wrap" onSubmit={save}>
       <input
-        className="project-name-input"
+        className="inline-name-input"
+        size={Math.max(draft.length, 1)}
         aria-label="Project name"
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
@@ -105,7 +106,7 @@ export function ProjectName({
         autoFocus
       />
       {error && (
-        <span className="error inline" role="alert">
+        <span className="inline-error" role="alert">
           {error}
         </span>
       )}
