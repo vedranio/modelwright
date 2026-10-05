@@ -5,9 +5,8 @@ import { ErdView } from './views/ErdView';
 import { FlowsView } from './views/FlowsView';
 import { UiView } from './views/UiView';
 import type { DesignKind, ProjectSummary } from './platform';
-import { isReloadKey, useShortcut } from './shortcuts';
 import { loadPref, savePref } from './storage';
-import { Kbd, Logo, ReloadGlyph } from './ui';
+import { Logo, ReloadGlyph } from './ui';
 
 const VIEWS = [
   { id: 'erd', label: 'ERD', file: 'erd' },
@@ -37,12 +36,6 @@ export function Shell({ project, onClose }: Props) {
     setView(id);
     savePref(VIEW_KEY, id);
   }
-
-  // ⌘R reloads the design files rather than the page.
-  useShortcut(isReloadKey, (e) => {
-    e.preventDefault();
-    void reload();
-  });
 
   const onReload = () => void reload();
 
@@ -94,7 +87,6 @@ export function Shell({ project, onClose }: Props) {
           <button type="button" className="btn btn-quiet btn-tight" onClick={onReload}>
             <ReloadGlyph />
             Reload
-            <Kbd>⌘R</Kbd>
           </button>
           <span className="divider" aria-hidden="true" />
           <button

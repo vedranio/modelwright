@@ -5,7 +5,7 @@ export function Logo() {
   return <span className="logo" aria-hidden="true" />;
 }
 
-/** A keyboard hint inside a button or beside a control, e.g. ↵ or ⌘R. */
+/** A keyboard hint inside a button or beside a control, e.g. ↵ or ⇧1. */
 export function Kbd({ children }: { children: ReactNode }) {
   return <span className="kbd">{children}</span>;
 }

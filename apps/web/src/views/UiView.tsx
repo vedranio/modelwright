@@ -1,6 +1,6 @@
 import { DEFAULT_DEVICES } from '@modelwright/schema';
 import type { DocState } from '../useDesign';
-import { Kbd, ReloadGlyph } from '../ui';
+import { ReloadGlyph } from '../ui';
 import { DocStateView } from './DocStateView';
 import { EmptyCard } from './common';
 
@@ -17,7 +17,6 @@ export function UiView({ state, onReload }: { state: DocState<'config'>; onReloa
                   <button type="button" className="btn btn-secondary" onClick={onReload}>
                     <ReloadGlyph />
                     Reload
-                    <Kbd>⌘R</Kbd>
                   </button>
                 }
               >

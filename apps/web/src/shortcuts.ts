@@ -14,11 +14,6 @@ export function isTextTarget(target: EventTarget | null): boolean {
   return false;
 }
 
-/** ⌘ on macOS, Ctrl elsewhere. */
-export function isPrimaryModifier(event: KeyboardEvent): boolean {
-  return /Mac|iPhone|iPad/.test(navigator.platform) ? event.metaKey : event.ctrlKey;
-}
-
 /**
  * Calls `handler` for keydowns that `match` accepts, outside text fields. The handler decides
  * whether to `preventDefault`. The latest handler is always used without re-subscribing.
@@ -43,7 +38,3 @@ export function useShortcut(
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [enabled]);
 }
-
-/** ⌘R / Ctrl+R without Shift (Shift+⌘R stays the browser's hard reload). */
-export const isReloadKey = (event: KeyboardEvent) =>
-  isPrimaryModifier(event) && !event.shiftKey && !event.altKey && event.key.toLowerCase() === 'r';

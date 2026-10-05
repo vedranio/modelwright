@@ -177,3 +177,9 @@ The design doesn't show the tag, but a folder that was opened and never initiali
 - A missing folder reads "No folder at that path", as in 02, rather than echoing the server's message with the full path.
 - Copy problems falls back to a hidden textarea and `execCommand('copy')` when the Clipboard API is refused, as it is in some embedded browsers.
 - `design-refs/` is in `.prettierignore`. Like `docs/`, it's authored outside this repo's tooling.
+
+## 2026-10-05 — ⌘R left for Electron (supersedes "⌘R reloads the design files")
+
+Checked by hand at the milestone 0 gate: both Chrome and Safari reload the page on ⌘R even though the app calls `preventDefault`. The browser handles the shortcut before the page sees it. The earlier Chromium check passed only because the test sent the key straight to the page, which skips the browser's own shortcut handling.
+
+The web build no longer intercepts ⌘R, and every ⌘R hint is gone; under the hint rule, a hint shows only for a shortcut that works. The Reload buttons stay. Electron can bind ⌘R through its application menu, so the hint comes back with the Electron wrap. Until then ⌘R reloads the whole page: the app reopens the last project, and from milestone 4 the `beforeunload` warning protects unsaved edits.

@@ -4,7 +4,7 @@ import type { DesignDoc, DesignKind } from '../platform';
 import type { DocState } from '../useDesign';
 import { plural } from './common';
 import { copyText } from '../clipboard';
-import { Kbd, ReloadGlyph } from '../ui';
+import { ReloadGlyph } from '../ui';
 
 interface Props<K extends DesignKind> {
   kind: K;
@@ -101,7 +101,6 @@ function Problems({
         <button type="button" className="btn btn-primary" onClick={onReload}>
           <ReloadGlyph />
           Reload
-          <Kbd>⌘R</Kbd>
         </button>
         {issues && (
           <button
