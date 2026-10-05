@@ -1161,14 +1161,30 @@ button {
 
 .preview-toolbar-left,
 .preview-toolbar-right {
-  min-width: 0;
   display: flex;
   align-items: center;
   gap: var(--space-3);
 }
 
+/* In a narrow window the URL gives way first, then the buttons run off the edge; nothing overlaps. */
+.preview-toolbar-left {
+  flex: none;
+}
+
 .preview-toolbar-right {
+  flex: 1;
+  min-width: 0;
   gap: var(--space-1);
+  overflow: hidden;
+}
+
+/* Right-aligned by margin rather than justify-content, so overflow runs off the right edge. */
+.preview-toolbar-right > :first-child {
+  margin-left: auto;
+}
+
+.preview-toolbar-right > .btn {
+  flex: none;
 }
 
 .preview-size {
@@ -1188,6 +1204,7 @@ button {
 }
 
 .toolbar-url {
+  flex: 0 1 auto;
   min-width: 0;
   max-width: var(--preview-url-max-w);
   margin-right: var(--space-2);

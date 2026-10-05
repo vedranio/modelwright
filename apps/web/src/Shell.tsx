@@ -32,6 +32,8 @@ interface Props {
 export function Shell({ project, onClose }: Props) {
   const { docs, reload, setFocusReloadPaused, noteWritten } = useDesign(project.path);
   const [view, setView] = useState<ViewId>(initialView);
+  // The UI view stays mounted (hidden) once visited, so its preview doesn't reload on return.
+  const [uiVisited, setUiVisited] = useState(() => view === 'ui');
   const [editingName, setEditingName] = useState(false);
   const erd = useEditableDoc('erd', project.path, docs.erd, noteWritten);
   const flows = useEditableDoc('flows', project.path, docs.flows, noteWritten);
@@ -49,6 +51,7 @@ export function Shell({ project, onClose }: Props) {
     if (view === 'erd') void erd.flush();
     if (view === 'flows') void flows.flush();
     setView(id);
+    if (id === 'ui') setUiVisited(true);
     savePref(VIEW_KEY, id);
   }
 
@@ -159,7 +162,15 @@ export function Shell({ project, onClose }: Props) {
             onReload={onReload}
           />
         )}
-        {view === 'ui' && <UiView state={docs.config} edit={config} visible onReload={onReload} />}
+        {(view === 'ui' || uiVisited) && (
+          <UiView
+            projectPath={project.path}
+            state={docs.config}
+            edit={config}
+            visible={view === 'ui'}
+            onReload={onReload}
+          />
+        )}
       </main>
       {dialog}
     </div>

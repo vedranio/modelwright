@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { loadPref, savePref } from '../storage';
 import type { Config } from '@modelwright/schema';
 import { DeviceFrame } from './DeviceFrame';
 import { pickDevice, resolveDevices } from './devices';
@@ -7,6 +8,7 @@ import { CheckingState, InvalidUrl, NothingRunning, RefusesEmbedding } from './P
 import { usePreviewCheck } from './usePreviewCheck';
 
 interface Props {
+  projectPath: string;
   config: Config;
   /** A URL that already passed the rules in url.ts. */
   url: string;
@@ -16,11 +18,17 @@ interface Props {
 }
 
 /** The UI view with a valid URL: checks it, then shows the preview or says what's wrong. */
-export function PreviewPane({ config, url, visible, onSetUrl }: Props) {
+export function PreviewPane({ projectPath, config, url, visible, onSetUrl }: Props) {
   const { result, slow, recheck } = usePreviewCheck(url, visible);
   const devices = resolveDevices(config);
-  const [deviceId, setDeviceId] = useState<string | null>(null);
+  // The chosen device is remembered per project, falling back to the first.
+  const deviceKey = `preview-device:${projectPath}`;
+  const [deviceId, setDeviceId] = useState(() => loadPref(deviceKey));
   const device = pickDevice(devices, deviceId);
+  const chooseDevice = (id: string) => {
+    setDeviceId(id);
+    savePref(deviceKey, id);
+  };
   const [reloads, setReloads] = useState(0);
   const [scale, setScale] = useState(1);
 
@@ -52,7 +60,7 @@ export function PreviewPane({ config, url, visible, onSetUrl }: Props) {
           <PreviewToolbar
             devices={devices}
             device={device}
-            onDevice={setDeviceId}
+            onDevice={chooseDevice}
             scale={scale}
             url={url}
             onSetUrl={onSetUrl}

@@ -422,3 +422,19 @@ There's no phase 4 design, so all of this is built from tokens in the existing l
   - "Refuses embedding" shows the header and value, what it means, how to allow the tool's origin, and Open in browser.
   - "Invalid URL" shows the problem and the field. Saving it blank clears the URL. A server-side `invalid` (say, a redirect to the tool) uses the same card with the server's detail.
 - **Fix found at the gate: a clean working copy no longer outlives an invalid file.** With `config.json` broken by hand, the header still offered the stale copy's name for editing, and a rename would have overwritten the broken file. `resolveDoc` now returns nothing to edit when the file is clean and missing or invalid on disk. Unsaved edits still win, as before.
+
+## 2026-10-06 — Phase 4 milestone 4: behaviour
+
+- **Polling** runs one check 3 seconds after each result while the result is `unreachable`, the UI view is visible and the window has focus. Chaining after each result, rather than a fixed interval, means a check that waits out its 3-second timeout never overlaps the next. Focus is tracked from `focus` and `blur` events, starting from `document.hasFocus()`. Clicking into the preview iframe blurs the window, but there's no iframe while "Nothing running", so that never pauses polling that's needed.
+- **The UI view stays mounted** once visited: `Shell` renders it with `hidden` while another view shows. ERD and Flows still unmount as before. Showing it again re-checks, keeping the iframe up unless the result isn't `ok`.
+- **A hidden frame keeps its last size.** The stage reports 0×0 while hidden. Without ignoring that, the app would be resized to a 1-pixel viewport every time you switched away.
+- **Device memory** is `loadPref`/`savePref('preview-device:<projectPath>')`, so it's stored as `modelwright.preview-device:<path>` like every other preference. A remembered device that's no longer in the list falls back to the first.
+- **Toolbar in narrow windows:** the left group keeps its size, the URL truncates first, and the buttons run off the right edge rather than overlapping. They're right-aligned by an auto margin, because `justify-content: flex-end` spills overflow to the left.
+- **Verified in the browser:**
+  - Polling at about 3 s.
+  - The preview appears on its own when the Vite app starts.
+  - No checks while hidden or blurred.
+  - The same iframe element, with no reload and typed text intact, across ERD and back.
+  - The device remembered across a page reload.
+  - Reload preview loads the iframe once more, and the header Reload doesn't touch it.
+  - Blur and focus were simulated with window events.

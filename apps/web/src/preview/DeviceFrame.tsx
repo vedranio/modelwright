@@ -32,6 +32,8 @@ export function DeviceFrame({ device, url, frameKey, onScale }: Props) {
     const observer = new ResizeObserver(([entry]) => {
       if (!entry) return;
       const { width, height } = entry.contentRect;
+      // Hidden (another view is showing): keep the last size, so the app isn't resized to nothing.
+      if (width === 0 && height === 0) return;
       setArea((prev) =>
         prev.width === width && prev.height === height ? prev : { width, height },
       );

@@ -4,6 +4,9 @@ import { useProjectClient, type PreviewCheck } from '../platform';
 /** A first check that takes longer than this shows the "Checking" state; a quick one never does. */
 export const CHECKING_DELAY_MS = 300;
 
+/** While nothing is running, how often to look again. */
+export const POLL_INTERVAL_MS = 3000;
+
 export interface PreviewCheckState {
   /** The latest result for this URL; null until the first check returns. */
   result: PreviewCheck | null;
@@ -17,6 +20,10 @@ export interface PreviewCheckState {
  * Asks ProjectClient whether `url` can be previewed. It checks when the view is shown and when
  * the URL changes. A re-check keeps showing the previous result while it runs, so an `ok`
  * preview stays mounted and only changes if the new result isn't `ok`.
+ *
+ * While the result is `unreachable`, it checks again every few seconds, so starting the dev
+ * server makes the preview appear on its own. That polling stops while the view is hidden or
+ * the window is unfocused. Nothing re-checks an `ok` preview in the background.
  */
 export function usePreviewCheck(url: string, visible: boolean): PreviewCheckState {
   const client = useProjectClient();
@@ -49,7 +56,34 @@ export function usePreviewCheck(url: string, visible: boolean): PreviewCheckStat
     return () => clearTimeout(timer);
   }, [result, url]);
 
+  const focused = useWindowFocus();
+  const polling = visible && focused && result?.status === 'unreachable';
+
+  // One check a few seconds after each result, so a slow check (up to its 3 s timeout) never
+  // overlaps the next.
+  useEffect(() => {
+    if (!polling) return;
+    const timer = setTimeout(() => void run(), POLL_INTERVAL_MS);
+    return () => clearTimeout(timer);
+  }, [polling, checked, run]);
+
   const recheck = useCallback(() => void run(), [run]);
 
   return { result, slow: result === null && slowFor === url, recheck };
+}
+
+/** Whether the window has focus, kept up to date. */
+function useWindowFocus(): boolean {
+  const [focused, setFocused] = useState(() => document.hasFocus());
+  useEffect(() => {
+    const onFocus = () => setFocused(true);
+    const onBlur = () => setFocused(false);
+    window.addEventListener('focus', onFocus);
+    window.addEventListener('blur', onBlur);
+    return () => {
+      window.removeEventListener('focus', onFocus);
+      window.removeEventListener('blur', onBlur);
+    };
+  }, []);
+  return focused;
 }
