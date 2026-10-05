@@ -1,3 +1,4 @@
+import os from 'node:os';
 import { Hono, type Context } from 'hono';
 import { z } from 'zod';
 import {
@@ -12,13 +13,17 @@ import {
 import { DEFAULT_ALLOWED_HOSTS, DEFAULT_ALLOWED_ORIGINS } from './config';
 import { readTextOrNull, writeAtomic } from './fsio';
 import { originGuard } from './guard';
-import { HttpError, designDirState, designFile, resolveProjectDir } from './paths';
+import { HttpError, designDirState, designFile, resolveProjectDir, tildify } from './paths';
 import { initialise, isInitialised, summarise } from './projects';
 import { Recents } from './recents';
 
 export interface AppOptions {
   /** modelwright's own state directory (recents). */
   homeDir: string;
+  /** The user's home directory, shown as `~` in display paths. */
+  userHome?: string;
+  /** Clock for recents timestamps. */
+  now?: () => Date;
   allowedHosts?: readonly string[];
   allowedOrigins?: readonly string[];
 }
@@ -28,10 +33,12 @@ const InitBody = z.object({ path: z.string(), name: z.string().optional() });
 
 export function createApp({
   homeDir,
+  userHome = os.homedir(),
+  now,
   allowedHosts = DEFAULT_ALLOWED_HOSTS,
   allowedOrigins = DEFAULT_ALLOWED_ORIGINS,
 }: AppOptions) {
-  const recents = new Recents(homeDir);
+  const recents = new Recents(homeDir, now);
   const app = new Hono().basePath('/api');
 
   app.use('*', originGuard({ allowedHosts, allowedOrigins }));
@@ -47,24 +54,30 @@ export function createApp({
   app.post('/projects/open', async (c) => {
     const body = await readBody(c, PathBody);
     const dir = await resolveProjectDir(body.path);
-    const summary = await summarise(dir);
-    await recents.add({ path: summary.path, name: summary.name });
-    return c.json(summary);
+    const summary = await summarise(dir, userHome);
+    const { lastOpenedAt } = await recents.add({ path: summary.path, name: summary.name });
+    return c.json({ ...summary, lastOpenedAt });
   });
 
   app.post('/projects/init', async (c) => {
     const body = await readBody(c, InitBody);
     const dir = await resolveProjectDir(body.path);
     await initialise(dir, body.name);
-    const summary = await summarise(dir);
-    await recents.add({ path: summary.path, name: summary.name });
-    return c.json(summary, 201);
+    const summary = await summarise(dir, userHome);
+    const { lastOpenedAt } = await recents.add({ path: summary.path, name: summary.name });
+    return c.json({ ...summary, lastOpenedAt }, 201);
   });
 
   app.get('/projects/recent', async (c) => {
     const list = await recents.list();
     const summaries: ProjectSummary[] = await Promise.all(
-      list.map(async (entry) => ({ ...entry, initialised: await isInitialised(entry.path) })),
+      list.map(async (entry) => ({
+        path: entry.path,
+        displayPath: tildify(entry.path, userHome),
+        name: entry.name,
+        initialised: await isInitialised(entry.path),
+        ...(entry.lastOpenedAt !== undefined && { lastOpenedAt: entry.lastOpenedAt }),
+      })),
     );
     return c.json(summaries);
   });

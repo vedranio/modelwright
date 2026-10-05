@@ -11,7 +11,7 @@ import {
   type ProjectSummary,
 } from '@modelwright/schema';
 import { readTextOrNull, writeAtomic } from './fsio';
-import { HttpError, designDir, designDirState, designFile, statOrNull } from './paths';
+import { HttpError, designDir, designDirState, designFile, statOrNull, tildify } from './paths';
 
 /** Whether `.design/` is a real directory holding all three files. */
 export async function isInitialised(projectDir: string): Promise<boolean> {
@@ -30,12 +30,12 @@ export async function projectName(projectDir: string): Promise<string> {
   return folderName(projectDir);
 }
 
-export async function summarise(projectDir: string): Promise<ProjectSummary> {
+export async function summarise(projectDir: string, userHome: string): Promise<ProjectSummary> {
   const [name, initialised] = await Promise.all([
     projectName(projectDir),
     isInitialised(projectDir),
   ]);
-  return { path: projectDir, name, initialised };
+  return { path: projectDir, displayPath: tildify(projectDir, userHome), name, initialised };
 }
 
 /**

@@ -1,0 +1,64 @@
+/* The shared canvas, on top of React Flow's base.css. Every value comes from tokens.css. */
+
+.canvas {
+  position: absolute;
+  inset: 0;
+}
+
+.canvas .react-flow {
+  background: var(--color-bg);
+  font-family: var(--font-mono);
+}
+
+.canvas .react-flow__background-pattern.dots {
+  fill: var(--color-dot);
+}
+
+.canvas .react-flow__selection {
+  background: var(--color-focus-ring);
+  border: var(--border-w) solid var(--color-accent);
+  border-radius: var(--radius-sm);
+}
+
+/* The box around a multi-selection: the selected nodes show their own state, so it stays invisible. */
+.canvas .react-flow__nodesselection-rect {
+  background: transparent;
+  border: none;
+}
+
+.canvas .react-flow__panel.canvas-panel {
+  margin: var(--space-4);
+}
+
+.canvas-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+}
+
+.canvas-overlay .empty-card {
+  pointer-events: auto;
+}
+
+.canvas-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-md);
+}
+
+.btn-glyph {
+  font-size: var(--text-glyph);
+}
+
+.zoom-readout {
+  width: var(--zoom-readout-w);
+  text-align: center;
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}

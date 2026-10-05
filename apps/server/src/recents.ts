@@ -5,7 +5,12 @@ import { readTextOrNull, writeAtomic } from './fsio';
 
 export const RECENTS_LIMIT = 20;
 
-const RecentEntry = z.object({ path: z.string(), name: z.string() });
+const RecentEntry = z.object({
+  path: z.string(),
+  name: z.string(),
+  /** ISO timestamp of the last open. Entries written before phase 2 have none. */
+  lastOpenedAt: z.string().optional(),
+});
 export type RecentEntry = z.infer<typeof RecentEntry>;
 const RecentsFile = z.object({ projects: z.array(RecentEntry) });
 
@@ -17,7 +22,10 @@ export class Recents {
   private queue: Promise<unknown> = Promise.resolve();
   private readonly file: string;
 
-  constructor(private readonly homeDir: string) {
+  constructor(
+    private readonly homeDir: string,
+    private readonly now: () => Date = () => new Date(),
+  ) {
     this.file = path.join(homeDir, 'recents.json');
   }
 
@@ -25,11 +33,13 @@ export class Recents {
     return this.serialise(() => this.read());
   }
 
-  /** Adds or moves a project to the top, refreshing its name. */
-  add(entry: RecentEntry): Promise<void> {
-    return this.update((list) =>
-      [entry, ...list.filter((e) => e.path !== entry.path)].slice(0, RECENTS_LIMIT),
+  /** Adds or moves a project to the top, refreshing its name and stamping it as opened now. */
+  async add(entry: { path: string; name: string }): Promise<RecentEntry> {
+    const stamped = { ...entry, lastOpenedAt: this.now().toISOString() };
+    await this.update((list) =>
+      [stamped, ...list.filter((e) => e.path !== entry.path)].slice(0, RECENTS_LIMIT),
     );
+    return stamped;
   }
 
   remove(projectPath: string): Promise<void> {

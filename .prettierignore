@@ -5,3 +5,4 @@ docs
 CLAUDE.md
 # Fixtures are canonical serialiser output; Prettier formats JSON differently.
 **/fixtures/**
+design-refs/

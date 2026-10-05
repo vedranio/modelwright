@@ -1,0 +1,372 @@
+/* ERD cards and relationship edges. Every value comes from tokens.css. */
+
+.entity {
+  width: var(--entity-w);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+  font-size: var(--text-sm);
+  line-height: var(--text-sm-lh);
+  transition: box-shadow var(--duration-fast) var(--ease-out);
+}
+
+.react-flow__node:hover .entity {
+  box-shadow: var(--shadow-md);
+}
+
+.react-flow__node.selected .entity {
+  box-shadow:
+    0 0 0 var(--border-w) var(--color-accent),
+    0 0 0 calc(var(--border-w) + var(--focus-ring-w)) var(--color-focus-ring),
+    var(--shadow-md);
+}
+
+.entity-head {
+  position: relative;
+  padding: var(--space-3) var(--space-3) var(--space-2);
+}
+
+.entity-name {
+  font-size: var(--text-md);
+  line-height: var(--text-md-lh);
+  font-weight: var(--weight-semibold);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.entity-description {
+  margin-top: var(--space-0);
+  color: var(--color-text-muted);
+  overflow-wrap: anywhere;
+}
+
+.attributes {
+  margin: 0;
+  padding: var(--space-1) 0;
+  list-style: none;
+  border-top: var(--border-w) solid var(--color-border);
+}
+
+.attributes:empty {
+  display: none;
+}
+
+.attribute {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: var(--control-h);
+  padding: var(--space-1) var(--space-3);
+}
+
+.attribute-name,
+.attribute-note {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.attribute-note {
+  font-size: var(--text-xs);
+  line-height: var(--text-xs-lh);
+  color: var(--color-text-faint);
+}
+
+.entity-empty {
+  padding: var(--space-2) var(--space-3) var(--space-3);
+  border-top: var(--border-w) solid var(--color-border);
+  color: var(--color-text-faint);
+}
+
+.anchor-handle {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Relationship edges */
+
+.canvas .crowsfoot-line {
+  stroke: var(--color-text-faint);
+  stroke-width: var(--border-w);
+}
+
+.crowsfoot-marker {
+  fill: var(--color-bg);
+  stroke: var(--color-text-faint);
+  stroke-width: var(--border-w);
+}
+
+.canvas .react-flow__edge:hover .crowsfoot-line,
+.canvas .react-flow__edge:hover .crowsfoot-marker {
+  stroke: var(--color-text-muted);
+}
+
+.canvas .react-flow__edge.selected .crowsfoot-line,
+.canvas .react-flow__edge.selected .crowsfoot-marker {
+  stroke: var(--color-accent);
+}
+
+.edge-label {
+  position: absolute;
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+  font-size: var(--text-xs);
+  line-height: var(--text-xs-lh);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.edge-label.selected {
+  color: var(--color-accent);
+}
+
+/* Editing */
+
+.canvas-host {
+  position: absolute;
+  inset: 0;
+}
+
+.editable {
+  cursor: text;
+  border-radius: var(--radius-sm);
+}
+
+.inline-input {
+  width: 100%;
+  min-width: 0;
+  height: var(--text-md-lh);
+  margin: 0;
+  padding: 0 var(--space-1);
+  margin-left: calc(-1 * var(--space-1) - var(--border-w));
+  border: var(--border-w) solid var(--color-accent);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 0 0 var(--focus-ring-w) var(--color-focus-ring);
+  background: var(--color-surface);
+  font: inherit;
+  color: inherit;
+  caret-color: var(--color-accent);
+  outline: none;
+}
+
+.inline-input::placeholder {
+  color: var(--color-text-faint);
+}
+
+.entity-name-input {
+  font-size: var(--text-md);
+  font-weight: var(--weight-semibold);
+}
+
+.entity-description-input,
+.attribute-note-input {
+  margin-top: var(--space-0);
+}
+
+.attribute-note-input {
+  font-size: var(--text-xs);
+}
+
+/* Shown on hover at the header's right, taking no space, so cards don't change size. */
+.entity-affordance {
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-2);
+  visibility: hidden;
+  height: var(--text-md-lh);
+  padding: 0 var(--space-1);
+  border: none;
+  border-radius: var(--radius-sm);
+  background: none;
+  font-size: var(--text-xs);
+  color: var(--color-text-faint);
+  cursor: pointer;
+}
+
+.entity:hover .entity-affordance {
+  visibility: visible;
+}
+
+.entity-affordance:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text);
+}
+
+.attribute-line {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.attribute-line > .attribute-name {
+  flex: 1;
+  min-width: 0;
+}
+
+.attribute-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-0);
+  visibility: hidden;
+}
+
+.attribute:hover .attribute-actions {
+  visibility: visible;
+}
+
+.attribute-action {
+  height: var(--text-sm-lh);
+  min-width: var(--text-sm-lh);
+  padding: 0 var(--space-1);
+  border: none;
+  border-radius: var(--radius-sm);
+  background: none;
+  font-size: var(--text-xs);
+  color: var(--color-text-faint);
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-out);
+}
+
+.attribute-action:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text);
+}
+
+.attribute-delete {
+  font-size: var(--text-md);
+}
+
+.entity-add {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  height: var(--control-h);
+  padding: 0 var(--space-3);
+  border: none;
+  border-top: var(--border-w) solid var(--color-border);
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+  background: none;
+  font: inherit;
+  color: var(--color-text-faint);
+  cursor: pointer;
+  transition:
+    background var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
+}
+
+.entity-add:hover {
+  background: var(--color-surface-sunken);
+  color: var(--color-text-muted);
+}
+
+.entity-add-plus,
+.toolbar-add-plus {
+  font-size: var(--text-glyph);
+  color: var(--color-accent);
+}
+
+.btn.toolbar-add {
+  font-weight: var(--weight-medium);
+  color: var(--color-text);
+}
+
+/* Connecting */
+
+.react-flow__handle.connect-handle {
+  width: var(--space-2);
+  height: var(--space-2);
+  min-width: 0;
+  min-height: 0;
+  border: var(--border-w) solid var(--color-surface);
+  border-radius: var(--radius-full);
+  background: var(--color-accent);
+  opacity: 0;
+  cursor: crosshair;
+  transition: opacity var(--duration-fast) var(--ease-out);
+}
+
+.react-flow__node:hover .connect-handle,
+.react-flow__node.selected .connect-handle {
+  opacity: 1;
+}
+
+.react-flow__connection-path {
+  fill: none;
+  stroke: var(--color-accent);
+  stroke-width: var(--border-w);
+}
+
+/* Relationship popover */
+
+.edge-popover-anchor {
+  position: absolute;
+  padding-top: var(--space-5);
+  pointer-events: all;
+  z-index: 5;
+}
+
+.edge-popover {
+  width: var(--entity-w);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-md);
+  font-size: var(--text-sm);
+  line-height: var(--text-sm-lh);
+  cursor: default;
+}
+
+.edge-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.edge-field-label {
+  font-size: var(--text-xs);
+  line-height: var(--text-xs-lh);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.edge-select {
+  height: var(--control-h);
+  padding: 0 var(--space-2);
+  border: var(--border-w) solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.edge-select:focus {
+  outline: none;
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 var(--focus-ring-w) var(--color-focus-ring);
+}
+
+.edge-input {
+  width: 100%;
+}
+
+.edge-popover-actions {
+  display: flex;
+  justify-content: space-between;
+  margin-top: var(--space-1);
+}
+
+.edge-delete:hover {
+  color: var(--color-error);
+}
