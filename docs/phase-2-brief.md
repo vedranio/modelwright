@@ -8,19 +8,76 @@ Read `CLAUDE.md` and `docs/decisions.md` first. They are the standing context, a
 
 The ERD view becomes a real editor. Today it renders a plain list from `.design/erd.json`; by the end of this phase it is an infinite, dot-grid canvas where I can add, edit, move and delete entities and their attributes, connect entities with relationships drawn in crow's-foot notation, and have every change autosaved back to `erd.json`.
 
+Before the canvas, this phase restyles the chrome phase 1 built to match the designs now in `design-refs/`, so the canvas is built on the real visual system rather than restyled afterwards.
+
 This phase also builds the **shared canvas layer** that phase 3's flow chart will reuse, and the **editable-document plumbing** (local edits, autosave, save status) that phase 3 will reuse too. Build both generically. Build nothing flow-specific.
 
 ## How to work
 
 1. Start in plan mode. Before writing the plan, interview me on anything in this brief that is ambiguous or that you'd decide differently — in particular the decisions listed under "Decisions this brief makes". Then present the plan and wait for approval.
-2. Check `design-refs/` before planning and tell me what's there. If it contains an entity card or canvas export, match it. If it's still empty, build a clean, neutral look consistent with phase 1's `styles.css`, with every canvas colour, radius and spacing value in CSS custom properties in one place so a later restyle is cheap.
+2. Read `design-refs/phase 1 designs/README.md` and look at every PNG in that folder before planning. They are the visual source of truth for the app chrome (picker, header, toggle, empty states, validation surface, save status, canvas toolbar) and the token set. Where a matching `.html` exists, read it for exact values. There is no design for the entity card or edges yet — build those from the same tokens so they belong to the same system, and they'll be judged at the milestone 3 review gate.
 3. Work milestone by milestone (listed at the end). Commit at each one and push the branch.
-4. Respect the review gate after milestone 3. Stop there with screenshots and wait for me.
+4. Respect both review gates: after milestone 0 (shell restyle) and after milestone 3 (entity card and edges). Stop there with screenshots and wait for me.
 5. Vitest is required on the pure logic introduced this phase (see "Tests"). The canvas itself is verified by eye — use the browser tool to load the app, screenshot it, and check your own work before reporting a milestone done.
 6. Run `pnpm test`, `pnpm typecheck` and `pnpm lint` before declaring any milestone done and report the results.
 7. Once the interview has settled the decisions below, log them in `docs/decisions.md`, plus any others you make along the way.
 
 ## Scope
+
+### 0. Shell restyle to match `design-refs/`
+
+Phase 1 shipped deliberately plain styling. Before any canvas work, bring the existing chrome in line with the designs in `design-refs/phase 1 designs/`. The files are:
+
+| File | Shows |
+|---|---|
+| `01-picker-empty` | Picker as a modal over the empty shell, first run |
+| `02-picker-recents` | Picker with recents, a row hovered, and the inline path error |
+| `03-picker-initialise` | Picker after opening a folder with no `.design/` |
+| `04-shell-erd` | Shell with the project name being edited, the canvas toolbar and the save status |
+| `05-shell-empty-states` | Empty states for ERD, Flows and UI |
+| `06-shell-validation-error` | The validation surface replacing the canvas |
+| `07-components` | Every component state, plus the token set |
+
+**Tokens.** Replace the values in phase 1's `styles.css` with the token set from the README, as CSS custom properties in a single `tokens.css`, using the token names exactly as given. No raw hex, pixel or duration values outside that file, except where a design value genuinely has no token — in that case add a token and tell me.
+
+**Typeface.** The whole UI is set in IBM Plex Mono. Self-host it with `@fontsource/ibm-plex-mono` (weights 400, 500 and 600) rather than loading Google Fonts, so the tool works offline and inside Electron later.
+
+**Project picker becomes a modal.** Phase 1's full-page picker becomes the modal in 01–03, sized by `--modal-w` and `--modal-h`, over the empty dot-grid shell with `--color-scrim` behind it.
+- **Left side:** wordmark, "Open a project" heading and explanatory copy, the path field with an Open button, and the app version from `package.json` at the bottom.
+- **Right side:** "Recent projects", one row per project showing the name, the path shortened with `~`, and a relative last-opened time ("today", "yesterday", "3 days ago", "last week", "2 weeks ago"…). A remove control appears on hover. ↑/↓ moves through the list and ↵ opens the highlighted project, matching the hint in the design.
+- **Initialise state:** as in 03, with Cancel and Initialise.
+- **Dismissal:** the modal can't be dismissed while no project is open. Close project in the header returns to it.
+
+**Two small API additions** (the only server change this phase). The recents row needs data the API doesn't return yet:
+- `lastOpenedAt` — an ISO timestamp, set on each successful open and stored in the recents file. Entries written before this change have none and show no time.
+- `displayPath` — the path with the user's home directory replaced by `~`, computed by the server, because the web app can't know the home directory.
+
+Add both to `ProjectSummary` and cover them in the server tests. Per phase 1's decision, API shapes change without a `schemaVersion` bump.
+
+**Header (04–06).**
+- Logo mark, a `/` separator, then the project name with its rest, hover and editing states. While editing, the "↵ save · esc cancel" hint shows.
+- The path in muted text.
+- A centred segmented toggle. A segment whose file failed validation carries a `--color-warning` dot.
+- On the right: Reload, a divider, and a close (×) icon button.
+
+**Empty states (05)** use the copy and layout shown.
+
+**Validation surface (06).**
+- A chip with the file path (e.g. `.design/erd.json`) and a problem count.
+- The heading "The ERD file couldn't be loaded" (Flows/UI wording to match) and the explanatory line.
+- The problem list, with each issue path rendered as segments separated by `›` and the message beneath.
+- Reload (primary) and Copy problems (quiet). Copy problems puts a plain-text list of path and message pairs on the clipboard.
+
+The specific messages in 06 are illustrative and include fields that don't exist in the v1 schema. Use the real messages from the schema package.
+
+**Motion and states** follow the README: hover and press transitions use `--duration-fast` with `--ease-out`, pressed buttons scale to `--press-scale`, and focus uses `--color-focus-ring`.
+
+**Keyboard hints.** The designs show ⌘R (Reload), E (Add entity), ⇧1 (Fit), ↑↓/↵ (recents) and ↵/esc (name edit). Rule: **show a hint only for a shortcut that actually works.**
+- Implement E and ⇧1 when the canvas arrives (milestones 1 and 4), the recents keys here, and keep ↵/esc in the name edit.
+- ⌘R is the browser's own reload. If the page can reliably intercept it in Chrome and Safari, implement it. If not, hide the ⌘R hint in the web build, log it in `docs/decisions.md`, and leave it for Electron.
+- None of these fire while a text field has focus, except the field's own ↵ and esc.
+
+Milestone 0 restyles what phase 1 built and nothing more: the picker, header, toggle, empty states and validation surface. The save status and canvas toolbar shown in 04 are built in milestones 1 and 4 to that design.
 
 ### 1. Shared canvas layer — `apps/web/src/canvas/`
 
@@ -31,7 +88,7 @@ A generic `Canvas` component wrapping React Flow (`@xyflow/react`, v12). ERD-spe
 - **Pointer behaviour:** dragging on empty canvas draws a selection box (`selectionOnDrag`). Panning with a mouse is middle-button drag or Space + drag. Shift-click adds to the selection.
 - **Zoom limits** roughly 0.2–2, plus zoom in / zoom out / fit view controls.
 - **Viewport persistence:** the viewport (pan and zoom) is remembered per project in `localStorage`, using the existing `storage.ts` helpers. It is a per-user convenience, not part of the spec, so it never goes into `.design/`. A project opened for the first time fits all nodes in view.
-- **Toolbar slot:** the canvas renders a small floating toolbar that the consuming view fills (ERD puts "Add entity" and the save status there).
+- **Toolbar and status slots, as in `04-shell-erd`:** a floating toolbar centred at the bottom of the canvas, holding the consuming view's actions (ERD: "Add entity") followed by zoom out, the current zoom percentage, zoom in and Fit. The save status pill sits at the bottom left. Both slots are generic; the consuming view fills them.
 
 ### 2. Editable documents — `useEditableDoc`
 
@@ -40,7 +97,7 @@ A hook layered on top of phase 1's `useDesign`, generic over `'erd' | 'flows'`, 
 - Holds a **local working copy** of the document. Edits apply to the local copy immediately.
 - **Autosaves** through `ProjectClient.writeDesign` about 500 ms after the last change. It also flushes immediately when I switch views, close the project, or drop a dragged node.
 - **Validates before saving** with the schema package. If an edit somehow produces an invalid document, it does not save. It shows the issues and keeps the local copy, because that is a bug to fix rather than a state to persist.
-- **Save status** for the toolbar: `Saved` · `Saving…` · `Unsaved changes` · `Couldn't save — retry`. Clicking the failed state retries.
+- **Save status** pill, styled as in `07-components`: `Saved` · `Saving…` · `Unsaved changes` · `Couldn't save — retry`. Clicking "retry" in the failed state retries.
 - **Local edits win while dirty.** Phase 1's re-read on window focus must not overwrite unsaved local changes: while dirty, focus re-reads are skipped. A manual Reload while dirty asks me to confirm discarding the changes, using an in-app dialog rather than `window.confirm`. When clean, re-reads behave as in phase 1. If the re-read document equals the local one (compare canonical `stringify` output), nothing re-renders.
 - Warn on browser unload while there are unsaved changes (`beforeunload`).
 - An invalid file on disk still shows phase 1's validation surface instead of the canvas. Once the file is fixed and reloaded, the canvas returns.
@@ -120,6 +177,10 @@ Challenge any of these in the interview. Once settled, log them in `docs/decisio
 - **The viewport lives in `localStorage`, not `.design/`.** It is a per-user convenience, not part of the spec.
 - **Prefixed ids** (`ent_`, `attr_`, `rel_`) for legible diffs. Existing ids are never rewritten.
 - **Confirmation stands in for undo** when a delete cascades, until phase 5.
+- **The picker becomes a modal over the shell**, following the designs, and can't be dismissed while no project is open.
+- **IBM Plex Mono, self-hosted**, for the whole UI.
+- **`lastOpenedAt` and `displayPath` are added to `ProjectSummary`.** These are the only server changes this phase.
+- **Keyboard hints appear only for shortcuts that work.** ⌘R is implemented only if the browser reliably lets the page intercept it.
 - **No self-relationships from the UI** this phase. Ones already in a file still render.
 
 ## Tests (Vitest)
@@ -139,16 +200,18 @@ Hooks and components are verified by eye in the browser; no React component test
 Do not build any of these, even if they seem small:
 
 - Anything in the Flows or UI views. They stay as phase 1 left them.
-- Undo/redo, keyboard shortcuts beyond select, delete and Escape, dark mode, Mermaid export (phase 5)
+- Undo/redo, dark mode and Mermaid export (phase 5). The same goes for keyboard shortcuts beyond select, delete, Escape and those shown in `design-refs/`.
 - Reordering attributes
 - Physical ERD fields (types, keys, nullability) or any schema change. If you think the schema needs a change, stop and ask me.
 - Auto-layout (dagre or elk), minimap, copy/paste, duplicate
 - Visual separation of parallel or self relationships (they only need to render and stay selectable)
 - File watching (focus re-read plus manual Reload remain the mechanism)
-- Server changes. None should be needed; if one is, tell me why before making it.
+- Server changes beyond `lastOpenedAt` and `displayPath`. If another one seems needed, tell me why before making it.
+- Restyling anything the designs don't cover beyond applying the tokens.
 
 ## Milestones (one commit each, pushed)
 
+0. **Shell restyle — review gate.** Tokens, typeface, picker modal with recents keyboard navigation and last-opened times (including the two API additions and their tests), header, toggle with warning dot, empty states and the validation surface with Copy problems. **Stop here.** Show me screenshots at 1440×900 of the app in each state from 01–03, 05 and 06, each next to its design PNG, and list any deliberate differences. Wait for my go-ahead.
 1. **Canvas foundation.** `@xyflow/react` added; the generic `Canvas` with dot grid, trackpad behaviour, zoom controls, viewport persistence and the toolbar slot. The ERD view renders entities from the document as simple read-only boxes at their layout positions, with unpositioned ones placed, and relationships as plain lines. `placement.ts` and its tests.
 2. **Operations.** `ops.ts`, id generation and the full test suite above, all passing. No UI wiring yet.
 3. **Entity node and crow's-foot edges — review gate.** The real entity card and floating crow's-foot edges with labels, still read-only. **Stop here.** Show me screenshots of the phase 1 notes fixture, and of a busier example of your own (five or six entities with every cardinality used at least once), at 100% and at about 50% zoom. Wait for my go-ahead. This is where the visual design gets judged, so expect changes.
@@ -161,6 +224,11 @@ Do not build any of these, even if they seem small:
 All of the following, demonstrated rather than asserted:
 
 - [ ] `pnpm test`, `pnpm typecheck` and `pnpm lint` pass at the repo root.
+- [ ] Side by side with `design-refs/phase 1 designs/`, the picker (01–03), the shell (04), the empty states (05) and the validation surface (06) match, apart from differences I approved at the milestone 0 gate.
+- [ ] Every colour, radius, spacing, shadow and duration in `apps/web` comes from `tokens.css`.
+- [ ] The recents list shows `~`-shortened paths and relative last-opened times, and I can choose and open a project with ↑/↓ and ↵.
+- [ ] Copy problems puts the validation issues on the clipboard as plain text.
+- [ ] Every keyboard hint shown in the UI works. E adds an entity and ⇧1 fits the view.
 - [ ] Opening the notes fixture shows User and Note at their layout positions on a dot grid. The relationship shows `‖` at User, `o<` at Note, and the label "owns".
 - [ ] On a trackpad, two-finger scroll pans, pinch zooms, and dragging on empty canvas draws a selection box.
 - [ ] Double-clicking empty canvas creates an entity at the pointer with its name ready to type. "Add entity" creates one in the centre of the view.
@@ -174,6 +242,6 @@ All of the following, demonstrated rather than asserted:
 - [ ] Adding an entity to `erd.json` by hand without a `layout` entry places it below the others without overlap, and opening the project doesn't modify the file.
 - [ ] Breaking `erd.json` by hand shows phase 1's validation surface instead of the canvas, with no crash. Fixing it and pressing Reload brings the canvas back.
 - [ ] Typing in any field inside a node never pans, zooms, drags or deletes anything.
-- [ ] The Flows and UI views behave exactly as they did at the end of phase 1.
+- [ ] Apart from the restyle, the Flows and UI views behave exactly as they did at the end of phase 1.
 
 When every box is ticked and committed, phase 2 is complete. Phase 3 (flow canvas) starts in a new session and reuses `Canvas` and `useEditableDoc`.
