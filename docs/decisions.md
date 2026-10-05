@@ -254,3 +254,9 @@ There's no design for these yet. Both are built from the existing tokens and jud
 - **The popover opens when exactly one relationship, and nothing else, is selected.** It sits under the edge's midpoint and holds a native `<select>` per end (named after that end's entity, with options like "o< Zero or more"), the label (saved on Enter or blur, Escape restores it), Reverse direction and Delete. Each change applies and autosaves as it's made.
 - **Selected ids that no longer exist are ignored,** so a relationship deleted from its popover can't stop the next one's popover from opening.
 - **Multi-select delete** needs nothing new: `onBeforeDelete` already deletes selected entities and relationships together, and asks only when an entity cascades.
+
+## 2026-10-05 — Phase 2 milestone 6: verification notes
+
+- **An empty ERD shows 05's "No entities yet" card over the canvas, toolbar and save status included.** 04 draws the same empty canvas without the card; the two designs can't both hold, and 05 is the one about empty states.
+- **Timings and canvas geometry in TypeScript:** the autosave delay (500 ms, from the brief), "Copied" feedback (1.5 s), card size estimates, marker geometry, corner radius and new-entity offset are behaviour and canvas units in `.ts` modules, not CSS values. Everything CSS draws comes from `tokens.css`.
+- **Verified with simulated input, not a real trackpad:** scroll to pan (wheel), pinch to zoom (ctrl+wheel) and Shift-click (a synthesized Shift keydown; the browser tool's modifier flag alone doesn't produce one). These want a check by hand on a real trackpad and keyboard.

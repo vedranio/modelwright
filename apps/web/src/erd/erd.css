@@ -270,7 +270,7 @@
   color: var(--color-accent);
 }
 
-.toolbar-add {
+.btn.toolbar-add {
   font-weight: var(--weight-medium);
   color: var(--color-text);
 }
