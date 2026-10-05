@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>05-shell-empty-states</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>body{margin:0;background:#E9E9E5;font-family:'IBM Plex Mono',ui-monospace,'SF Mono',Menlo,monospace;color:#1C1C1A;-webkit-font-smoothing:antialiased}*{box-sizing:content-box}</style>
+</head>
+<body>
+<div data-screen-label="05-shell-empty-states" data-artboard="05-shell-empty-states" style="width:1440px;height:900px;display:flex;flex-direction:column;overflow:hidden;background:#F7F7F5;box-shadow:0 4px 16px #1C1C1A14,0 1px 3px #1C1C1A0F">
+<div style="height:44px;flex:none;display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;padding:0 12px;background:#FFFFFF;border-bottom:1px solid #E4E4E0">
+<div style="display:flex;align-items:center;gap:8px;min-width:0">
+<div style="width:16px;height:16px;border-radius:4px;background:#3E55CF;flex:none;margin-left:4px"></div>
+<span style="color:#CFCFCA;font-size:13px">/</span>
+<div style="height:28px;display:flex;align-items:center;padding:0 8px;border-radius:6px;font-size:13px;font-weight:500;cursor:text;transition:background 120ms cubic-bezier(.2,.8,.2,1)">Habit tracker</div>
+<span style="font-size:12px;color:#9B9B95;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">~/Code/habit-tracker</span>
+</div>
+<div style="font-size:11px;color:#9B9B95">each view, empty</div>
+<div style="display:flex;align-items:center;justify-content:flex-end;gap:8px">
+<div style="height:28px;display:flex;align-items:center;gap:8px;padding:0 8px;border-radius:6px;font-size:12px;color:#6A6A65"><span style="font-size:13px">↻</span>Reload<span style="font-size:11px;color:#9B9B95">⌘R</span></div>
+<div style="width:1px;height:16px;background:#E4E4E0"></div>
+<div style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:6px;font-size:16px;color:#6A6A65">×</div>
+</div>
+</div>
+<div style="flex:1;display:grid;grid-template-columns:repeat(3,minmax(0,1fr))">
+
+<div style="position:relative;display:flex;flex-direction:column;border-right:1px solid #E4E4E0;background-color:#F7F7F5;background-image:radial-gradient(circle,#D6D6D1 1px,transparent 1.2px);background-size:16px 16px">
+<div style="display:flex;justify-content:center;padding-top:16px"><div style="display:flex;gap:2px;padding:2px;background:#F1F1EE;border-radius:6px;box-shadow:0 0 0 1px #E4E4E0">
+<div style="height:24px;display:flex;align-items:center;padding:0 12px;border-radius:4px;font-size:12px;font-weight:500;background:#FFFFFF;box-shadow:0 1px 2px #1C1C1A0F,0 0 0 1px #1C1C1A0A">ERD</div>
+<div style="height:24px;display:flex;align-items:center;padding:0 12px;font-size:12px;color:#6A6A65">Flows</div>
+<div style="height:24px;display:flex;align-items:center;padding:0 12px;font-size:12px;color:#6A6A65">UI</div>
+</div></div>
+<div style="margin:auto;width:288px;display:flex;flex-direction:column;align-items:center;text-align:center;gap:8px;padding:24px;background:#FFFFFF;border-radius:10px;box-shadow:0 1px 2px #1C1C1A0F,0 0 0 1px #1C1C1A0A">
+<div style="font-size:13px;font-weight:600">No entities yet</div>
+<div style="font-size:12px;line-height:18px;color:#6A6A65;text-wrap:pretty">Entities are the data your app stores. Add one to start the diagram.</div>
+<div style="margin-top:8px;height:28px;display:flex;align-items:center;gap:8px;padding:0 12px;border-radius:6px;background:#3E55CF;color:#FFFFFF;font-size:12px;font-weight:500;cursor:pointer;transition:background 120ms cubic-bezier(.2,.8,.2,1)">Add entity<span style="font-size:11px;color:#C9D0F5">E</span></div>
+</div>
+<div style="height:64px"></div>
+</div>
+
+<div style="position:relative;display:flex;flex-direction:column;border-right:1px solid #E4E4E0;background-color:#F7F7F5;background-image:radial-gradient(circle,#D6D6D1 1px,transparent 1.2px);background-size:16px 16px">
+<div style="display:flex;justify-content:center;padding-top:16px"><div style="display:flex;gap:2px;padding:2px;background:#F1F1EE;border-radius:6px;box-shadow:0 0 0 1px #E4E4E0">
+<div style="height:24px;display:flex;align-items:center;padding:0 12px;font-size:12px;color:#6A6A65">ERD</div>
+<div style="height:24px;display:flex;align-items:center;padding:0 12px;border-radius:4px;font-size:12px;font-weight:500;background:#FFFFFF;box-shadow:0 1px 2px #1C1C1A0F,0 0 0 1px #1C1C1A0A">Flows</div>
+<div style="height:24px;display:flex;align-items:center;padding:0 12px;font-size:12px;color:#6A6A65">UI</div>
+</div></div>
+<div style="margin:auto;width:288px;display:flex;flex-direction:column;align-items:center;text-align:center;gap:8px;padding:24px;background:#FFFFFF;border-radius:10px;box-shadow:0 1px 2px #1C1C1A0F,0 0 0 1px #1C1C1A0A">
+<div style="font-size:13px;font-weight:600">No screens yet</div>
+<div style="font-size:12px;line-height:18px;color:#6A6A65;text-wrap:pretty">Screens are the places a user can be. Add one, then connect it to others.</div>
+<div style="margin-top:8px;height:28px;display:flex;align-items:center;gap:8px;padding:0 12px;border-radius:6px;background:#3E55CF;color:#FFFFFF;font-size:12px;font-weight:500;cursor:pointer;transition:background 120ms cubic-bezier(.2,.8,.2,1)">Add screen<span style="font-size:11px;color:#C9D0F5">S</span></div>
+</div>
+<div style="height:64px"></div>
+</div>
+
+<div style="position:relative;display:flex;flex-direction:column;background:#F7F7F5">
+<div style="display:flex;justify-content:center;padding-top:16px"><div style="display:flex;gap:2px;padding:2px;background:#F1F1EE;border-radius:6px;box-shadow:0 0 0 1px #E4E4E0">
+<div style="height:24px;display:flex;align-items:center;padding:0 12px;font-size:12px;color:#6A6A65">ERD</div>
+<div style="height:24px;display:flex;align-items:center;padding:0 12px;font-size:12px;color:#6A6A65">Flows</div>
+<div style="height:24px;display:flex;align-items:center;padding:0 12px;border-radius:4px;font-size:12px;font-weight:500;background:#FFFFFF;box-shadow:0 1px 2px #1C1C1A0F,0 0 0 1px #1C1C1A0A">UI</div>
+</div></div>
+<div style="margin:auto;width:288px;display:flex;flex-direction:column;align-items:center;text-align:center;gap:8px;padding:24px;background:#FFFFFF;border-radius:10px;box-shadow:0 1px 2px #1C1C1A0F,0 0 0 1px #1C1C1A0A">
+<div style="font-size:13px;font-weight:600">No preview URL set</div>
+<div style="font-size:12px;line-height:18px;color:#6A6A65;text-wrap:pretty">Add preview.url to .design/config.json</div>
+<div style="align-self:stretch;margin-top:8px;padding:12px;border-radius:6px;background:#F1F1EE;font-size:12px;line-height:18px;text-align:left;color:#6A6A65">"preview": {<br>  <span style="color:#1C1C1A">"url"</span>: <span style="color:#3E55CF">"http://localhost:5173"</span><br>}</div>
+<div style="margin-top:8px;height:28px;display:flex;align-items:center;gap:8px;padding:0 12px;border-radius:6px;background:#FFFFFF;border:1px solid #CFCFCA;box-shadow:0 1px 2px #1C1C1A0F,0 0 0 1px #1C1C1A0A;font-size:12px;font-weight:500;cursor:pointer;transition:background 120ms cubic-bezier(.2,.8,.2,1)"><span style="font-size:13px">↻</span>Reload<span style="font-size:11px;color:#9B9B95">⌘R</span></div>
+</div>
+<div style="height:64px"></div>
+</div>
+
+</div>
+</div>
+</body>
+</html>

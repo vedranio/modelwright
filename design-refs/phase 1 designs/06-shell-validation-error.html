@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>06-shell-validation-error</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>body{margin:0;background:#E9E9E5;font-family:'IBM Plex Mono',ui-monospace,'SF Mono',Menlo,monospace;color:#1C1C1A;-webkit-font-smoothing:antialiased}*{box-sizing:content-box}</style>
+</head>
+<body>
+<div data-screen-label="06-shell-validation-error" data-artboard="06-shell-validation-error" style="width:1440px;height:900px;display:flex;flex-direction:column;overflow:hidden;background:#F7F7F5;box-shadow:0 4px 16px #1C1C1A14,0 1px 3px #1C1C1A0F">
+<div style="height:44px;flex:none;display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;padding:0 12px;background:#FFFFFF;border-bottom:1px solid #E4E4E0">
+<div style="display:flex;align-items:center;gap:8px;min-width:0">
+<div style="width:16px;height:16px;border-radius:4px;background:#3E55CF;flex:none;margin-left:4px"></div>
+<span style="color:#CFCFCA;font-size:13px">/</span>
+<div style="height:28px;display:flex;align-items:center;padding:0 8px;border-radius:6px;font-size:13px;font-weight:500;cursor:text">Notes</div>
+<span style="font-size:12px;color:#9B9B95;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">~/Code/notes-app</span>
+</div>
+<div style="display:flex;gap:2px;padding:2px;background:#F1F1EE;border-radius:6px">
+<div style="height:24px;display:flex;align-items:center;gap:8px;padding:0 12px;border-radius:4px;font-size:12px;font-weight:500;background:#FFFFFF;box-shadow:0 1px 2px #1C1C1A0F,0 0 0 1px #1C1C1A0A">ERD<span style="width:6px;height:6px;border-radius:999px;background:#A15C07"></span></div>
+<div style="height:24px;display:flex;align-items:center;padding:0 12px;border-radius:4px;font-size:12px;color:#6A6A65;cursor:pointer">Flows</div>
+<div style="height:24px;display:flex;align-items:center;padding:0 12px;border-radius:4px;font-size:12px;color:#6A6A65;cursor:pointer">UI</div>
+</div>
+<div style="display:flex;align-items:center;justify-content:flex-end;gap:8px">
+<div style="height:28px;display:flex;align-items:center;gap:8px;padding:0 8px;border-radius:6px;font-size:12px;color:#6A6A65;cursor:pointer"><span style="font-size:13px">↻</span>Reload<span style="font-size:11px;color:#9B9B95">⌘R</span></div>
+<div style="width:1px;height:16px;background:#E4E4E0"></div>
+<div style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:6px;font-size:16px;color:#6A6A65;cursor:pointer">×</div>
+</div>
+</div>
+<div style="flex:1;display:flex;justify-content:center;padding-top:96px">
+<div style="width:720px;display:flex;flex-direction:column">
+<div style="display:flex;align-items:center;gap:8px;font-size:12px;color:#A15C07"><span style="height:20px;display:flex;align-items:center;padding:0 8px;border-radius:4px;background:#FBF3E6">.design/erd.json</span>3 problems</div>
+<div style="font-size:16px;line-height:24px;font-weight:600;margin-top:12px">The ERD file couldn't be loaded</div>
+<div style="font-size:12px;line-height:18px;color:#6A6A65;margin-top:4px;text-wrap:pretty">Fix these in your editor, then reload. Nothing on disk has been changed, and Flows and UI still work.</div>
+<div style="margin-top:24px;background:#FFFFFF;border-radius:10px;overflow:hidden;box-shadow:0 1px 2px #1C1C1A0F,0 0 0 1px #1C1C1A0A">
+<div style="display:flex;gap:12px;padding:16px;border-bottom:1px solid #E4E4E0"><span style="width:6px;height:6px;border-radius:999px;background:#A15C07;margin-top:6px;flex:none"></span><div style="display:flex;flex-direction:column;gap:4px;min-width:0"><div style="font-size:12px;line-height:18px;font-weight:500">relationships <span style="color:#9B9B95">›</span> 0 <span style="color:#9B9B95">›</span> to</div><div style="font-size:12px;line-height:18px;color:#6A6A65">Relationship "user-notes" points at unknown entity "post"</div></div></div>
+<div style="display:flex;gap:12px;padding:16px;border-bottom:1px solid #E4E4E0"><span style="width:6px;height:6px;border-radius:999px;background:#A15C07;margin-top:6px;flex:none"></span><div style="display:flex;flex-direction:column;gap:4px;min-width:0"><div style="font-size:12px;line-height:18px;font-weight:500">entities <span style="color:#9B9B95">›</span> 2 <span style="color:#9B9B95">›</span> fields <span style="color:#9B9B95">›</span> 1 <span style="color:#9B9B95">›</span> type</div><div style="font-size:12px;line-height:18px;color:#6A6A65">Unknown field type "datetme". Expected one of string, number, boolean, date, reference</div></div></div>
+<div style="display:flex;gap:12px;padding:16px"><span style="width:6px;height:6px;border-radius:999px;background:#A15C07;margin-top:6px;flex:none"></span><div style="display:flex;flex-direction:column;gap:4px;min-width:0"><div style="font-size:12px;line-height:18px;font-weight:500">entities <span style="color:#9B9B95">›</span> 3</div><div style="font-size:12px;line-height:18px;color:#6A6A65">Missing required property "name"</div></div></div>
+</div>
+<div style="display:flex;gap:8px;margin-top:24px">
+<div style="height:28px;display:flex;align-items:center;gap:8px;padding:0 12px;border-radius:6px;background:#3E55CF;color:#FFFFFF;font-size:12px;font-weight:500;cursor:pointer;transition:background 120ms cubic-bezier(.2,.8,.2,1)"><span style="font-size:13px">↻</span>Reload<span style="font-size:11px;color:#C9D0F5">⌘R</span></div>
+<div style="height:28px;display:flex;align-items:center;padding:0 12px;border-radius:6px;font-size:12px;color:#6A6A65;cursor:pointer;transition:background 120ms cubic-bezier(.2,.8,.2,1)">Copy problems</div>
+</div>
+</div>
+</div>
+</div>
+</body>
+</html>

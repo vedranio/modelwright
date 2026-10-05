@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>04-shell-erd</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>body{margin:0;background:#E9E9E5;font-family:'IBM Plex Mono',ui-monospace,'SF Mono',Menlo,monospace;color:#1C1C1A;-webkit-font-smoothing:antialiased}*{box-sizing:content-box}</style>
+</head>
+<body>
+<div data-screen-label="04-shell-erd" data-artboard="04-shell-erd" style="width:1440px;height:900px;display:flex;flex-direction:column;overflow:hidden;background:#F7F7F5;box-shadow:0 4px 16px #1C1C1A14,0 1px 3px #1C1C1A0F">
+<div style="height:44px;flex:none;display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;padding:0 12px;background:#FFFFFF;border-bottom:1px solid #E4E4E0">
+<div style="display:flex;align-items:center;gap:8px;min-width:0">
+<div style="width:16px;height:16px;border-radius:4px;background:#3E55CF;flex:none;margin-left:4px"></div>
+<span style="color:#CFCFCA;font-size:13px">/</span>
+<div style="height:28px;display:flex;align-items:center;padding:0 8px;border:1px solid #3E55CF;box-shadow:0 0 0 3px #3E55CF33;border-radius:6px;background:#FFFFFF;font-size:13px;font-weight:500;min-width:144px">Notes app<span style="width:1px;height:16px;background:#3E55CF;margin-left:1px"></span></div>
+<span style="font-size:11px;color:#9B9B95;white-space:nowrap">↵ save · esc cancel</span>
+<span style="font-size:12px;color:#9B9B95;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-left:8px">~/Code/notes-app</span>
+</div>
+<div style="display:flex;gap:2px;padding:2px;background:#F1F1EE;border-radius:6px">
+<div style="height:24px;display:flex;align-items:center;padding:0 12px;border-radius:4px;font-size:12px;font-weight:500;background:#FFFFFF;box-shadow:0 1px 2px #1C1C1A0F,0 0 0 1px #1C1C1A0A;transition:background 120ms cubic-bezier(.2,.8,.2,1)">ERD</div>
+<div style="height:24px;display:flex;align-items:center;padding:0 12px;border-radius:4px;font-size:12px;color:#6A6A65;cursor:pointer;transition:color 120ms cubic-bezier(.2,.8,.2,1)">Flows</div>
+<div style="height:24px;display:flex;align-items:center;padding:0 12px;border-radius:4px;font-size:12px;color:#6A6A65;cursor:pointer;transition:color 120ms cubic-bezier(.2,.8,.2,1)">UI</div>
+</div>
+<div style="display:flex;align-items:center;justify-content:flex-end;gap:8px">
+<div style="height:28px;display:flex;align-items:center;gap:8px;padding:0 8px;border-radius:6px;font-size:12px;color:#6A6A65;cursor:pointer;transition:background 120ms cubic-bezier(.2,.8,.2,1)"><span style="font-size:13px">↻</span>Reload<span style="font-size:11px;color:#9B9B95">⌘R</span></div>
+<div style="width:1px;height:16px;background:#E4E4E0"></div>
+<div title="Close project  ⌘W" style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:6px;font-size:16px;color:#6A6A65;cursor:pointer;transition:background 120ms cubic-bezier(.2,.8,.2,1)">×</div>
+</div>
+</div>
+<div style="flex:1;position:relative;background-color:#F7F7F5;background-image:radial-gradient(circle,#D6D6D1 1px,transparent 1.2px);background-size:16px 16px">
+<div style="position:absolute;left:16px;bottom:16px;height:28px;display:flex;align-items:center;gap:8px;padding:0 12px;border-radius:999px;background:#FFFFFF;box-shadow:0 1px 2px #1C1C1A0F,0 0 0 1px #1C1C1A0A;font-size:12px;color:#6A6A65"><span style="width:6px;height:6px;border-radius:999px;background:#2E7D50"></span>Saved</div>
+<div style="position:absolute;left:50%;bottom:16px;transform:translateX(-50%);display:flex;align-items:center;gap:4px;padding:4px;border-radius:10px;background:#FFFFFF;box-shadow:0 4px 16px #1C1C1A14,0 1px 3px #1C1C1A0F">
+<div style="height:28px;display:flex;align-items:center;gap:8px;padding:0 12px;border-radius:6px;font-size:12px;font-weight:500;cursor:pointer;transition:background 120ms cubic-bezier(.2,.8,.2,1)"><span style="font-size:14px;color:#3E55CF">+</span>Add entity<span style="font-size:11px;color:#9B9B95">E</span></div>
+<div style="width:1px;height:16px;background:#E4E4E0"></div>
+<div style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:6px;font-size:14px;color:#6A6A65;cursor:pointer">−</div>
+<div style="width:48px;text-align:center;font-size:12px;color:#6A6A65">100%</div>
+<div style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:6px;font-size:14px;color:#6A6A65;cursor:pointer">+</div>
+<div style="width:1px;height:16px;background:#E4E4E0"></div>
+<div style="height:28px;display:flex;align-items:center;gap:8px;padding:0 8px;border-radius:6px;font-size:12px;color:#6A6A65;cursor:pointer">Fit<span style="font-size:11px;color:#9B9B95">⇧1</span></div>
+</div>
+</div>
+</div>
+</body>
+</html>
