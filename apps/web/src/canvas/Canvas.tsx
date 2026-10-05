@@ -29,6 +29,8 @@ type Owned =
   | 'panOnDrag'
   | 'selectionOnDrag'
   | 'proOptions'
+  | 'zoomOnDoubleClick'
+  | 'deleteKeyCode'
   | 'children';
 
 export type CanvasProps<N extends Node, E extends Edge> = Omit<ReactFlowProps<N, E>, Owned> & {
@@ -43,6 +45,7 @@ export type CanvasProps<N extends Node, E extends Edge> = Omit<ReactFlowProps<N,
 };
 
 export const MIN_ZOOM = 0.2;
+const DELETE_KEYS = ['Delete', 'Backspace'];
 export const MAX_ZOOM = 2;
 
 /**
@@ -86,6 +89,10 @@ function CanvasInner<N extends Node, E extends Edge>({
         selectionOnDrag
         panOnDrag={[1]}
         multiSelectionKeyCode="Shift"
+        // Double-click on empty canvas belongs to the view (e.g. creating a node), not to zoom.
+        zoomOnDoubleClick={false}
+        // Delete or Backspace deletes the selection; React Flow ignores them inside text fields.
+        deleteKeyCode={DELETE_KEYS}
         proOptions={{ hideAttribution: true }}
       >
         <Background variant={BackgroundVariant.Dots} gap={gap} size={dot} />

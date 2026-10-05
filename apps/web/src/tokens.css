@@ -99,5 +99,6 @@
   --chip-h: 20px;
   --name-input-min-w: 144px;
   --zoom-readout-w: 48px;
+  --dialog-w: 360px;
   --entity-w: 240px; /* keep in step with ENTITY_WIDTH in erd/metrics.ts */
 }

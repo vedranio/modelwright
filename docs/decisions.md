@@ -221,3 +221,29 @@ There's no design for these yet. Both are built from the existing tokens and jud
 - **Labels** sit beside the line, never on it: above a horizontal run, right of a vertical one. On a short edge, such as the notes fixture's 80-unit gap, a label on the line would hide a marker.
 - **Parallel relationships** are offset 16 units apart along the sides, so each stays visible and clickable. It's the minimum needed for "render and stay selectable"; proper separation is still phase 5.
 - **Self-relationships** draw as a square loop off the card's right side.
+
+## 2026-10-05 — Phase 2 milestone 4: editing entities
+
+### `useEditableDoc`
+
+- Hosted in `Shell`, which needs `dirty` for Reload, close, view switch and the focus re-read. It's generic over `'erd' | 'flows'` and holds the working copy plus the on-disk document it came from. While dirty, the working copy wins. Once clean, a newer on-disk document takes over, unless its canonical text equals the working copy (typically our own save read back), in which case nothing re-renders.
+- One write at a time. Edits made during a write keep the document dirty, and the next save picks them up.
+- `flush()` resolves `true` only when everything is on disk. Close uses it: if the save fails, an in-app dialog asks before the edits are thrown away.
+- Phase 1's `useDesign` keeps the previous document object when a re-read's canonical text is unchanged, so a focus re-read of an untouched file doesn't re-render the canvas.
+
+### Editing on the card
+
+- **Double-click to edit any text,** including attributes and notes, as the brief specifies for the name. A single click selects and drags the card.
+- **Opening a name or attribute selects its text,** so typing replaces it. Opening a description or note puts the caret at the end.
+- **Tab commits a field and moves to the next:** name → description → a new attribute at the end, and attribute → its note → a new attribute below it. Enter commits and closes, except on attribute names, where it continues. This is what makes "rename, describe, add three attributes using only the keyboard" possible: the brief's Enter-to-continue covers attributes but gives no keyboard route from the name to them.
+- **New attribute rows are drafts until they have a name.** Nothing empty is ever written: Enter on an empty draft, Escape or clicking away just closes it.
+- **Clearing an existing name doesn't delete anything.** An empty commit keeps the old entity or attribute name; deleting is the row's × button.
+- **Hover controls:** each attribute row shows "note" (when it has none) and ×. The header shows "+ description" when there's none. These sit at the row's or header's right and take no space, so cards don't change size on hover.
+- **New entities** are created centred on the point (the view's centre for Add entity and E, the pointer for double-click), with their name field focused and selected.
+
+### Canvas mechanics
+
+- **Measured sizes are kept and merged back into each node** (`canvas/useMeasurements`), and every node gets an initial size from `estimateEntitySize`. Without them, React Flow hides a node it thinks is unmeasured for a frame on every change. A double-click's second click then falls through to the pane, and a new card's name field can't take focus.
+- **Positions computed for unpositioned entities are written with the first real edit** (`withPlacement`), as the brief describes. A no-op edit writes nothing.
+- **Deletion goes through `onBeforeDelete`,** which asks when the delete cascades, applies `deleteEntities` and `deleteRelationships` itself, and returns `false` so React Flow doesn't remove anything a second time. Selected relationships are deleted with entities already, so milestone 5's multi-select delete only needs edge selection to work.
+- **Double-click no longer zooms** on any canvas (`zoomOnDoubleClick` is off in `Canvas`); views use double-click to create things.

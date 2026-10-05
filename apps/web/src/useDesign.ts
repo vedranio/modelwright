@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { DESIGN_KINDS, type Issue } from '@modelwright/schema';
+import { DESIGN_KINDS, stringifyDesign, type Issue } from '@modelwright/schema';
 import {
   ProjectClientError,
   useProjectClient,
@@ -44,7 +44,13 @@ export function useDesign(projectPath: string): UseDesign {
     );
     // A newer reload (or a project switch) has started; drop this stale result.
     if (request !== latest.current) return;
-    setDocs({ erd: results[0], flows: results[1], config: results[2] } as DesignState);
+    const next = { erd: results[0], flows: results[1], config: results[2] } as DesignState;
+    // A file whose content hasn't changed keeps its previous object, so nothing re-renders.
+    setDocs((prev) => ({
+      erd: unchanged('erd', prev.erd, next.erd),
+      flows: unchanged('flows', prev.flows, next.flows),
+      config: unchanged('config', prev.config, next.config),
+    }));
   }, [client, projectPath]);
 
   useEffect(() => {
@@ -79,4 +85,16 @@ async function loadDoc<K extends DesignKind>(
     }
     return { status: 'error', message: err instanceof Error ? err.message : String(err) };
   }
+}
+
+/** `prev` when both states hold the same document (compared canonically), otherwise `next`. */
+function unchanged<K extends DesignKind>(
+  kind: K,
+  prev: DocState<K>,
+  next: DocState<K>,
+): DocState<K> {
+  if (prev.status === 'ok' && next.status === 'ok') {
+    return stringifyDesign(kind, prev.doc) === stringifyDesign(kind, next.doc) ? prev : next;
+  }
+  return next;
 }

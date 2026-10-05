@@ -1,4 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useConfirm } from './ConfirmDialog';
+import { useEditableDoc } from './editing/useEditableDoc';
 import { ProjectName } from './ProjectName';
 import { useDesign } from './useDesign';
 import { ErdView } from './views/ErdView';
@@ -31,13 +33,50 @@ export function Shell({ project, onClose }: Props) {
   const { docs, reload, setFocusReloadPaused } = useDesign(project.path);
   const [view, setView] = useState<ViewId>(initialView);
   const [editingName, setEditingName] = useState(false);
+  const erd = useEditableDoc('erd', project.path, docs.erd);
+  const [dialog, confirm] = useConfirm();
+
+  // Re-reading on window focus never overwrites edits: it waits while the name is being
+  // edited or the ERD has unsaved changes.
+  useEffect(() => {
+    setFocusReloadPaused(editingName || erd.dirty);
+  }, [editingName, erd.dirty, setFocusReloadPaused]);
 
   function selectView(id: ViewId) {
+    void erd.flush();
     setView(id);
     savePref(VIEW_KEY, id);
   }
 
-  const onReload = () => void reload();
+  /** Re-reads the files from disk. Unsaved edits would be lost, so that asks first. */
+  async function reloadFromDisk() {
+    if (erd.dirty) {
+      const discard = await confirm({
+        title: 'Discard unsaved changes?',
+        message:
+          'Reload reads the design files from disk again. Your unsaved ERD changes will be lost.',
+        confirmLabel: 'Discard and reload',
+      });
+      if (!discard) return;
+      erd.discard();
+    }
+    await reload();
+  }
+
+  /** Saves before closing; if that fails, asks before throwing the edits away. */
+  async function close() {
+    if (!(await erd.flush())) {
+      const closeAnyway = await confirm({
+        title: 'Close without saving?',
+        message: 'Your latest ERD changes couldn’t be saved and will be lost.',
+        confirmLabel: 'Close anyway',
+      });
+      if (!closeAnyway) return;
+    }
+    onClose();
+  }
+
+  const onReload = () => void reloadFromDisk();
 
   return (
     <div className="shell">
@@ -52,10 +91,7 @@ export function Shell({ project, onClose }: Props) {
             config={docs.config}
             fallbackName={project.name}
             onSaved={reload}
-            onEditingChange={(editing) => {
-              setEditingName(editing);
-              setFocusReloadPaused(editing);
-            }}
+            onEditingChange={setEditingName}
           />
           {editingName && <span className="hint">↵ save · esc cancel</span>}
           <span className={`project-path${editingName ? ' spaced' : ''}`} title={project.path}>
@@ -92,7 +128,7 @@ export function Shell({ project, onClose }: Props) {
           <button
             type="button"
             className="btn-icon"
-            onClick={onClose}
+            onClick={() => void close()}
             aria-label="Close project"
             title="Close project"
           >
@@ -103,11 +139,12 @@ export function Shell({ project, onClose }: Props) {
 
       <main className="view" role="tabpanel">
         {view === 'erd' && (
-          <ErdView projectPath={project.path} state={docs.erd} onReload={onReload} />
+          <ErdView projectPath={project.path} state={docs.erd} edit={erd} onReload={onReload} />
         )}
         {view === 'flows' && <FlowsView state={docs.flows} onReload={onReload} />}
         {view === 'ui' && <UiView state={docs.config} onReload={onReload} />}
       </main>
+      {dialog}
     </div>
   );
 }

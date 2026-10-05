@@ -22,6 +22,7 @@
 }
 
 .entity-head {
+  position: relative;
   padding: var(--space-3) var(--space-3) var(--space-2);
 }
 
@@ -42,9 +43,13 @@
 
 .attributes {
   margin: 0;
-  padding: var(--space-1) 0 var(--space-2);
+  padding: var(--space-1) 0;
   list-style: none;
   border-top: var(--border-w) solid var(--color-border);
+}
+
+.attributes:empty {
+  display: none;
 }
 
 .attribute {
@@ -116,4 +121,156 @@
 
 .edge-label.selected {
   color: var(--color-accent);
+}
+
+/* Editing */
+
+.canvas-host {
+  position: absolute;
+  inset: 0;
+}
+
+.editable {
+  cursor: text;
+  border-radius: var(--radius-sm);
+}
+
+.inline-input {
+  width: 100%;
+  min-width: 0;
+  height: var(--text-md-lh);
+  margin: 0;
+  padding: 0 var(--space-1);
+  margin-left: calc(-1 * var(--space-1) - var(--border-w));
+  border: var(--border-w) solid var(--color-accent);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 0 0 var(--focus-ring-w) var(--color-focus-ring);
+  background: var(--color-surface);
+  font: inherit;
+  color: inherit;
+  caret-color: var(--color-accent);
+  outline: none;
+}
+
+.inline-input::placeholder {
+  color: var(--color-text-faint);
+}
+
+.entity-name-input {
+  font-size: var(--text-md);
+  font-weight: var(--weight-semibold);
+}
+
+.entity-description-input,
+.attribute-note-input {
+  margin-top: var(--space-0);
+}
+
+.attribute-note-input {
+  font-size: var(--text-xs);
+}
+
+/* Shown on hover at the header's right, taking no space, so cards don't change size. */
+.entity-affordance {
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-2);
+  visibility: hidden;
+  height: var(--text-md-lh);
+  padding: 0 var(--space-1);
+  border: none;
+  border-radius: var(--radius-sm);
+  background: none;
+  font-size: var(--text-xs);
+  color: var(--color-text-faint);
+  cursor: pointer;
+}
+
+.entity:hover .entity-affordance {
+  visibility: visible;
+}
+
+.entity-affordance:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text);
+}
+
+.attribute-line {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.attribute-line > .attribute-name {
+  flex: 1;
+  min-width: 0;
+}
+
+.attribute-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-0);
+  visibility: hidden;
+}
+
+.attribute:hover .attribute-actions {
+  visibility: visible;
+}
+
+.attribute-action {
+  height: var(--text-sm-lh);
+  min-width: var(--text-sm-lh);
+  padding: 0 var(--space-1);
+  border: none;
+  border-radius: var(--radius-sm);
+  background: none;
+  font-size: var(--text-xs);
+  color: var(--color-text-faint);
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-out);
+}
+
+.attribute-action:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text);
+}
+
+.attribute-delete {
+  font-size: var(--text-md);
+}
+
+.entity-add {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  height: var(--control-h);
+  padding: 0 var(--space-3);
+  border: none;
+  border-top: var(--border-w) solid var(--color-border);
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+  background: none;
+  font: inherit;
+  color: var(--color-text-faint);
+  cursor: pointer;
+  transition:
+    background var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
+}
+
+.entity-add:hover {
+  background: var(--color-surface-sunken);
+  color: var(--color-text-muted);
+}
+
+.entity-add-plus,
+.toolbar-add-plus {
+  font-size: var(--text-glyph);
+  color: var(--color-accent);
+}
+
+.toolbar-add {
+  font-weight: var(--weight-medium);
+  color: var(--color-text);
 }
