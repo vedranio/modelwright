@@ -1,5 +1,5 @@
-import { useState } from 'react';
 import { Cardinality } from '@modelwright/schema';
+import { LabelField } from '../editing/LabelField';
 import { useErdEditor } from './editor';
 import { CARDINALITY_LABELS } from './markers';
 import { deleteRelationships, reverseRelationship, updateRelationship } from './ops';
@@ -42,7 +42,12 @@ export function EdgePopover({ relationshipId, fromName, toName, fromCard, toCard
         value={toCard}
         onChange={(card) => update({ toCard: card })}
       />
-      <LabelField key={label} value={label} onCommit={(value) => update({ label: value.trim() })} />
+      <LabelField
+        key={label}
+        value={label}
+        placeholder="e.g. owns"
+        onCommit={(value) => update({ label: value.trim() })}
+      />
       <div className="edge-popover-actions">
         <button
           type="button"
@@ -88,30 +93,6 @@ function CardinalityPicker({
           </option>
         ))}
       </select>
-    </label>
-  );
-}
-
-/** The label input. Enter or blur saves; Escape puts back what was there. */
-function LabelField({ value, onCommit }: { value: string; onCommit: (value: string) => void }) {
-  const [draft, setDraft] = useState(value);
-  return (
-    <label className="edge-field">
-      <span className="edge-field-label">Label</span>
-      <input
-        className="input edge-input"
-        value={draft}
-        placeholder="e.g. owns"
-        spellCheck={false}
-        autoComplete="off"
-        onChange={(e) => setDraft(e.target.value)}
-        onBlur={() => draft !== value && onCommit(draft)}
-        onKeyDown={(e) => {
-          e.stopPropagation();
-          if (e.key === 'Enter') e.currentTarget.blur();
-          if (e.key === 'Escape') setDraft(value);
-        }}
-      />
     </label>
   );
 }

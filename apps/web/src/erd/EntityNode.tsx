@@ -1,7 +1,7 @@
 import { Handle, Position, type Node, type NodeProps } from '@xyflow/react';
 import type { Attribute, Entity } from '@modelwright/schema';
 import { isEditing, useErdEditor } from './editor';
-import { InlineField, type CommitReason } from './InlineField';
+import { InlineField, type CommitReason } from '../editing/InlineField';
 import {
   addAttribute,
   deleteAttribute,

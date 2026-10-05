@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
+import { sideAngle } from '../src/canvas/edgeGeometry';
 import {
   CORNER_CLEARANCE,
   PARALLEL_SPACING,
   floatingEnds,
   parallelOffsets,
-  sideAngle,
 } from '../src/erd/edgeGeometry';
 
 const card = (x: number, y: number) => ({ x, y, width: 240, height: 120 });

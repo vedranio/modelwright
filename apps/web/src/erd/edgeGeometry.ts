@@ -1,11 +1,4 @@
-export type Side = 'top' | 'right' | 'bottom' | 'left';
-
-export interface Rect {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
+import { fanOffsets, type Rect, type Side } from '../canvas/edgeGeometry';
 
 export interface EdgeEnd {
   x: number;
@@ -75,11 +68,6 @@ function overlap(a0: number, a1: number, b0: number, b1: number): number | null 
   return start <= end ? (start + end) / 2 : null;
 }
 
-/** The rotation, in degrees, that turns the marker frame's +x into the side's outward normal. */
-export function sideAngle(side: Side): number {
-  return { right: 0, bottom: 90, left: 180, top: -90 }[side];
-}
-
 function centre(r: Rect) {
   return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
 }
@@ -107,15 +95,9 @@ export const PARALLEL_SPACING = 16;
 export function parallelOffsets(
   relationships: readonly { id: string; from: string; to: string }[],
 ): Map<string, number> {
-  const groups = new Map<string, string[]>();
-  for (const r of relationships) {
-    if (r.from === r.to) continue;
-    const key = [r.from, r.to].sort().join('\u0000');
-    groups.set(key, [...(groups.get(key) ?? []), r.id]);
-  }
-  const offsets = new Map<string, number>();
-  for (const ids of groups.values()) {
-    ids.forEach((id, i) => offsets.set(id, (i - (ids.length - 1) / 2) * PARALLEL_SPACING));
-  }
-  return offsets;
+  return fanOffsets(
+    relationships,
+    (r) => (r.from === r.to ? null : [r.from, r.to].sort().join('\u0000')),
+    PARALLEL_SPACING,
+  );
 }

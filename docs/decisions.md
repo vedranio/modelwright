@@ -260,3 +260,96 @@ There's no design for these yet. Both are built from the existing tokens and jud
 - **An empty ERD shows 05's "No entities yet" card over the canvas, toolbar and save status included.** 04 draws the same empty canvas without the card; the two designs can't both hold, and 05 is the one about empty states.
 - **Timings and canvas geometry in TypeScript:** the autosave delay (500 ms, from the brief), "Copied" feedback (1.5 s), card size estimates, marker geometry, corner radius and new-entity offset are behaviour and canvas units in `.ts` modules, not CSS values. Everything CSS draws comes from `tokens.css`.
 - **Verified with simulated input, not a real trackpad:** scroll to pan (wheel), pinch to zoom (ctrl+wheel) and Shift-click (a synthesized Shift keydown; the browser tool's modifier flag alone doesn't produce one). These want a check by hand on a real trackpad and keyboard.
+
+## 2026-10-06 — Phase 3 planning decisions
+
+Settled in the phase 3 interview before any code was written. The brief's "Decisions this brief makes" stand, except where these change them.
+
+### No confirmations on Flows deletes (supersedes brief §6)
+
+Deleting screens, states, CTAs and transitions never asks, including when it cascades to transitions or retargets them. The cascades still happen exactly as the brief's table says. The ERD keeps its prompts.
+
+**Why:** confirmations are a stopgap for missing undo, and undo is coming in phase 5. Two "done means" items change from "asks first" to "deletes without asking, and the file validates". With nothing to word, there's no flows `deletion.ts`, and `erd/deletion.ts` stays in `erd/`.
+
+### "Make default" follows the default
+
+A transition without `stateId` targets whichever state is first. After "make default" it points at the new default, and nothing in the file is rewritten. This matches the schema's meaning of an omitted `stateId`, and `deleteState`'s retargeting relies on the same rule.
+
+### Tab path through a screen card
+
+name → notes → the first state's sees items in order. Tab on the last sees item, or on an empty sees draft, opens the first CTA (or a new CTA draft). CTAs go in order, then to the next state's name in a multi-state screen. Tab after the last field ends editing. Enter continues within a list, and Enter on an empty draft ends entry. This gives the "type, Enter, type, Enter" route from sees items to CTAs that the brief needs.
+
+### A new state copies the default state's sees items
+
+It's named "State", has no CTAs, is inserted after the state it was added from (at the end from the card's "+ add state"), and opens with its name selected. States usually differ from the default by an item or two, such as Error adding "error message".
+
+### Dropping a CTA on its own card
+
+Dropping on the CTA's own screen, anywhere outside a state header, makes a same-screen transition to the default state (no `stateId`), e.g. Error › "Try again" → Login. It does nothing only when the target would be the CTA's own state: its own state header, or anywhere on the card when the CTA sits in the default state.
+
+### Flows empty state gets its button (supersedes the phase 2 entry)
+
+The phase 2 entry left 05's "Add screen S" button off because adding screens didn't work yet. Now that S works, the button follows 05.
+
+## 2026-10-06 — Phase 3 milestone 0: shared pieces promoted out of `erd/`
+
+- `editing/InlineField.tsx`: moved unchanged.
+- `editing/ids.ts`: `newId(prefix, existing, random?)` over every prefix (`ent`, `attr`, `rel`, `scr`, `st`, `cta`, `tr`), with the same alphabet, length and collision retry. Each document's `idsIn` stays with its own editor.
+- `canvas/placement.ts`: `placeNodes(nodes, layout, sizeOf)`, the phase 2 algorithm over any node with an id. `erd/placement.ts` keeps `placeEntities` as a one-line wrapper.
+- `canvas/edgeGeometry.ts`: `Side`, `Rect`, `Point`, `sideAngle`, `CORNER_RADIUS`, `fanOffsets` (the general form of parallel offsets) and `orthogonalPath`, a rounded-corner path through waypoints. `floatingEnds` is crow's-foot-specific in practice (ends float to facing sides), so it stays in `erd/`, and `parallelOffsets` becomes a wrapper over `fanOffsets`. The ERD still draws with React Flow's `getSmoothStepPath`, so its edges are unchanged. Flows routes through `orthogonalPath`, because it needs waypoints that go around cards.
+- `editing/editor.ts`: `DocEditor<Doc, Target>`, `createEditorContext` and `isEditingTarget` (every key matches, except `selectAll`). `erd/editor.ts` keeps `EditTarget`, `isEditing` and `useErdEditor` as thin instantiations.
+- `erd/deletion.ts` stays put, since Flows deletes don't ask.
+
+## 2026-10-06 — Phase 3 milestone 1: flows canvas foundation
+
+- **`Shell` hosts two independent `useEditableDoc`s.** Switching views flushes only the one being left. The focus re-read waits while either is dirty. Reload asks if either is dirty and names which ("ERD and Flows"), then discards both. Close flushes both and names whichever failed.
+- **`FlowsView` mirrors `ErdView`:** the shared `Canvas`, `useSelection`, `useMeasurements` and `withPlacement` (via `placeNodes` and `estimateScreenSize`), with viewport key `flows:<path>`. `addScreen` and `moveScreens` land in `flows/ops.ts` now, because the toolbar and drag need them. The rest of the operations follow in milestone 2.
+- **`--screen-w` is 260px,** 20 wider than an entity, to fit a CTA row with its handle. `SCREEN_WIDTH` in `flows/metrics.ts` must agree with it.
+
+## 2026-10-06 — Phase 3 milestone 2: flow operations
+
+These follow the phase 2 conventions. Calls the brief left open:
+
+- **Sees items and CTAs take an optional initial text** (`addSeesItem(…, afterIndex?, text = '')`, `addCta(…, afterCtaId?, label = '')`), so the editor writes a draft once, with its text, rather than adding an empty item and then updating it. With no text they add an empty item, as `addAttribute` does.
+- **An unknown `after` position appends.** `afterStateId`, `afterIndex` and `afterCtaId` are placement hints; a missing state or screen is still a no-op.
+- **`addTransition` refuses missing ends** (`id: null`, same document): an unknown CTA, screen, or a `stateId` not on the target screen. It doesn't refuse a CTA's own state; that's the canvas's rule (decision "Dropping a CTA on its own card"), not the document's.
+- **`updateTransition(flows, id, { label?, stateId? })`:** `stateId: null` targets the default by removing the key, and a state that isn't on the target screen is ignored. Changing the target screen isn't offered.
+- **Deleting a default state** makes the next state the default, and transitions into it are retargeted to that new default.
+
+## 2026-10-06 — Phase 3 milestone 3: screen card and transition edges
+
+There's no phase 3 design, so both are built from tokens in the entity card's language, to be judged at the gate.
+
+- **Card:** the entity card's surface, radius, shadow and selection ring, `--screen-w` wide. The header holds the semibold name, with optional notes as a muted line. Each state body has a faint "Sees" caption over dash-marked muted items, and a "Does" caption over CTA rows drawn as small outlined lo-fi buttons. An empty list reads "Nothing yet". Multi-state screens give each state a sunken header row (`--state-head-h`) with its name, and a "default" tag in accent on the first.
+- **Handles:** each CTA row has a source handle on the card's right edge, hollow (faint ring) with no transitions and filled (muted) with one or more. Target handles on the screen header and on shown state headers are invisible anchors; the arrowhead marks the target.
+- **Endpoints** (`flows/endpoints.ts`, pure and tested): the source handle is `cta:<stateId>:<ctaId>`, since CTA ids are only unique per state. The target is `state:<stateId>` when `to.stateId` is set and the screen shows state headers, otherwise `screen`.
+- **Routing** (`flows/route.ts`, pure and tested) goes from the source card's right edge to the target card's left edge, with a 20-unit stub at each end and an 8-unit filled arrowhead.
+  - **Forward:** when there's room between the cards, the path jogs once in the middle.
+  - **Otherwise (backward edges and same-screen loops):** the path goes out past the right of both cards, along a lane, and back in from the left of both. The lane runs through the gap between stacked cards when there's room, otherwise round the top or bottom, whichever is shorter. So a loop never crosses its own card.
+  - **Fan-out:** transitions from one CTA fan out 12 units apart at their first turn.
+  - **Tracks:** each screen's outgoing transitions get their own track, 8 units further out per track, so several loops round one card don't overlap.
+- **Labels** sit above the middle of the path's longest horizontal run, beside the line, as on the ERD.
+- **Generic canvas CSS moved to `canvas/canvas.css`:** `.anchor-handle`, `.edge-label`, `.canvas-host`, `.editable`, `.inline-input`, the popover field styles and the toolbar "+" button. These sat in `erd.css` but both views use them. The selectors are unchanged and load in the same order, so the ERD looks the same.
+- **Not done (out of scope):** routing around cards other than the transition's own two. A long backward edge can cross unrelated cards.
+
+## 2026-10-06 — Phase 3 milestone 4: editing screens
+
+- **Hover controls take no space,** as on the ERD. The screen header shows "+ notes" (when there are none) and "+ state" at its right. A state header shows "make default" (except on the first) and ×. Each sees item and CTA row shows ×. A single-state screen has no state header, so its last state can't be deleted from the UI.
+- **"+ state" sits in the screen header** for single- and multi-state screens alike. It appends a state and opens its name, selected.
+- **Each list ends in an always-visible "+ Add item" / "+ Add CTA" row,** like the ERD's "+ Add attribute". It replaces the read-only "Nothing yet".
+- **Clearing an existing sees item, CTA, state or screen name doesn't delete it:** an empty commit keeps the old text, and × deletes.
+- **Tab order** lives in `flows/tabOrder.ts` (pure, tested) and follows the planning decision. Name → notes skips the first state's name and goes straight to its sees items, as the brief orders it. Later states are entered at their name.
+- **Screen delete** (Delete or Backspace on a selection) goes through `onBeforeDelete`, which applies `deleteScreens` and `deleteTransitions` without asking.
+
+## 2026-10-06 — Phase 3 milestone 5: editing transitions
+
+- **Connecting** follows the ERD pattern: `onConnectEnd` looks under the pointer for a `[data-state-header]` and a card (`.react-flow__node`), and `isValidConnection` is always false. The CTA is found from the drag's source handle by matching every CTA's handle id (`flows/connect.ts`), rather than by parsing the id: schema ids may contain any character. The drop rules are pure and tested (`dropTarget`). While a drag is in progress, hovering a header outlines it in accent, so you can see what you'll target.
+- **Popover:** a read-only "From", a "To" select ("<Screen> (default state)" omits `stateId`; then "<Screen> › <State>" for every state, including the first), the label (Enter or blur saves, Escape restores), and Delete. `LabelField` moved to `editing/` and is shared with the ERD popover, unchanged.
+- **Fan-out (supersedes milestone 3's 12-unit offsets):** transitions from one CTA turn at their own column, 12 units apart going out from the CTA. Loops in the group turn at their column too, once past both cards. With centred offsets, a forward edge and a loop from the same CTA could end up 2 units apart and overlap.
+
+## 2026-10-06 — Phase 3 milestone 6: verification notes
+
+Walked the "done means" list by hand in the browser against scratch copies of the notes fixture, an empty project and a project with an unpositioned screen. Every item passed, with the two "asks first" items now reading "deletes without asking" (planning decision). One bug turned up during the walk and was fixed before milestone 4's commit: new screens didn't open their name field.
+
+- **Verified with simulated input:** Shift-click (a synthesized Shift keydown, as in phase 2), and drags in a small browser pane, with positions taken from the DOM. They want a check by hand on a real trackpad and keyboard.
+- **Not fixed, outside this phase's scope: a phase 2 `useEditableDoc` bug.** After an edit has saved, if `flows.json` (or `erd.json`) on disk is reverted to exactly its pre-edit text, Reload keeps showing the edited copy. The re-read hands back the same document object the working copy was based on, so the hook can't tell anything changed. Reopening the project shows the file correctly. Editing a file by hand to anything else works as intended.

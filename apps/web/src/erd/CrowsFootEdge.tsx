@@ -9,7 +9,8 @@ import {
   type InternalNode,
 } from '@xyflow/react';
 import type { Cardinality } from '@modelwright/schema';
-import { floatingEnds, sideAngle, type EdgeEnd, type Rect, type Side } from './edgeGeometry';
+import { CORNER_RADIUS, sideAngle, type Rect, type Side } from '../canvas/edgeGeometry';
+import { floatingEnds, type EdgeEnd } from './edgeGeometry';
 import { EdgePopover } from './EdgePopover';
 import { MARKER, markerShapes } from './markers';
 
@@ -42,8 +43,6 @@ const LABEL_PLACEMENT: Record<LabelSide, string> = {
   right: 'translate(var(--space-2), -50%)',
 };
 
-/** Corner radius of the orthogonal path, in canvas units. */
-const CORNER_RADIUS = 8;
 /** How far a self-relationship's loop stands off the card's right side. */
 const SELF_LOOP_REACH = 48;
 

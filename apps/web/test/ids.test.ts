@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { idsIn, newId } from '../src/erd/ids';
+import { newId } from '../src/editing/ids';
+import { idsIn } from '../src/erd/ids';
 import { notesErd } from './fixtures';
 
 describe('newId', () => {
@@ -9,6 +10,14 @@ describe('newId', () => {
       expect(newId(prefix, new Set())).toMatch(new RegExp(`^${prefix}_[0-9a-z]{8}$`));
     },
   );
+
+  it.each(['scr', 'st', 'cta', 'tr'] as const)('makes flow %s_ ids in the same shape', (prefix) => {
+    expect(newId(prefix, new Set())).toMatch(new RegExp(`^${prefix}_[0-9a-z]{8}$`));
+  });
+
+  it('is deterministic for a given random source', () => {
+    expect(newId('scr', new Set(), () => 'abcd1234')).toBe('scr_abcd1234');
+  });
 
   it('retries until the id is not already taken', () => {
     const sequence = ['aaaaaaaa', 'bbbbbbbb', 'cccccccc'];

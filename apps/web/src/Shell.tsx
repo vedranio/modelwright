@@ -34,41 +34,47 @@ export function Shell({ project, onClose }: Props) {
   const [view, setView] = useState<ViewId>(initialView);
   const [editingName, setEditingName] = useState(false);
   const erd = useEditableDoc('erd', project.path, docs.erd);
+  const flows = useEditableDoc('flows', project.path, docs.flows);
   const [dialog, confirm] = useConfirm();
 
   // Re-reading on window focus never overwrites edits: it waits while the name is being
-  // edited or the ERD has unsaved changes.
+  // edited or either canvas has unsaved changes.
   useEffect(() => {
-    setFocusReloadPaused(editingName || erd.dirty);
-  }, [editingName, erd.dirty, setFocusReloadPaused]);
+    setFocusReloadPaused(editingName || erd.dirty || flows.dirty);
+  }, [editingName, erd.dirty, flows.dirty, setFocusReloadPaused]);
 
   function selectView(id: ViewId) {
-    void erd.flush();
+    // Save the view being left, so its edits are on disk before the other one shows.
+    if (view === 'erd') void erd.flush();
+    if (view === 'flows') void flows.flush();
     setView(id);
     savePref(VIEW_KEY, id);
   }
 
   /** Re-reads the files from disk. Unsaved edits would be lost, so that asks first. */
   async function reloadFromDisk() {
-    if (erd.dirty) {
+    const unsaved = [erd.dirty && 'ERD', flows.dirty && 'Flows'].filter(Boolean).join(' and ');
+    if (unsaved) {
       const discard = await confirm({
         title: 'Discard unsaved changes?',
-        message:
-          'Reload reads the design files from disk again. Your unsaved ERD changes will be lost.',
+        message: `Reload reads the design files from disk again. Your unsaved ${unsaved} changes will be lost.`,
         confirmLabel: 'Discard and reload',
       });
       if (!discard) return;
       erd.discard();
+      flows.discard();
     }
     await reload();
   }
 
   /** Saves before closing; if that fails, asks before throwing the edits away. */
   async function close() {
-    if (!(await erd.flush())) {
+    const [erdSaved, flowsSaved] = await Promise.all([erd.flush(), flows.flush()]);
+    if (!erdSaved || !flowsSaved) {
+      const failed = [!erdSaved && 'ERD', !flowsSaved && 'Flows'].filter(Boolean).join(' and ');
       const closeAnyway = await confirm({
         title: 'Close without saving?',
-        message: 'Your latest ERD changes couldn’t be saved and will be lost.',
+        message: `Your latest ${failed} changes couldn’t be saved and will be lost.`,
         confirmLabel: 'Close anyway',
       });
       if (!closeAnyway) return;
@@ -141,7 +147,14 @@ export function Shell({ project, onClose }: Props) {
         {view === 'erd' && (
           <ErdView projectPath={project.path} state={docs.erd} edit={erd} onReload={onReload} />
         )}
-        {view === 'flows' && <FlowsView state={docs.flows} onReload={onReload} />}
+        {view === 'flows' && (
+          <FlowsView
+            projectPath={project.path}
+            state={docs.flows}
+            edit={flows}
+            onReload={onReload}
+          />
+        )}
         {view === 'ui' && <UiView state={docs.config} onReload={onReload} />}
       </main>
       {dialog}

@@ -101,4 +101,7 @@
   --zoom-readout-w: 48px;
   --dialog-w: 360px;
   --entity-w: 240px; /* keep in step with ENTITY_WIDTH in erd/metrics.ts */
+  --screen-w: 260px; /* keep in step with SCREEN_WIDTH in flows/metrics.ts */
+  --state-head-h: 28px; /* keep in step with flows/metrics.ts */
+  --cta-row-h: 26px; /* keep in step with flows/metrics.ts */
 }
