@@ -4,7 +4,7 @@ A local design tool that produces a structured spec — an entity relationship d
 
 ## Current phase
 
-**Phase 2 — ERD canvas.** See `docs/phase-2-brief.md`. Phase 1 (foundation) is complete and merged. Build the shared canvas layer and editable-document plumbing generically so phase 3 can reuse them, but build nothing flow-specific. Do not start phase 3 work until phase 2's "done means" has been verified and committed.
+**Phase 3 — Flow canvas.** See `docs/phase-3-brief.md`. Phases 1 (foundation) and 2 (ERD canvas) are complete and merged. Reuse phase 2's `Canvas`, `useEditableDoc` and editing patterns, and promote anything flows needs out of `erd/` rather than copying it. Do not start phase 4 work until phase 3's "done means" has been verified and committed.
 
 Phases, in order:
 
