@@ -10,7 +10,7 @@ import { version } from '../package.json';
 import { ProjectClientError, useProjectClient, type ProjectSummary } from './platform';
 import { relativeTime } from './relativeTime';
 import { useShortcut } from './shortcuts';
-import { Dot, Kbd, Logo } from './ui';
+import { FieldError, Kbd, Logo } from './ui';
 
 interface Props {
   onOpen: (project: ProjectSummary) => void;
@@ -297,15 +297,6 @@ export function ProjectPicker({ onOpen, initialError = null }: Props) {
         </section>
       </div>
     </div>
-  );
-}
-
-function FieldError({ message }: { message: string }) {
-  return (
-    <p className="field-error" role="alert">
-      <Dot tone="error" />
-      {message}
-    </p>
   );
 }
 

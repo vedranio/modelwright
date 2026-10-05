@@ -982,3 +982,37 @@ button {
   text-decoration: underline;
   cursor: pointer;
 }
+
+/* Preview URL field */
+
+.url-field {
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+}
+
+.url-field-row {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.url-field-row .input {
+  flex: 1;
+}
+
+.empty-url {
+  margin-top: var(--space-4);
+}
+
+.inline-retry {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+
+.inline-retry:hover {
+  text-decoration: underline;
+}

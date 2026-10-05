@@ -1,33 +1,32 @@
 import { DEFAULT_DEVICES } from '@modelwright/schema';
+import { setPreviewUrl } from '../config/ops';
+import type { EditableDoc } from '../editing/useEditableDoc';
+import { UrlField } from '../preview/UrlField';
 import type { DocState } from '../useDesign';
-import { ReloadGlyph } from '../ui';
 import { DocStateView } from './DocStateView';
 import { EmptyCard } from './common';
 
-export function UiView({ state, onReload }: { state: DocState<'config'>; onReload: () => void }) {
+interface Props {
+  /** config.json as read, for its loading and validation states. */
+  state: DocState<'config'>;
+  /** The shared config editor; its working copy is what the view shows. */
+  edit: EditableDoc<'config'>;
+  onReload: () => void;
+}
+
+export function UiView({ state, edit, onReload }: Props) {
+  const setUrl = (url: string) => edit.apply((c) => setPreviewUrl(c, url), { saveNow: true });
+
   return (
     <div className="view-fill">
       <DocStateView kind="config" state={state} onReload={onReload}>
-        {(config) => {
+        {(onDisk) => {
+          const config = edit.doc ?? onDisk;
           if (!config.preview.url) {
             return (
-              <EmptyCard
-                title="No preview URL set"
-                actions={
-                  <button type="button" className="btn btn-secondary" onClick={onReload}>
-                    <ReloadGlyph />
-                    Reload
-                  </button>
-                }
-              >
-                Add preview.url to .design/config.json
-                <pre className="snippet">
-                  {'"preview": {\n  '}
-                  <span className="snippet-key">"url"</span>
-                  {': '}
-                  <span className="snippet-value">"http://localhost:5173"</span>
-                  {'\n}'}
-                </pre>
+              <EmptyCard title="No preview URL set">
+                Where your project’s dev server runs. It’s saved to .design/config.json.
+                <UrlField className="empty-url" submitLabel="Set preview URL" onCommit={setUrl} />
               </EmptyCard>
             );
           }

@@ -35,13 +35,14 @@ export function Shell({ project, onClose }: Props) {
   const [editingName, setEditingName] = useState(false);
   const erd = useEditableDoc('erd', project.path, docs.erd, noteWritten);
   const flows = useEditableDoc('flows', project.path, docs.flows, noteWritten);
+  const config = useEditableDoc('config', project.path, docs.config, noteWritten);
   const [dialog, confirm] = useConfirm();
 
   // Re-reading on window focus never overwrites edits: it waits while the name is being
-  // edited or either canvas has unsaved changes.
+  // edited or any file has unsaved changes.
   useEffect(() => {
-    setFocusReloadPaused(editingName || erd.dirty || flows.dirty);
-  }, [editingName, erd.dirty, flows.dirty, setFocusReloadPaused]);
+    setFocusReloadPaused(editingName || erd.dirty || flows.dirty || config.dirty);
+  }, [editingName, erd.dirty, flows.dirty, config.dirty, setFocusReloadPaused]);
 
   function selectView(id: ViewId) {
     // Save the view being left, so its edits are on disk before the other one shows.
@@ -53,7 +54,7 @@ export function Shell({ project, onClose }: Props) {
 
   /** Re-reads the files from disk. Unsaved edits would be lost, so that asks first. */
   async function reloadFromDisk() {
-    const unsaved = [erd.dirty && 'ERD', flows.dirty && 'Flows'].filter(Boolean).join(' and ');
+    const unsaved = listed([erd.dirty && 'ERD', flows.dirty && 'Flows', config.dirty && 'UI']);
     if (unsaved) {
       const discard = await confirm({
         title: 'Discard unsaved changes?',
@@ -63,15 +64,20 @@ export function Shell({ project, onClose }: Props) {
       if (!discard) return;
       erd.discard();
       flows.discard();
+      config.discard();
     }
     await reload();
   }
 
   /** Saves before closing; if that fails, asks before throwing the edits away. */
   async function close() {
-    const [erdSaved, flowsSaved] = await Promise.all([erd.flush(), flows.flush()]);
-    if (!erdSaved || !flowsSaved) {
-      const failed = [!erdSaved && 'ERD', !flowsSaved && 'Flows'].filter(Boolean).join(' and ');
+    const [erdSaved, flowsSaved, configSaved] = await Promise.all([
+      erd.flush(),
+      flows.flush(),
+      config.flush(),
+    ]);
+    if (!erdSaved || !flowsSaved || !configSaved) {
+      const failed = listed([!erdSaved && 'ERD', !flowsSaved && 'Flows', !configSaved && 'UI']);
       const closeAnyway = await confirm({
         title: 'Close without saving?',
         message: `Your latest ${failed} changes couldn’t be saved and will be lost.`,
@@ -93,10 +99,8 @@ export function Shell({ project, onClose }: Props) {
             /
           </span>
           <ProjectName
-            projectPath={project.path}
-            config={docs.config}
+            config={config}
             fallbackName={project.name}
-            onSaved={reload}
             onEditingChange={setEditingName}
           />
           {editingName && <span className="hint">↵ save · esc cancel</span>}
@@ -155,9 +159,16 @@ export function Shell({ project, onClose }: Props) {
             onReload={onReload}
           />
         )}
-        {view === 'ui' && <UiView state={docs.config} onReload={onReload} />}
+        {view === 'ui' && <UiView state={docs.config} edit={config} onReload={onReload} />}
       </main>
       {dialog}
     </div>
   );
+}
+
+/** "ERD", "ERD and Flows", "ERD, Flows and UI". */
+function listed(names: (string | false)[]): string {
+  const present = names.filter((n): n is string => Boolean(n));
+  if (present.length <= 1) return present.join('');
+  return `${present.slice(0, -1).join(', ')} and ${present[present.length - 1]}`;
 }

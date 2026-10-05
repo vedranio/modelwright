@@ -1,31 +1,26 @@
 import { useState, type FormEvent, type KeyboardEvent } from 'react';
-import { useProjectClient } from './platform';
-import type { DocState } from './useDesign';
+import { renameProject } from './config/ops';
+import type { EditableDoc } from './editing/useEditableDoc';
 
 interface Props {
-  projectPath: string;
-  config: DocState<'config'>;
+  config: EditableDoc<'config'>;
   /** Shown when config.json can't be read, so the header always has a name. */
   fallbackName: string;
-  onSaved: () => Promise<void>;
   onEditingChange: (editing: boolean) => void;
 }
 
-/** The project name in the header. Click to edit; Enter or blur saves to config.json, Escape cancels. */
-export function ProjectName({
-  projectPath,
-  config,
-  fallbackName,
-  onSaved,
-  onEditingChange,
-}: Props) {
-  const client = useProjectClient();
+/**
+ * The project name in the header. Click to edit; Enter or blur commits through the shared
+ * config editor, which saves at once. Escape cancels.
+ */
+export function ProjectName({ config, fallbackName, onEditingChange }: Props) {
   const [draft, setDraft] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const name = config.status === 'ok' ? config.doc.name : fallbackName;
-  const editable = config.status === 'ok';
+  const doc = config.doc;
+  const name = doc?.name ?? fallbackName;
+  const editable = doc !== null;
+  const saveError = config.status === 'failed' || config.status === 'invalid';
 
   function startEditing() {
     if (!editable) return;
@@ -39,25 +34,15 @@ export function ProjectName({
     onEditingChange(false);
   }
 
-  async function save(event?: FormEvent) {
+  function save(event?: FormEvent) {
     event?.preventDefault();
-    if (draft === null || saving || config.status !== 'ok') return;
-    const next = draft;
-    if (next === config.doc.name) return stopEditing();
-    if (next.trim() === '') {
+    if (draft === null) return;
+    if (draft.trim() === '') {
       setError('Name can’t be empty');
       return;
     }
-    setSaving(true);
-    try {
-      await client.writeDesign(projectPath, 'config', { ...config.doc, name: next });
-      stopEditing();
-      await onSaved();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setSaving(false);
-    }
+    config.apply((c) => renameProject(c, draft), { saveNow: true });
+    stopEditing();
   }
 
   function onKeyDown(event: KeyboardEvent<HTMLInputElement>) {
@@ -82,10 +67,15 @@ export function ProjectName({
         ) : (
           <span className="inline-name static">{name}</span>
         )}
-        {error && (
-          <span className="inline-error" role="alert">
-            {error}
-          </span>
+        {saveError && (
+          <button
+            type="button"
+            className="inline-error inline-retry"
+            role="alert"
+            onClick={() => void config.flush()}
+          >
+            Couldn’t save — retry
+          </button>
         )}
       </span>
     );
@@ -100,9 +90,8 @@ export function ProjectName({
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
         onFocus={(e) => e.currentTarget.select()}
-        onBlur={() => void save()}
+        onBlur={() => save()}
         onKeyDown={onKeyDown}
-        disabled={saving}
         autoFocus
       />
       {error && (

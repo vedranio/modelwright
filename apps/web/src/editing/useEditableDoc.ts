@@ -16,8 +16,11 @@ import {
 
 export type { SaveStatus };
 
-/** The documents that have editors. Config is edited through its own small form. */
-export type EditableKind = 'erd' | 'flows';
+/**
+ * Every design file has an editor. The canvases autosave after a pause; config edits are
+ * discrete commits (Enter or blur) and pass `saveNow`.
+ */
+export type EditableKind = 'erd' | 'flows' | 'config';
 
 /** About this long after the last edit, the document saves. */
 export const AUTOSAVE_DELAY_MS = 500;

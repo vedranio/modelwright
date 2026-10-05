@@ -362,3 +362,28 @@ Walked the "done means" list by hand in the browser against scratch copies of th
   - Once clean, `useEditableDoc` compares canonical text and never identity. A different on-disk text always takes over. The same text keeps the working copy's object, so nothing re-renders. The working copy's `base` is gone.
 - **Testable state:** the state logic now lives in `editing/editableState.ts` (pure, tested), and `DocState` with `keepUnchanged` in `docState.ts`. The hook is a thin shell over them. The regression test drives both together, as `Shell` does.
 - **Verified by hand** on ERD and Flows: edit, revert the file with git, Reload shows the reverted text, and a further edit saves.
+
+## 2026-10-06 — Phase 4 planning decisions
+
+Settled in the phase 4 interview before any code was written. The brief's "Decisions this brief makes" all stand as written: modelwright never runs the dev server; one editing path for all three files; no schema change; one guarded endpoint that returns no bodies; the preview never shares the tool's origin; device switching resizes without remounting, and the iframe stays mounted across view switches; scale down to fit, never up; a device without a height fills the available height; poll only while "Nothing running" and visible. These sharpen them:
+
+- **Showing the UI view re-checks, but keeps the iframe.** While that check runs, the preview stays as it is. The state changes only if the result isn't `ok`, so a dev server that stopped while you were in the ERD is noticed when you come back. There's still no background polling once the preview is up.
+- **`frame-ancestors` beats `X-Frame-Options`, as in browsers.** When an enforced CSP header has a `frame-ancestors` directive, that decides, and XFO is ignored. Otherwise XFO `DENY` or `SAMEORIGIN` refuses. Report-only CSP is ignored, and every enforced CSP header has to allow the tool. Classifying by the brief's letter would report "refuses embedding" for a page the iframe actually shows.
+- **Odd failures are `unreachable` with a specific detail:** too many redirects (more than 5) and a TLS certificate Node doesn't trust. The "Nothing running" card shows the detail and keeps polling. The four statuses stay as the brief has them.
+- **The URL can be edited from the "Nothing running" and "Refuses embedding" cards too** (double-click, same validation), so a wrong port doesn't need a hand edit of `config.json`.
+- **The tool's own address** is ports 4300 and 4301 on any loopback host (`localhost`, `*.localhost`, `127.0.0.0/8`, `[::1]`, `[::]`, `0.0.0.0`, IPv4-mapped loopback), plus the exact origin the page is served from. The same ports on another machine are allowed.
+- **Smaller calls:**
+  - `devices: []` falls back to the presets. With a single device there's no toggle, just its size.
+  - Devices narrower than 768 get a phone-like frame; wider ones get a window frame.
+  - "Checking" shows only once a check has taken about 300 ms.
+  - Reload preview re-navigates the iframe to the configured URL. It's cross-origin, so the tool can't reload the app's current route.
+  - The No-URL card replaces 05's JSON snippet and its Reload button with the URL field, "Set preview URL" and a line saying where the URL is saved. The header still has Reload.
+- **Not changed:** the untracked `docs/CLAUDE.md` (a stale copy of the root file) is left alone.
+
+## 2026-10-06 — Phase 4 milestone 1: config editing
+
+- **`useEditableDoc` covers `config`.** `Shell` hosts a third editor. The focus re-read waits while any of the three is dirty. Reload's prompt and close's failure message name it "UI" (via a small `listed()` helper: "ERD, Flows and UI").
+- **The header's name edit goes through it,** with `saveNow`. The recents entry is still renamed by the server on `PUT config`, so the header no longer re-reads the files after a rename. A failed config save, from the name or the URL, shows "Couldn’t save — retry" beside the name in the header, which is always visible, rather than beside whichever field made the edit.
+- **A blank project name is refused by `renameProject`** (same object back), because the schema requires one. The header still says "Name can’t be empty".
+- **URL rules** (`preview/url.ts`) prefix a bare host, with or without port and path (`localhost`, `localhost:5173/app`, `[::1]:3000`), with `http://`. The URL is saved exactly as entered (no trailing slash from `URL.href`). A stored URL is checked without prefixing, so a hand-edited `localhost:5173` shows the invalid-URL state, with the fix one Enter away in its field.
+- **`UrlField`** is the single input for preview URLs. `FieldError` moved from the picker to `ui.tsx` so both share it.
