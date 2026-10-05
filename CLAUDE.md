@@ -4,7 +4,7 @@ A local design tool that produces a structured spec — an entity relationship d
 
 ## Current phase
 
-**Phase 3 — Flow canvas.** See `docs/phase-3-brief.md`. Phases 1 (foundation) and 2 (ERD canvas) are complete and merged. Reuse phase 2's `Canvas`, `useEditableDoc` and editing patterns, and promote anything flows needs out of `erd/` rather than copying it. Do not start phase 4 work until phase 3's "done means" has been verified and committed.
+**Phase 4 — Preview.** See `docs/phase-4-brief.md`. Phases 1 (foundation), 2 (ERD canvas) and 3 (flow canvas) are complete and merged. modelwright never runs a project's dev server; it previews the URL in `config.json`. Do not start phase 5 work until phase 4's "done means" has been verified and committed.
 
 Phases, in order:
 
