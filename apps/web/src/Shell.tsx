@@ -30,11 +30,11 @@ interface Props {
 }
 
 export function Shell({ project, onClose }: Props) {
-  const { docs, reload, setFocusReloadPaused } = useDesign(project.path);
+  const { docs, reload, setFocusReloadPaused, noteWritten } = useDesign(project.path);
   const [view, setView] = useState<ViewId>(initialView);
   const [editingName, setEditingName] = useState(false);
-  const erd = useEditableDoc('erd', project.path, docs.erd);
-  const flows = useEditableDoc('flows', project.path, docs.flows);
+  const erd = useEditableDoc('erd', project.path, docs.erd, noteWritten);
+  const flows = useEditableDoc('flows', project.path, docs.flows, noteWritten);
   const [dialog, confirm] = useConfirm();
 
   // Re-reading on window focus never overwrites edits: it waits while the name is being

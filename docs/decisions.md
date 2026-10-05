@@ -353,3 +353,12 @@ Walked the "done means" list by hand in the browser against scratch copies of th
 
 - **Verified with simulated input:** Shift-click (a synthesized Shift keydown, as in phase 2), and drags in a small browser pane, with positions taken from the DOM. They want a check by hand on a real trackpad and keyboard.
 - **Not fixed, outside this phase's scope: a phase 2 `useEditableDoc` bug.** After an edit has saved, if `flows.json` (or `erd.json`) on disk is reverted to exactly its pre-edit text, Reload keeps showing the edited copy. The re-read hands back the same document object the working copy was based on, so the hook can't tell anything changed. Reopening the project shows the file correctly. Editing a file by hand to anything else works as intended.
+
+## 2026-10-06 — Phase 4 milestone 0: the `useEditableDoc` revert fix
+
+- **Cause:** after a save, `useDesign` still held the pre-edit document, because nothing had re-read the file. Reverting the file to that exact text and pressing Reload made `useDesign` keep that same object, and the hook's "the on-disk document hasn't changed since my edit" identity check let the edited copy win.
+- **Fix, in two parts:**
+  - `useDesign.noteWritten(kind, doc)` records each successful save, so the on-disk state stays true to the file without a re-read. A re-read already in flight keeps the written document for that file rather than its own possibly-older result.
+  - Once clean, `useEditableDoc` compares canonical text and never identity. A different on-disk text always takes over. The same text keeps the working copy's object, so nothing re-renders. The working copy's `base` is gone.
+- **Testable state:** the state logic now lives in `editing/editableState.ts` (pure, tested), and `DocState` with `keepUnchanged` in `docState.ts`. The hook is a thin shell over them. The regression test drives both together, as `Shell` does.
+- **Verified by hand** on ERD and Flows: edit, revert the file with git, Reload shows the reverted text, and a further edit saves.
