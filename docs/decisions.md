@@ -299,3 +299,9 @@ The phase 2 entry left 05's "Add screen S" button off because adding screens did
 - `canvas/edgeGeometry.ts`: `Side`, `Rect`, `Point`, `sideAngle`, `CORNER_RADIUS`, `fanOffsets` (the general form of parallel offsets) and `orthogonalPath`, a rounded-corner path through waypoints. `floatingEnds` is crow's-foot-specific in practice (ends float to facing sides), so it stays in `erd/`, and `parallelOffsets` becomes a wrapper over `fanOffsets`. The ERD still draws with React Flow's `getSmoothStepPath`, so its edges are unchanged. Flows routes through `orthogonalPath`, because it needs waypoints that go around cards.
 - `editing/editor.ts`: `DocEditor<Doc, Target>`, `createEditorContext` and `isEditingTarget` (every key matches, except `selectAll`). `erd/editor.ts` keeps `EditTarget`, `isEditing` and `useErdEditor` as thin instantiations.
 - `erd/deletion.ts` stays put, since Flows deletes don't ask.
+
+## 2026-10-06 — Phase 3 milestone 1: flows canvas foundation
+
+- **`Shell` hosts two independent `useEditableDoc`s.** Switching views flushes only the one being left. The focus re-read waits while either is dirty. Reload asks if either is dirty and names which ("ERD and Flows"), then discards both. Close flushes both and names whichever failed.
+- **`FlowsView` mirrors `ErdView`:** the shared `Canvas`, `useSelection`, `useMeasurements` and `withPlacement` (via `placeNodes` and `estimateScreenSize`), with viewport key `flows:<path>`. `addScreen` and `moveScreens` land in `flows/ops.ts` now, because the toolbar and drag need them. The rest of the operations follow in milestone 2.
+- **`--screen-w` is 260px,** 20 wider than an entity, to fit a CTA row with its handle. `SCREEN_WIDTH` in `flows/metrics.ts` must agree with it.

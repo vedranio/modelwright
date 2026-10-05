@@ -1,0 +1,43 @@
+/* Screen cards and transition edges. Every value comes from tokens.css. */
+
+.screen {
+  width: var(--screen-w);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+  font-size: var(--text-sm);
+  line-height: var(--text-sm-lh);
+  transition: box-shadow var(--duration-fast) var(--ease-out);
+}
+
+.react-flow__node:hover .screen {
+  box-shadow: var(--shadow-md);
+}
+
+.react-flow__node.selected .screen {
+  box-shadow:
+    0 0 0 var(--border-w) var(--color-accent),
+    0 0 0 calc(var(--border-w) + var(--focus-ring-w)) var(--color-focus-ring),
+    var(--shadow-md);
+}
+
+.screen-head {
+  position: relative;
+  padding: var(--space-3) var(--space-3) var(--space-2);
+}
+
+.screen-name {
+  font-size: var(--text-md);
+  line-height: var(--text-md-lh);
+  font-weight: var(--weight-semibold);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.screen-states {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  list-style: none;
+  border-top: var(--border-w) solid var(--color-border);
+}
