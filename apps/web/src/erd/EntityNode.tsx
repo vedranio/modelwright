@@ -12,6 +12,8 @@ import {
 
 export type EntityNodeType = Node<{ entity: Entity }, 'entity'>;
 
+const CONNECT_SIDES = [Position.Top, Position.Right, Position.Bottom, Position.Left];
+
 /**
  * An entity card: the name, an optional muted description, then one row per attribute with
  * its note beneath in faint text. Every text is edited in place: double-click it, then Enter
@@ -44,6 +46,17 @@ export function EntityNode({ data }: NodeProps<EntityNodeType>) {
       {/* Floating edges compute their own endpoints; these only satisfy React Flow. */}
       <Handle type="target" position={Position.Top} className="anchor-handle" />
       <Handle type="source" position={Position.Top} className="anchor-handle" />
+      {/* Drag from any side to another entity to relate them. Shown on hover. */}
+      {CONNECT_SIDES.map((side) => (
+        <Handle
+          key={side}
+          id={side}
+          type="source"
+          position={side}
+          className="connect-handle"
+          title="Drag to another entity to relate them"
+        />
+      ))}
 
       <header className="entity-head">
         {nameTarget ? (

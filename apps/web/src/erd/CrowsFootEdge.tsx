@@ -10,6 +10,7 @@ import {
 } from '@xyflow/react';
 import type { Cardinality } from '@modelwright/schema';
 import { floatingEnds, sideAngle, type EdgeEnd, type Rect, type Side } from './edgeGeometry';
+import { EdgePopover } from './EdgePopover';
 import { MARKER, markerShapes } from './markers';
 
 export type CrowsFootEdgeType = Edge<
@@ -19,6 +20,10 @@ export type CrowsFootEdgeType = Edge<
     label?: string;
     /** Shift along the cards' sides, to keep parallel relationships apart. */
     offset: number;
+    fromName: string;
+    toName: string;
+    /** Whether this is the only thing selected, so its editing popover shows. */
+    editing: boolean;
   },
   'crowsfoot'
 >;
@@ -69,6 +74,23 @@ export function CrowsFootEdge({
       <BaseEdge id={id} path={path} className="crowsfoot-line" interactionWidth={16} />
       <Marker end={ends.source} card={data.fromCard} />
       <Marker end={ends.target} card={data.toCard} />
+      {data.editing && (
+        <EdgeLabelRenderer>
+          <div
+            className="edge-popover-anchor"
+            style={{ transform: `translate(-50%, 0) translate(${labelX}px, ${labelY}px)` }}
+          >
+            <EdgePopover
+              relationshipId={id}
+              fromName={data.fromName}
+              toName={data.toName}
+              fromCard={data.fromCard}
+              toCard={data.toCard}
+              label={data.label ?? ''}
+            />
+          </div>
+        </EdgeLabelRenderer>
+      )}
       {data.label && (
         <EdgeLabelRenderer>
           <div

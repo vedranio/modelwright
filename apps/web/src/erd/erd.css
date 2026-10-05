@@ -274,3 +274,99 @@
   font-weight: var(--weight-medium);
   color: var(--color-text);
 }
+
+/* Connecting */
+
+.react-flow__handle.connect-handle {
+  width: var(--space-2);
+  height: var(--space-2);
+  min-width: 0;
+  min-height: 0;
+  border: var(--border-w) solid var(--color-surface);
+  border-radius: var(--radius-full);
+  background: var(--color-accent);
+  opacity: 0;
+  cursor: crosshair;
+  transition: opacity var(--duration-fast) var(--ease-out);
+}
+
+.react-flow__node:hover .connect-handle,
+.react-flow__node.selected .connect-handle {
+  opacity: 1;
+}
+
+.react-flow__connection-path {
+  fill: none;
+  stroke: var(--color-accent);
+  stroke-width: var(--border-w);
+}
+
+/* Relationship popover */
+
+.edge-popover-anchor {
+  position: absolute;
+  padding-top: var(--space-5);
+  pointer-events: all;
+  z-index: 5;
+}
+
+.edge-popover {
+  width: var(--entity-w);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-md);
+  font-size: var(--text-sm);
+  line-height: var(--text-sm-lh);
+  cursor: default;
+}
+
+.edge-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.edge-field-label {
+  font-size: var(--text-xs);
+  line-height: var(--text-xs-lh);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.edge-select {
+  height: var(--control-h);
+  padding: 0 var(--space-2);
+  border: var(--border-w) solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.edge-select:focus {
+  outline: none;
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 var(--focus-ring-w) var(--color-focus-ring);
+}
+
+.edge-input {
+  width: 100%;
+}
+
+.edge-popover-actions {
+  display: flex;
+  justify-content: space-between;
+  margin-top: var(--space-1);
+}
+
+.edge-delete:hover {
+  color: var(--color-error);
+}

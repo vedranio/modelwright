@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useRef, useState, type MouseEvent } from 'react';
-import type { NodeChange, ReactFlowInstance, XYPosition } from '@xyflow/react';
+import type { NodeChange, OnConnectEnd, ReactFlowInstance, XYPosition } from '@xyflow/react';
 import type { Erd } from '@modelwright/schema';
 import { useConfirm } from '../ConfirmDialog';
 import { Canvas } from '../canvas/Canvas';
@@ -13,7 +13,13 @@ import { parallelOffsets } from '../erd/edgeGeometry';
 import { ErdEditorContext, type EditTarget, type ErdEditor } from '../erd/editor';
 import { EntityNode, type EntityNodeType } from '../erd/EntityNode';
 import { ENTITY_WIDTH, estimateEntitySize } from '../erd/metrics';
-import { addEntity, deleteEntities, deleteRelationships, moveEntities } from '../erd/ops';
+import {
+  addEntity,
+  addRelationship,
+  deleteEntities,
+  deleteRelationships,
+  moveEntities,
+} from '../erd/ops';
 import { placeEntities } from '../erd/placement';
 import '../erd/erd.css';
 import { useShortcut } from '../shortcuts';
@@ -93,10 +99,42 @@ function ErdCanvas({
       }),
     [flow, dragging, selection.selectedNodes, measurements.sizes],
   );
-  const edges = useMemo(
-    () => flow.edges.map((e) => ({ ...e, selected: selection.selectedEdges.has(e.id) })),
-    [flow, selection.selectedEdges],
-  );
+  const edges = useMemo(() => {
+    // The popover shows when one relationship, and nothing else, is selected. Only count what
+    // still exists: a deleted item's id can linger in the selection.
+    const selectedEdges = flow.edges.filter((e) => selection.selectedEdges.has(e.id));
+    const anyNodeSelected = flow.nodes.some((n) => selection.selectedNodes.has(n.id));
+    const lone = !anyNodeSelected && selectedEdges.length === 1 ? selectedEdges[0]?.id : null;
+    return flow.edges.map((e) => ({
+      ...e,
+      selected: selection.selectedEdges.has(e.id),
+      ...(e.data && { data: { ...e.data, editing: e.id === lone } }),
+    }));
+  }, [flow, selection.selectedEdges, selection.selectedNodes]);
+
+  /**
+   * Dropping a connection anywhere on another entity relates the two, with the default
+   * cardinalities. Dropping on the same entity, or on empty canvas, does nothing.
+   */
+  const onConnectEnd: OnConnectEnd = (event, connection) => {
+    const from = connection.fromNode?.id;
+    const point = 'changedTouches' in event ? event.changedTouches[0] : event;
+    if (!from || !point) return;
+    const to = document
+      .elementFromPoint(point.clientX, point.clientY)
+      ?.closest<HTMLElement>('.react-flow__node')?.dataset.id;
+    if (!to || to === from) return;
+    let id: string | null = null;
+    apply((doc) => {
+      const result = addRelationship(doc, from, to);
+      id = result.id;
+      return result.erd;
+    });
+    if (id) {
+      selection.clear();
+      selection.onEdgesChange([{ type: 'select', id, selected: true }]);
+    }
+  };
 
   const onNodesChange = (changes: NodeChange<EntityNodeType>[]) => {
     selection.onNodesChange(changes);
@@ -178,7 +216,9 @@ function ErdCanvas({
             );
             setDragging({});
           }}
-          nodesConnectable={false}
+          onConnectEnd={onConnectEnd}
+          // Only dropping onto an entity counts (onConnectEnd); never connect handle to handle.
+          isValidConnection={() => false}
           onBeforeDelete={async ({ nodes: goneNodes, edges: goneEdges }) => {
             const entityIds = new Set(goneNodes.map((n) => n.id));
             const relationshipIds = new Set(goneEdges.map((e) => e.id));
@@ -262,6 +302,7 @@ function toFlow(erd: Erd): { nodes: EntityNodeType[]; edges: CrowsFootEdgeType[]
     };
   });
   const offsets = parallelOffsets(erd.relationships);
+  const names = new Map(erd.entities.map((e) => [e.id, e.name]));
   const edges = erd.relationships.map((rel): CrowsFootEdgeType => ({
     id: rel.id,
     source: rel.from,
@@ -271,6 +312,9 @@ function toFlow(erd: Erd): { nodes: EntityNodeType[]; edges: CrowsFootEdgeType[]
       fromCard: rel.fromCard,
       toCard: rel.toCard,
       offset: offsets.get(rel.id) ?? 0,
+      fromName: names.get(rel.from) ?? rel.from,
+      toName: names.get(rel.to) ?? rel.to,
+      editing: false,
       ...(rel.label !== undefined && { label: rel.label }),
     },
   }));

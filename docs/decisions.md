@@ -247,3 +247,10 @@ There's no design for these yet. Both are built from the existing tokens and jud
 - **Positions computed for unpositioned entities are written with the first real edit** (`withPlacement`), as the brief describes. A no-op edit writes nothing.
 - **Deletion goes through `onBeforeDelete`,** which asks when the delete cascades, applies `deleteEntities` and `deleteRelationships` itself, and returns `false` so React Flow doesn't remove anything a second time. Selected relationships are deleted with entities already, so milestone 5's multi-select delete only needs edge selection to work.
 - **Double-click no longer zooms** on any canvas (`zoomOnDoubleClick` is off in `Canvas`); views use double-click to create things.
+
+## 2026-10-05 — Phase 2 milestone 5: editing relationships
+
+- **Connecting:** each card has a handle on each side, shown on hover or selection. A drag ends in `onConnectEnd`, which finds the entity under the pointer, so dropping anywhere on another card relates them (`from` is the card dragged from). `isValidConnection` is always false, so React Flow never makes a handle-to-handle connection of its own. Dropping on the same card or on empty canvas does nothing. The new relationship is selected, which opens its popover.
+- **The popover opens when exactly one relationship, and nothing else, is selected.** It sits under the edge's midpoint and holds a native `<select>` per end (named after that end's entity, with options like "o< Zero or more"), the label (saved on Enter or blur, Escape restores it), Reverse direction and Delete. Each change applies and autosaves as it's made.
+- **Selected ids that no longer exist are ignored,** so a relationship deleted from its popover can't stop the next one's popover from opening.
+- **Multi-select delete** needs nothing new: `onBeforeDelete` already deletes selected entities and relationships together, and asks only when an entity cascades.
