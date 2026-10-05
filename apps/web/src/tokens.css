@@ -104,4 +104,15 @@
   --screen-w: 260px; /* keep in step with SCREEN_WIDTH in flows/metrics.ts */
   --state-head-h: 28px; /* keep in step with flows/metrics.ts */
   --cta-row-h: 26px; /* keep in step with flows/metrics.ts */
+
+  /* Added in phase 4: the preview toolbar and device frames. preview/DeviceFrame.tsx reads
+     the frame sizes at runtime to scale the frame to fit. */
+  --preview-toolbar-h: 44px;
+  --preview-url-max-w: 360px;
+  --device-bezel: 10px;
+  --device-radius: 34px;
+  --device-screen-radius: 24px;
+  --window-bar-h: 28px;
+  --window-dot: 8px;
+  --state-card-w: 360px;
 }

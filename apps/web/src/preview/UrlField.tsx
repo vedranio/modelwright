@@ -110,3 +110,47 @@ export function UrlField({
     </form>
   );
 }
+
+/**
+ * A preview URL shown as text: double-click to edit it inline with the same validation.
+ * Enter or blur saves; a blank value clears the URL; Escape cancels.
+ */
+export function EditableUrl({
+  url,
+  onCommit,
+  className,
+}: {
+  url: string;
+  onCommit: (url: string) => void;
+  className?: string;
+}) {
+  const [editing, setEditing] = useState(false);
+  if (editing) {
+    return (
+      <span className={`editable-url editing${className ? ` ${className}` : ''}`}>
+        <UrlField
+          className="url-inline"
+          initial={url}
+          allowClear
+          commitOnBlur
+          autoFocus
+          onCommit={(next) => {
+            setEditing(false);
+            onCommit(next);
+          }}
+          onCancel={() => setEditing(false)}
+        />
+        <span className="hint">↵ save · esc cancel</span>
+      </span>
+    );
+  }
+  return (
+    <span
+      className={`editable-url url-text${className ? ` ${className}` : ''}`}
+      title="Double-click to edit"
+      onDoubleClick={() => setEditing(true)}
+    >
+      {url}
+    </span>
+  );
+}

@@ -110,6 +110,14 @@ describe('editable state', () => {
     expect(state.local?.entities[0]?.name).toBe('Later');
   });
 
+  it('stops offering a clean copy once the file on disk becomes invalid', () => {
+    const state = saveSucceeded(applyEdit<'erd'>(notesErd()), notesErd());
+    const clean = { ...state, dirty: false };
+    expect(resolveDoc('erd', clean, null)).toBeNull();
+    // Unsaved edits still win: they're the user's.
+    expect(resolveDoc('erd', applyEdit<'erd'>(notesErd()), null)).not.toBeNull();
+  });
+
   it('falls back to the file on disk on discard', () => {
     const original = notesErd();
     const h = harness(original);

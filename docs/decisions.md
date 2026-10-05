@@ -403,3 +403,22 @@ Settled in the phase 4 interview before any code was written. The brief's "Decis
   - Nonces, hashes and other keywords never match.
 - **The URL rule is duplicated on the server** (absolute http(s), not loopback on 4300/4301, not the request's origin), because the server can't import `apps/web`. Both copies point at each other.
 - **Failure details:** "Connection refused", "Host not found", "No response within 3 s — it may still be starting", "Certificate not trusted (<code>)", "Too many redirects (more than 5)", otherwise "Couldn’t connect (<code>)".
+
+## 2026-10-06 — Phase 4 milestone 3: preview pane and states
+
+There's no phase 4 design, so all of this is built from tokens in the existing language and judged at the gate.
+
+- **The toolbar shows only with a preview.** The other states are 05-style cards, without a toolbar.
+- **Toolbar layout:** the device toggle (`.segmented`, as in the header), the size and a "74%" scale readout on the left. The URL (double-click to edit), Reload preview and Open in browser are on the right. With a single device, it shows the device's name and size instead of a one-segment toggle.
+- **Device frame:**
+  - Narrow devices (under 768) get a light, phone-like bezel (`--device-bezel`, `--device-radius`, `--device-screen-radius`). Wide ones get a window with a sunken title bar and three dots (`--window-bar-h`, `--window-dot`).
+  - Both share one element tree, with the bar hidden on phones, so switching between them only restyles and never remounts the iframe.
+  - `DeviceFrame` reads the bezel and bar sizes from `tokens.css` at runtime to work out the scale.
+- **Scale-to-fit** applies a CSS transform to the whole frame inside a slot sized to the scaled result, so the frame stays centred. The iframe keeps its device-width viewport. A ResizeObserver on the stage drives it.
+- **Open in browser is a link** (`<a target="_blank" rel="noopener noreferrer">` styled as a button), not script. A zero-specificity `:where(a.btn)` reset keeps each button variant's colour.
+- **Cards:**
+  - UI-view cards are `--state-card-w` (360) wide, so URLs and the field fit.
+  - "Nothing running" shows the URL (editable), the failure detail, "Start your project’s dev server", `devCommand` with Copy, and "Checking again…".
+  - "Refuses embedding" shows the header and value, what it means, how to allow the tool's origin, and Open in browser.
+  - "Invalid URL" shows the problem and the field. Saving it blank clears the URL. A server-side `invalid` (say, a redirect to the tool) uses the same card with the server's detail.
+- **Fix found at the gate: a clean working copy no longer outlives an invalid file.** With `config.json` broken by hand, the header still offered the stale copy's name for editing, and a rename would have overwritten the broken file. `resolveDoc` now returns nothing to edit when the file is clean and missing or invalid on disk. Unsaved edits still win, as before.

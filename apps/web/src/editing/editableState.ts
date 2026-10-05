@@ -31,9 +31,10 @@ export function initialEditableState<K extends DesignKind>(): EditableState<K> {
 
 /**
  * The document to show. While dirty, the working copy wins. Once clean, what's on disk wins
- * whenever its canonical text differs from the working copy's, whatever object identity says.
- * When the text is the same (typically our own save read back), the working copy's object is
- * kept so the canvas doesn't re-render.
+ * whenever its canonical text differs from the working copy's, whatever object identity says,
+ * and a file that has become missing or invalid leaves nothing to edit. When the text is the
+ * same (typically our own save read back), the working copy's object is kept so the canvas
+ * doesn't re-render.
  */
 export function resolveDoc<K extends DesignKind>(
   kind: K,
@@ -42,7 +43,10 @@ export function resolveDoc<K extends DesignKind>(
 ): DesignDoc<K> | null {
   const { local, dirty } = state;
   if (!local) return onDisk;
-  if (dirty || !onDisk || local === onDisk) return local;
+  if (dirty) return local;
+  // Clean, and the file is now missing or invalid: don't keep editing a stale copy of it.
+  if (!onDisk) return null;
+  if (local === onDisk) return local;
   return stringifyDesign(kind, local) === stringifyDesign(kind, onDisk) ? local : onDisk;
 }
 

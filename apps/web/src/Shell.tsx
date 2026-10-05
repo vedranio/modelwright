@@ -159,7 +159,7 @@ export function Shell({ project, onClose }: Props) {
             onReload={onReload}
           />
         )}
-        {view === 'ui' && <UiView state={docs.config} edit={config} onReload={onReload} />}
+        {view === 'ui' && <UiView state={docs.config} edit={config} visible onReload={onReload} />}
       </main>
       {dialog}
     </div>

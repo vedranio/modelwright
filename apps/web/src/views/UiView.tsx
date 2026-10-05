@@ -1,7 +1,9 @@
-import { DEFAULT_DEVICES } from '@modelwright/schema';
 import { setPreviewUrl } from '../config/ops';
 import type { EditableDoc } from '../editing/useEditableDoc';
-import { UrlField } from '../preview/UrlField';
+import { PreviewPane } from '../preview/PreviewPane';
+import { InvalidUrl } from '../preview/PreviewStates';
+import { checkPreviewUrl } from '../preview/url';
+import { UrlField, toolRules } from '../preview/UrlField';
 import type { DocState } from '../useDesign';
 import { DocStateView } from './DocStateView';
 import { EmptyCard } from './common';
@@ -11,14 +13,16 @@ interface Props {
   state: DocState<'config'>;
   /** The shared config editor; its working copy is what the view shows. */
   edit: EditableDoc<'config'>;
+  /** Whether the UI view is the one showing. */
+  visible: boolean;
   onReload: () => void;
 }
 
-export function UiView({ state, edit, onReload }: Props) {
+export function UiView({ state, edit, visible, onReload }: Props) {
   const setUrl = (url: string) => edit.apply((c) => setPreviewUrl(c, url), { saveNow: true });
 
   return (
-    <div className="view-fill">
+    <div className="view-fill ui-view">
       <DocStateView kind="config" state={state} onReload={onReload}>
         {(onDisk) => {
           const config = edit.doc ?? onDisk;
@@ -30,30 +34,12 @@ export function UiView({ state, edit, onReload }: Props) {
               </EmptyCard>
             );
           }
-          const devices = config.devices ?? DEFAULT_DEVICES;
-          return (
-            <section className="doc-list">
-              <h2 className="label">Preview URL</h2>
-              <p>
-                <code>{config.preview.url}</code>
-              </p>
-              <h2 className="label">
-                Devices
-                {!config.devices && <span className="tag">built-in presets</span>}
-              </h2>
-              <ul className="items">
-                {devices.map((d) => (
-                  <li key={d.id}>
-                    <strong>{d.name}</strong>{' '}
-                    <span className="muted">
-                      {d.width}
-                      {d.height !== undefined ? ` × ${d.height}` : ''} px
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          );
+          const url = config.preview.url;
+          const stored = checkPreviewUrl(url, toolRules());
+          if (!stored.ok) {
+            return <InvalidUrl url={url} problem={stored.problem} onSetUrl={setUrl} />;
+          }
+          return <PreviewPane config={config} url={url} visible={visible} onSetUrl={setUrl} />;
         }}
       </DocStateView>
     </div>
