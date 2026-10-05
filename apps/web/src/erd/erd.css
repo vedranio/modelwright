@@ -1,44 +1,119 @@
-/* ERD nodes and edges. Every value comes from tokens.css. */
+/* ERD cards and relationship edges. Every value comes from tokens.css. */
 
-.entity-box {
+.entity {
   width: var(--entity-w);
   border-radius: var(--radius-lg);
   background: var(--color-surface);
   box-shadow: var(--shadow-sm);
   font-size: var(--text-sm);
   line-height: var(--text-sm-lh);
+  transition: box-shadow var(--duration-fast) var(--ease-out);
 }
 
-.react-flow__node.selected .entity-box {
+.react-flow__node:hover .entity {
+  box-shadow: var(--shadow-md);
+}
+
+.react-flow__node.selected .entity {
   box-shadow:
     0 0 0 var(--border-w) var(--color-accent),
-    0 0 0 calc(var(--border-w) + var(--focus-ring-w)) var(--color-focus-ring);
+    0 0 0 calc(var(--border-w) + var(--focus-ring-w)) var(--color-focus-ring),
+    var(--shadow-md);
 }
 
-.entity-box-name {
-  padding: var(--space-2) var(--space-3);
+.entity-head {
+  padding: var(--space-3) var(--space-3) var(--space-2);
+}
+
+.entity-name {
   font-size: var(--text-md);
+  line-height: var(--text-md-lh);
   font-weight: var(--weight-semibold);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.entity-box-attrs {
+.entity-description {
+  margin-top: var(--space-0);
+  color: var(--color-text-muted);
+  overflow-wrap: anywhere;
+}
+
+.attributes {
   margin: 0;
-  padding: var(--space-2) var(--space-3);
+  padding: var(--space-1) 0 var(--space-2);
   list-style: none;
   border-top: var(--border-w) solid var(--color-border);
-  color: var(--color-text-muted);
 }
 
-.hidden-handle {
+.attribute {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: var(--control-h);
+  padding: var(--space-1) var(--space-3);
+}
+
+.attribute-name,
+.attribute-note {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.attribute-note {
+  font-size: var(--text-xs);
+  line-height: var(--text-xs-lh);
+  color: var(--color-text-faint);
+}
+
+.entity-empty {
+  padding: var(--space-2) var(--space-3) var(--space-3);
+  border-top: var(--border-w) solid var(--color-border);
+  color: var(--color-text-faint);
+}
+
+.anchor-handle {
   opacity: 0;
   pointer-events: none;
 }
 
-.canvas .react-flow__edge-path {
-  stroke: var(--color-border-strong);
+/* Relationship edges */
+
+.canvas .crowsfoot-line {
+  stroke: var(--color-text-faint);
   stroke-width: var(--border-w);
 }
 
-.canvas .react-flow__edge.selected .react-flow__edge-path {
+.crowsfoot-marker {
+  fill: var(--color-bg);
+  stroke: var(--color-text-faint);
+  stroke-width: var(--border-w);
+}
+
+.canvas .react-flow__edge:hover .crowsfoot-line,
+.canvas .react-flow__edge:hover .crowsfoot-marker {
+  stroke: var(--color-text-muted);
+}
+
+.canvas .react-flow__edge.selected .crowsfoot-line,
+.canvas .react-flow__edge.selected .crowsfoot-marker {
   stroke: var(--color-accent);
+}
+
+.edge-label {
+  position: absolute;
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+  font-size: var(--text-xs);
+  line-height: var(--text-xs-lh);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.edge-label.selected {
+  color: var(--color-accent);
 }

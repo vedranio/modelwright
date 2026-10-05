@@ -9,7 +9,9 @@ export const ENTITY_WIDTH = 240;
 const HEADER_HEIGHT = 40;
 const DESCRIPTION_HEIGHT = 20;
 const ATTRIBUTE_ROW_HEIGHT = 28;
-const FOOTER_HEIGHT = 36;
+const ATTRIBUTE_NOTE_HEIGHT = 16;
+/** The list's padding, the "No attributes" line, and room for the "+ Add attribute" row. */
+const FOOTER_HEIGHT = 48;
 
 export interface Size {
   width: number;
@@ -22,7 +24,10 @@ export function estimateEntitySize(entity: Entity): Size {
     height:
       HEADER_HEIGHT +
       (entity.description ? DESCRIPTION_HEIGHT : 0) +
-      entity.attributes.length * ATTRIBUTE_ROW_HEIGHT +
+      entity.attributes.reduce(
+        (sum, a) => sum + ATTRIBUTE_ROW_HEIGHT + (a.note ? ATTRIBUTE_NOTE_HEIGHT : 0),
+        0,
+      ) +
       FOOTER_HEIGHT,
   };
 }

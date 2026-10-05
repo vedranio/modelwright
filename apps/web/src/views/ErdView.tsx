@@ -1,9 +1,10 @@
 import { useMemo } from 'react';
-import type { Edge } from '@xyflow/react';
 import type { Erd } from '@modelwright/schema';
 import { Canvas } from '../canvas/Canvas';
 import { useSelection } from '../canvas/useSelection';
-import { EntityBox, type EntityBoxNode } from '../erd/EntityBox';
+import { CrowsFootEdge, type CrowsFootEdgeType } from '../erd/CrowsFootEdge';
+import { parallelOffsets } from '../erd/edgeGeometry';
+import { EntityNode, type EntityNodeType } from '../erd/EntityNode';
 import { estimateEntitySize } from '../erd/metrics';
 import { placeEntities } from '../erd/placement';
 import '../erd/erd.css';
@@ -11,7 +12,8 @@ import type { DocState } from '../useDesign';
 import { DocStateView } from './DocStateView';
 import { EmptyCard } from './common';
 
-const NODE_TYPES = { entity: EntityBox };
+const NODE_TYPES = { entity: EntityNode };
+const EDGE_TYPES = { crowsfoot: CrowsFootEdge };
 
 interface Props {
   projectPath: string;
@@ -42,11 +44,12 @@ function ErdCanvas({ projectPath, erd }: { projectPath: string; erd: Erd }) {
   );
 
   return (
-    <Canvas<EntityBoxNode, Edge>
+    <Canvas<EntityNodeType, CrowsFootEdgeType>
       viewportKey={`erd:${projectPath}`}
       nodes={nodes}
       edges={edges}
       nodeTypes={NODE_TYPES}
+      edgeTypes={EDGE_TYPES}
       onNodesChange={selection.onNodesChange}
       onEdgesChange={selection.onEdgesChange}
       nodesDraggable={false}
@@ -63,20 +66,26 @@ function ErdCanvas({ projectPath, erd }: { projectPath: string; erd: Erd }) {
 }
 
 /** The document as React Flow nodes and edges. Unpositioned entities are placed in memory only. */
-function toFlow(erd: Erd): { nodes: EntityBoxNode[]; edges: Edge[] } {
+function toFlow(erd: Erd): { nodes: EntityNodeType[]; edges: CrowsFootEdgeType[] } {
   const positions = placeEntities(erd, estimateEntitySize);
-  const nodes = erd.entities.map((entity): EntityBoxNode => ({
+  const nodes = erd.entities.map((entity): EntityNodeType => ({
     id: entity.id,
     type: 'entity',
     position: positions[entity.id] ?? { x: 0, y: 0 },
     data: { entity },
   }));
-  const edges = erd.relationships.map((rel): Edge => ({
+  const offsets = parallelOffsets(erd.relationships);
+  const edges = erd.relationships.map((rel): CrowsFootEdgeType => ({
     id: rel.id,
     source: rel.from,
     target: rel.to,
-    // Plain lines for now; crow's-foot markers and labels arrive with the real edges.
-    type: 'straight',
+    type: 'crowsfoot',
+    data: {
+      fromCard: rel.fromCard,
+      toCard: rel.toCard,
+      offset: offsets.get(rel.id) ?? 0,
+      ...(rel.label !== undefined && { label: rel.label }),
+    },
   }));
   return { nodes, edges };
 }

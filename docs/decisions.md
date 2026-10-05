@@ -210,3 +210,14 @@ Unpositioned entities go in one row below the positioned ones, left-aligned with
 - **Positions are rounded to whole canvas units** on `addEntity` and `moveEntities`, so a drag writes `"x": 412`, not `"x": 412.38671875`.
 - **New attributes start with an empty name.** The schema allows it, and the editor drops the row if entry ends with it still empty.
 - **New ids are unique across the whole file,** though the schema only requires attribute ids to be unique within their entity. That's simpler and never wrong.
+
+## 2026-10-05 — Phase 2 milestone 3: entity card and crow's-foot edges
+
+There's no design for these yet. Both are built from the existing tokens and judged at the milestone 3 gate.
+
+- **Card:** surface, `--radius-lg`, `--shadow-sm` (`--shadow-md` on hover), `--entity-w` wide. The name is semibold, with an optional muted description under it, then a divider and one row per attribute. An attribute's note sits under its name in faint `--text-xs`. An entity with no attributes reads "No attributes". Selection adds an accent ring.
+- **Floating edges** connect the facing sides of two cards: left/right when they're further apart horizontally than vertically, otherwise top/bottom. When the facing sides overlap, the ends meet in the middle of the shared span so the line runs straight. Otherwise each end sits at its side's midpoint, and the path steps orthogonally with rounded corners, keeping a straight stub at each end long enough for the markers.
+- **Markers:** the symbol against the card is the maximum (a bar or a crow's foot), the one further out the minimum (a bar or a circle). The mapping and geometry live in `erd/markers.ts`, with tests. Marker geometry, like card size estimates, is in canvas units in TypeScript; CSS values still come from `tokens.css`.
+- **Labels** sit beside the line, never on it: above a horizontal run, right of a vertical one. On a short edge, such as the notes fixture's 80-unit gap, a label on the line would hide a marker.
+- **Parallel relationships** are offset 16 units apart along the sides, so each stays visible and clickable. It's the minimum needed for "render and stay selectable"; proper separation is still phase 5.
+- **Self-relationships** draw as a square loop off the card's right side.
