@@ -3,6 +3,7 @@ import { ReloadGlyph } from '../ui';
 import { sizeLabel } from './devices';
 import { scaleLabel } from './scale';
 import { EditableUrl } from './UrlField';
+import { Icon } from '../Icon';
 
 /** More devices than this and the toggle becomes a select. */
 const MAX_SEGMENTS = 4;
@@ -78,7 +79,8 @@ export function PreviewToolbar({
           Reload preview
         </button>
         <a className="btn btn-quiet btn-tight" href={url} target="_blank" rel="noopener noreferrer">
-          Open in browser ↗
+          <Icon name="open_in_browser" />
+          Open in browser
         </a>
       </div>
     </div>

@@ -2,6 +2,7 @@ import close from '@material-symbols/svg-400/outlined/close.svg';
 import contrast from '@material-symbols/svg-400/outlined/contrast.svg';
 import darkMode from '@material-symbols/svg-400/outlined/dark_mode.svg';
 import lightMode from '@material-symbols/svg-400/outlined/light_mode.svg';
+import openInBrowser from '@material-symbols/svg-400/outlined/open_in_browser.svg';
 import questionMark from '@material-symbols/svg-400/outlined/question_mark.svg';
 import redo from '@material-symbols/svg-400/outlined/redo.svg';
 import refresh from '@material-symbols/svg-400/outlined/refresh.svg';
@@ -18,6 +19,7 @@ const ICONS = {
   contrast,
   dark_mode: darkMode,
   light_mode: lightMode,
+  open_in_browser: openInBrowser,
   question_mark: questionMark,
   redo,
   refresh,
