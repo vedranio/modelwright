@@ -41,7 +41,7 @@ export type ScreenNodeType = Node<
 
 /**
  * A lo-fi screen card: the name and optional notes, then each state's "Sees" list (what the user
- * sees) and "Does" list (the CTAs they can use). A single-state screen hides its state header, so
+ * sees) and "Actions" list (the CTAs they can use). A single-state screen hides its state header, so
  * the common case reads as just name / sees / does. Every CTA row has a source handle on the
  * card's right edge, filled when a transition starts from it and hollow when none does (a dead
  * end). The screen header and each shown state header have a target handle on the left edge.
@@ -309,7 +309,7 @@ function StateSection({
           onClick={() => setEditing({ kind: 'seesDraft', ...ids, after: null })}
         />
 
-        <div className="list-caption">Does</div>
+        <div className="list-caption">Actions</div>
         <ul className="ctas">
           {state.ctas.flatMap((cta) => {
             const row = (

@@ -11,7 +11,7 @@ const HEADER_HEIGHT = 40;
 const NOTES_HEIGHT = 20;
 /** A state's header row, shown only when the screen has more than one state. */
 const STATE_HEADER_HEIGHT = 32;
-/** The "Sees" and "Does" captions. */
+/** The "Sees" and "Actions" captions. */
 const CAPTION_HEIGHT = 24;
 const SEES_ROW_HEIGHT = 22;
 const CTA_ROW_HEIGHT = 28;
