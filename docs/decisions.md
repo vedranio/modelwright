@@ -583,3 +583,29 @@ Settled in the phase 5 interview before any code was written. The brief's "Decis
   - The watcher already ignores `spec.md`.
 - **Copy Mermaid** is a toolbar button on each canvas, with a "Mermaid copied" toast (or "Couldn’t copy to the clipboard").
 - **Fix found while verifying (milestone 1): React Flow's keyboard handling is off** (`disableKeyboardA11y`). With a node focused after a click, React Flow handled the arrow keys itself, and the registry's nudge never saw them. The milestone 1 check had dispatched keys to the page body, which missed this.
+
+## 2026-10-06 — Phase 5 milestone 5: dark mode
+
+- **Light mode now meets WCAG AA, which moves three values off the design-refs** (settled with you at this milestone: the refs' faint text fails AA):
+  - `--color-text-faint` goes from #9b9b95 (2.6:1) to #6c6c66 (4.5:1 on the sunken background, where the picker and state headers use it). It's now close to `--color-text-muted`, so the hierarchy leans more on size and placement.
+  - `--color-on-accent-muted` (the key hint in a primary button) goes from #c9d0f5 (4.06:1) to #dde2fa.
+  - New `--color-border-input` (#8a8a84 light, #6a6a65 dark) gives text fields and selects a 3:1 edge. `--color-border-strong` stays as it was for decorative edges (secondary buttons, CTA chips, the device frame).
+- **The dark theme lives in tokens only:**
+  - A `[data-theme='dark']` block, and an identical one under `@media (prefers-color-scheme: dark)` for `:root:not([data-theme='light'])`.
+  - It covers every colour token and the three shadows (dark shadows add a faint light ring so cards keep an edge), plus `color-scheme`, so native selects, inputs and scrollbars match.
+  - No component has a dark-mode rule, and no colour existed outside `tokens.css` to begin with.
+  - Values are derived from the light palette (the same warm greys, inverted) with the accent lifted to #7385f2. Text on the accent is dark (#11152b), because white on a lifted accent can't reach 4.5:1.
+- **`test/tokens.test.ts`:**
+  - Both dark blocks must be identical, and must cover exactly the colour and shadow tokens.
+  - Every text pairing the UI uses must reach 4.5:1 in both themes, and text-field edges 3:1. Faint text is never checked against the hover background, because every hovered control switches to full text colour.
+  - The dot grid and card borders are decorative and not held to a ratio. The dot grid is 1.36:1 in light and about 1.5:1 in dark.
+- **Theme setting** (`theme.ts`):
+  - System (default), Light or Dark, saved as `modelwright.theme` (System removes the key).
+  - Light and Dark set `data-theme` on `<html>`. System sets nothing and lets the media query follow the OS live, with no script.
+  - An inline script in `index.html` applies a saved theme before first paint.
+  - The header control is one icon button (◐ ☀ ☾) with a three-item menu, closed by Esc or a click outside.
+- **Canvas colours** (dot grid, edges, markers, handles) were already drawn by CSS from tokens, so nothing in JavaScript needs re-reading on a theme change.
+- **The preview iframe isn't themed.** It gets `color-scheme: light dark`, so the app inside sees the OS's light or dark preference rather than modelwright's choice.
+- **Verified:**
+  - Gate screenshots come from headless Chrome over the DevTools protocol at 1440×900, from a scratchpad script; the browser pane was too narrow for a faithful 1440×900 capture.
+  - System follows an emulated OS change live, with no reload. Light and Dark override it either way.

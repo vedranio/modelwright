@@ -242,7 +242,7 @@ button {
   height: var(--control-h);
   min-width: 0;
   padding: 0 var(--space-2);
-  border: var(--border-w) solid var(--color-border-strong);
+  border: var(--border-w) solid var(--color-border-input);
   border-radius: var(--radius-md);
   background: var(--color-surface);
   font-size: var(--text-sm);
@@ -1295,6 +1295,8 @@ button {
 .device-iframe {
   display: block;
   border: 0;
+  /* The previewed app isn't themed: it sees the OS's light or dark setting, not modelwright's. */
+  color-scheme: light dark;
 }
 
 .scale-chip {
@@ -1454,4 +1456,54 @@ button {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* Theme menu in the header */
+
+.theme-menu {
+  position: relative;
+}
+
+.theme-menu-list {
+  position: absolute;
+  top: calc(100% + var(--space-1));
+  right: 0;
+  z-index: 9;
+  min-width: calc(var(--space-9) + var(--space-5));
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-1);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-md);
+}
+
+.theme-menu-item {
+  height: var(--control-h);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0 var(--space-2);
+  border: none;
+  border-radius: var(--radius-md);
+  background: transparent;
+  font: inherit;
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  text-align: left;
+  cursor: pointer;
+}
+
+.theme-menu-item:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text);
+}
+
+.theme-menu-item.selected {
+  color: var(--color-accent);
+}
+
+.theme-menu-glyph {
+  width: var(--space-4);
+  text-align: center;
 }

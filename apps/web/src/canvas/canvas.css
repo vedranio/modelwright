@@ -173,7 +173,7 @@
 .edge-select {
   height: var(--control-h);
   padding: 0 var(--space-2);
-  border: var(--border-w) solid var(--color-border-strong);
+  border: var(--border-w) solid var(--color-border-input);
   border-radius: var(--radius-md);
   background: var(--color-surface);
   font: inherit;

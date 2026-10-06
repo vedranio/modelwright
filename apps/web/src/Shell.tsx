@@ -9,6 +9,7 @@ import { UiView } from './views/UiView';
 import { useProjectClient, type DesignKind, type ProjectSummary } from './platform';
 import { loadPref, savePref } from './storage';
 import { ShortcutsOverlay } from './ShortcutsOverlay';
+import { ThemeMenu } from './ThemeMenu';
 import { useShortcut } from './shortcuts';
 import { shortcutHint } from './shortcutRegistry';
 import { ToastProvider, useToasts } from './Toast';
@@ -184,6 +185,7 @@ export function Shell({ project, onClose }: Props) {
           </div>
 
           <div className="header-right">
+            <ThemeMenu />
             <button
               type="button"
               className="btn-icon"
