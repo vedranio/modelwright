@@ -671,7 +671,7 @@ Decided after the phase 5 walk.
 
 ## 2026-10-06 — Trial: Google Material Symbols in the theme menu
 
-- The theme menu's ◐ ☀ ☾ glyphs are replaced by Material Symbols (outlined, weight 400): `brightness_auto` for System, `light_mode` and `dark_mode`.
+- The theme menu's ◐ ☀ ☾ glyphs are replaced by Material Symbols (outlined, weight 400): `contrast` for System (first `brightness_auto`, swapped at review), `light_mode` and `dark_mode`.
 - They come from the `@material-symbols/svg-400` npm package (Apache-2.0), so they're self-hosted like the font, with no request to Google at runtime. Only the imported SVGs end up in the bundle.
 - `Icon.tsx` draws each one as a CSS mask over `currentColor`, so icons take their colour from the surrounding text tokens and theme with everything else. The size is `--icon-size` (18px).
 - If the trial is approved, the other glyphs (Reload ↻, close ×, zoom − +, undo/redo ↶ ↷, the shortcuts "?") move to `Icon` too.

@@ -6,7 +6,7 @@ import { loadPref, savePref } from './storage';
 export type ThemeSetting = 'system' | 'light' | 'dark';
 
 export const THEMES: readonly { id: ThemeSetting; label: string; icon: IconName }[] = [
-  { id: 'system', label: 'System', icon: 'brightness_auto' },
+  { id: 'system', label: 'System', icon: 'contrast' },
   { id: 'light', label: 'Light', icon: 'light_mode' },
   { id: 'dark', label: 'Dark', icon: 'dark_mode' },
 ];

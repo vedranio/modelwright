@@ -1,4 +1,4 @@
-import brightnessAuto from '@material-symbols/svg-400/outlined/brightness_auto.svg';
+import contrast from '@material-symbols/svg-400/outlined/contrast.svg';
 import darkMode from '@material-symbols/svg-400/outlined/dark_mode.svg';
 import lightMode from '@material-symbols/svg-400/outlined/light_mode.svg';
 
@@ -8,7 +8,7 @@ import lightMode from '@material-symbols/svg-400/outlined/light_mode.svg';
  * text colour (and therefore the theme) of whatever it sits in. Add icons here as they're used.
  */
 const ICONS = {
-  brightness_auto: brightnessAuto,
+  contrast,
   dark_mode: darkMode,
   light_mode: lightMode,
 } as const;
