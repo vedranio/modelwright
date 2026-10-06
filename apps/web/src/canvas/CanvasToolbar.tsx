@@ -1,12 +1,9 @@
 import { Fragment, type ReactNode } from 'react';
 import { useReactFlow, useViewport } from '@xyflow/react';
 import { useShortcut } from '../shortcuts';
+import { shortcutHint } from '../shortcutRegistry';
 import { Kbd } from '../ui';
 import { tokenNumber } from './tokens';
-
-/** ⇧1, matched by physical key so it works whatever Shift+1 types on the layout. */
-const isFitKey = (e: KeyboardEvent) =>
-  e.shiftKey && !e.metaKey && !e.ctrlKey && !e.altKey && e.code === 'Digit1';
 
 /**
  * The floating toolbar centred at the bottom of the canvas, as in 04-shell-erd: the view's own
@@ -17,11 +14,20 @@ export function CanvasToolbar({ actions }: { actions?: ReactNode }) {
   const { zoom } = useViewport();
   const duration = () => tokenNumber('--duration-fast');
   const fit = () => void flow.fitView({ ...FIT_OPTIONS, duration: duration() });
+  const zoomIn = () => void flow.zoomIn({ duration: duration() });
+  const zoomOut = () => void flow.zoomOut({ duration: duration() });
 
-  useShortcut(isFitKey, (e) => {
+  const key = (action: () => void) => (e: KeyboardEvent) => {
     e.preventDefault();
-    fit();
-  });
+    action();
+  };
+  useShortcut('fit', key(fit));
+  useShortcut('zoom-in', key(zoomIn));
+  useShortcut('zoom-out', key(zoomOut));
+  useShortcut(
+    'zoom-reset',
+    key(() => void flow.zoomTo(1, { duration: duration() })),
+  );
 
   return (
     <div className="canvas-toolbar" role="toolbar" aria-label="Canvas">
@@ -35,8 +41,8 @@ export function CanvasToolbar({ actions }: { actions?: ReactNode }) {
         type="button"
         className="btn-icon btn-glyph"
         aria-label="Zoom out"
-        title="Zoom out"
-        onClick={() => void flow.zoomOut({ duration: duration() })}
+        title={`Zoom out (${shortcutHint('zoom-out')})`}
+        onClick={zoomOut}
       >
         −
       </button>
@@ -47,15 +53,15 @@ export function CanvasToolbar({ actions }: { actions?: ReactNode }) {
         type="button"
         className="btn-icon btn-glyph"
         aria-label="Zoom in"
-        title="Zoom in"
-        onClick={() => void flow.zoomIn({ duration: duration() })}
+        title={`Zoom in (${shortcutHint('zoom-in')})`}
+        onClick={zoomIn}
       >
         +
       </button>
       <span className="divider" aria-hidden="true" />
       <button type="button" className="btn btn-quiet btn-tight" onClick={fit}>
         Fit
-        <Kbd>⇧1</Kbd>
+        <Kbd>{shortcutHint('fit')}</Kbd>
       </button>
     </div>
   );

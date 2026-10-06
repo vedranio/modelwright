@@ -19,7 +19,9 @@ export function ProjectName({ config, fallbackName, onEditingChange }: Props) {
 
   const doc = config.doc;
   const name = doc?.name ?? fallbackName;
-  const editable = doc !== null;
+  // While config.json's save is on hold (it changed on disk under an edit), the name waits for
+  // the choice on the UI view's banner rather than piling up edits the banner can't show.
+  const editable = doc !== null && !config.held;
   const saveError = config.status === 'failed' || config.status === 'invalid';
 
   function startEditing() {

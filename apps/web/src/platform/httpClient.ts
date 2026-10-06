@@ -1,5 +1,6 @@
 import type { ApiErrorBody, DesignError } from '@modelwright/schema';
-import { ProjectClientError, type ProjectClient } from './ProjectClient';
+import { isDesignKind } from '@modelwright/schema';
+import { ProjectClientError, type DesignChange, type ProjectClient } from './ProjectClient';
 
 /** The phase 1 ProjectClient: talks to apps/server through the Vite `/api` proxy. */
 export function createHttpClient(baseUrl = '/api'): ProjectClient {
@@ -47,6 +48,19 @@ export function createHttpClient(baseUrl = '/api'): ProjectClient {
     async checkPreview(url) {
       return (await send('POST', '/preview/check', { url })).json();
     },
+    watchDesign(path, onChange) {
+      // Server-sent events; EventSource reconnects by itself if the server restarts.
+      const events = new EventSource(`${baseUrl}/design/events${query(path)}`);
+      events.addEventListener('change', (event) => {
+        try {
+          const change: unknown = JSON.parse((event as MessageEvent<string>).data);
+          if (isDesignChange(change)) onChange(change);
+        } catch {
+          // A malformed event is ignored; the focus re-read is the fallback.
+        }
+      });
+      return () => events.close();
+    },
   };
 }
 
@@ -70,4 +84,8 @@ function isDesignError(body: unknown): body is DesignError {
 
 function isErrorBody(body: unknown): body is ApiErrorBody {
   return typeof body === 'object' && body !== null && 'message' in body;
+}
+
+function isDesignChange(value: unknown): value is DesignChange {
+  return typeof value === 'object' && value !== null && 'kind' in value && isDesignKind(value.kind);
 }

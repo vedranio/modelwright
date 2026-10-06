@@ -2,6 +2,7 @@ import { Handle, Position, type Node, type NodeProps } from '@xyflow/react';
 import type { Cta, Screen, ScreenState } from '@modelwright/schema';
 import { InlineField } from '../editing/InlineField';
 import { isEditing, useFlowsEditor, type EditTarget } from './editor';
+import { ctaDeletionSummary, seesDeletionSummary, stateDeletionSummary } from './deletion';
 import { SCREEN_HANDLE, ctaHandle, showsStateHeaders, stateHandle } from './endpoints';
 import {
   addCta,
@@ -14,6 +15,9 @@ import {
   renameCta,
   renameScreen,
   renameState,
+  moveCta,
+  moveSeesItem,
+  moveState,
   setScreenNotes,
   updateSeesItem,
 } from './ops';
@@ -36,8 +40,8 @@ export type ScreenNodeType = Node<
 >;
 
 /**
- * A lo-fi screen card: the name and optional notes, then each state's "Sees" list (what the user
- * sees) and "Does" list (the CTAs they can use). A single-state screen hides its state header, so
+ * A lo-fi screen card: the name and optional notes, then each state's "Information" list (what the user
+ * sees) and "Actions" list (the CTAs they can use). A single-state screen hides its state header, so
  * the common case reads as just name / sees / does. Every CTA row has a source handle on the
  * card's right edge, filled when a transition starts from it and hollow when none does (a dead
  * end). The screen header and each shown state header have a target handle on the left edge.
@@ -186,7 +190,7 @@ function StateSection({
   showHeader: boolean;
   connected: ReadonlySet<string>;
 }) {
-  const { apply, editing, setEditing } = useFlowsEditor();
+  const { apply, remove, editing, setEditing } = useFlowsEditor();
   const ids = { screenId: screen.id, stateId: state.id };
   const isDefault = stateIndex === 0;
   const nameTarget =
@@ -228,6 +232,10 @@ function StateSection({
                 commitName(value);
                 setEditing(seesStart(screen, stateIndex));
               }}
+              onMove={(value, offset) => {
+                commitName(value);
+                apply((f) => moveState(f, screen.id, state.id, offset));
+              }}
               onCancel={() => setEditing(null)}
             />
           ) : (
@@ -260,7 +268,12 @@ function StateSection({
                 className="row-action row-delete nodrag"
                 aria-label={`Delete the ${state.name} state`}
                 title="Delete state"
-                onClick={() => apply((f) => deleteState(f, screen.id, state.id))}
+                onClick={() =>
+                  remove(
+                    (f) => deleteState(f, screen.id, state.id),
+                    (f) => stateDeletionSummary(f, screen.id, state.id),
+                  )
+                }
               >
                 ×
               </button>
@@ -270,7 +283,7 @@ function StateSection({
       )}
 
       <div className="state-body">
-        <div className="list-caption">Sees</div>
+        <div className="list-caption">Information</div>
         <ul className="sees">
           {state.sees.flatMap((item, i) => {
             const row = (
@@ -296,7 +309,7 @@ function StateSection({
           onClick={() => setEditing({ kind: 'seesDraft', ...ids, after: null })}
         />
 
-        <div className="list-caption">Does</div>
+        <div className="list-caption">Actions</div>
         <ul className="ctas">
           {state.ctas.flatMap((cta) => {
             const row = (
@@ -353,7 +366,7 @@ function SeesRow({
   index,
   item,
 }: RowProps & { index: number; item: string }) {
-  const { apply, editing, setEditing } = useFlowsEditor();
+  const { apply, remove, editing, setEditing } = useFlowsEditor();
   const target: EditTarget = { kind: 'sees', screenId: screen.id, stateId: state.id, index };
 
   /** Clearing an item doesn't delete it; that's what × is for. */
@@ -382,6 +395,13 @@ function SeesRow({
             save(value);
             setEditing(afterSees(screen, stateIndex, index));
           }}
+          onMove={(value, offset) => {
+            save(value);
+            const to = index + offset;
+            if (to < 0 || to >= state.sees.length) return;
+            apply((f) => moveSeesItem(f, screen.id, state.id, index, offset));
+            setEditing({ ...target, index: to });
+          }}
           onCancel={() => setEditing(null)}
         />
       ) : (
@@ -401,7 +421,12 @@ function SeesRow({
           className="row-action row-delete nodrag"
           aria-label={`Delete ${item || 'item'}`}
           title="Delete item"
-          onClick={() => apply((f) => deleteSeesItem(f, screen.id, state.id, index))}
+          onClick={() =>
+            remove(
+              (f) => deleteSeesItem(f, screen.id, state.id, index),
+              (f) => seesDeletionSummary(f, screen.id, state.id, index),
+            )
+          }
         >
           ×
         </button>
@@ -472,7 +497,7 @@ function CtaRow({
   cta,
   connected,
 }: RowProps & { cta: Cta; connected: boolean }) {
-  const { apply, editing, setEditing } = useFlowsEditor();
+  const { apply, remove, editing, setEditing } = useFlowsEditor();
   const target: EditTarget = { kind: 'cta', screenId: screen.id, stateId: state.id, ctaId: cta.id };
 
   /** Clearing a label doesn't delete the CTA; that's what × is for. */
@@ -501,6 +526,10 @@ function CtaRow({
             save(value);
             setEditing(afterCta(screen, stateIndex, cta.id));
           }}
+          onMove={(value, offset) => {
+            save(value);
+            apply((f) => moveCta(f, screen.id, state.id, cta.id, offset));
+          }}
           onCancel={() => setEditing(null)}
         />
       ) : (
@@ -521,7 +550,12 @@ function CtaRow({
           className="row-action row-delete nodrag"
           aria-label={`Delete ${cta.label || 'CTA'}`}
           title="Delete CTA"
-          onClick={() => apply((f) => deleteCta(f, screen.id, state.id, cta.id))}
+          onClick={() =>
+            remove(
+              (f) => deleteCta(f, screen.id, state.id, cta.id),
+              (f) => ctaDeletionSummary(f, screen.id, state.id, cta.id),
+            )
+          }
         >
           ×
         </button>

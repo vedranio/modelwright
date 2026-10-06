@@ -23,6 +23,8 @@ export interface UseDesign {
   docs: DesignState;
   /** Re-reads all three files from disk. */
   reload: () => Promise<void>;
+  /** Re-reads one file, e.g. after it changed on disk. */
+  reloadOne: (kind: DesignKind) => Promise<void>;
   /** Pauses re-reading on window focus, e.g. while the user is typing a new name. */
   setFocusReloadPaused: (paused: boolean) => void;
   /**
@@ -64,6 +66,18 @@ export function useDesign(projectPath: string): UseDesign {
     void reload();
   }, [reload]);
 
+  const reloadOne = useCallback(
+    async (kind: DesignKind) => {
+      const project = latest.current;
+      const writesAtStart = writes.current[kind];
+      const result = await loadDoc(client, projectPath, kind);
+      // A newer full reload, or a save of ours, has the fresher state.
+      if (project !== latest.current || writes.current[kind] !== writesAtStart) return;
+      setDocs((prev) => ({ ...prev, [kind]: keepUnchanged(kind, prev[kind], result) }));
+    },
+    [client, projectPath],
+  );
+
   useEffect(() => {
     const onFocus = () => {
       if (!focusPaused.current) void reload();
@@ -81,7 +95,7 @@ export function useDesign(projectPath: string): UseDesign {
     setDocs((prev) => ({ ...prev, [kind]: { status: 'ok', doc } }));
   }, []);
 
-  return { docs, reload, setFocusReloadPaused, noteWritten };
+  return { docs, reload, reloadOne, setFocusReloadPaused, noteWritten };
 }
 
 async function loadDoc<K extends DesignKind>(

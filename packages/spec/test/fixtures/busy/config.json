@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "name": "Shop & Co.",
+  "preview": {
+    "url": "http://localhost:3000",
+    "devCommand": "pnpm dev --port 3000"
+  },
+  "devices": [
+    {
+      "id": "phone",
+      "name": "Phone",
+      "width": 375,
+      "height": 667
+    },
+    {
+      "id": "wide",
+      "name": "Wide desktop",
+      "width": 1440
+    }
+  ]
+}

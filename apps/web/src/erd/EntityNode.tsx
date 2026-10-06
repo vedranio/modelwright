@@ -1,10 +1,12 @@
 import { Handle, Position, type Node, type NodeProps } from '@xyflow/react';
 import type { Attribute, Entity } from '@modelwright/schema';
 import { isEditing, useErdEditor } from './editor';
+import { attributeDeletionSummary } from './deletion';
 import { InlineField, type CommitReason } from '../editing/InlineField';
 import {
   addAttribute,
   deleteAttribute,
+  moveAttribute,
   renameEntity,
   setEntityDescription,
   updateAttribute,
@@ -163,7 +165,7 @@ function AttributeRow({
   attribute: Attribute;
   onEnter: () => void;
 }) {
-  const { apply, editing, setEditing } = useErdEditor();
+  const { apply, remove, editing, setEditing } = useErdEditor();
   const target = (kind: 'attribute' | 'note') =>
     ({ kind, entityId, attributeId: attribute.id }) as const;
   const done = () => setEditing(null);
@@ -197,6 +199,11 @@ function AttributeRow({
               if (name) apply((erd) => updateAttribute(erd, entityId, attribute.id, { name }));
               setEditing(target('note'));
             }}
+            onMove={(value, offset) => {
+              const name = value.trim();
+              if (name) apply((erd) => updateAttribute(erd, entityId, attribute.id, { name }));
+              apply((erd) => moveAttribute(erd, entityId, attribute.id, offset));
+            }}
             onCancel={done}
           />
         ) : (
@@ -227,7 +234,12 @@ function AttributeRow({
             className="attribute-action attribute-delete nodrag"
             aria-label={`Delete ${attribute.name || 'attribute'}`}
             title="Delete attribute"
-            onClick={() => apply((erd) => deleteAttribute(erd, entityId, attribute.id))}
+            onClick={() =>
+              remove(
+                (erd) => deleteAttribute(erd, entityId, attribute.id),
+                (erd) => attributeDeletionSummary(erd, entityId, attribute.id),
+              )
+            }
           >
             ×
           </button>

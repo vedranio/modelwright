@@ -1,0 +1,241 @@
+{
+  "schemaVersion": 1,
+  "screens": [
+    {
+      "id": "catalogue",
+      "name": "Catalogue",
+      "notes": "The home page.",
+      "entities": [
+        "product",
+        "category"
+      ],
+      "states": [
+        {
+          "id": "browse",
+          "name": "Browse",
+          "sees": [
+            "categories",
+            "product cards"
+          ],
+          "ctas": [
+            {
+              "id": "open",
+              "label": "Open product"
+            },
+            {
+              "id": "cart",
+              "label": "View cart"
+            }
+          ]
+        },
+        {
+          "id": "loading",
+          "name": "Loading",
+          "sees": [
+            "skeleton cards"
+          ],
+          "ctas": []
+        }
+      ]
+    },
+    {
+      "id": "product",
+      "name": "Product \"detail\"",
+      "states": [
+        {
+          "id": "default",
+          "name": "Default",
+          "sees": [
+            "photos",
+            "price | stock"
+          ],
+          "ctas": [
+            {
+              "id": "add",
+              "label": "Add to cart"
+            },
+            {
+              "id": "back",
+              "label": "Back"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cart",
+      "name": "Cart",
+      "states": [
+        {
+          "id": "full",
+          "name": "Has items",
+          "sees": [
+            "line items",
+            "total"
+          ],
+          "ctas": [
+            {
+              "id": "checkout",
+              "label": "Check out"
+            },
+            {
+              "id": "keep",
+              "label": "Keep shopping"
+            }
+          ]
+        },
+        {
+          "id": "empty",
+          "name": "Empty",
+          "sees": [],
+          "ctas": [
+            {
+              "id": "browse",
+              "label": "Browse"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "checkout",
+      "name": "Check-out",
+      "states": [
+        {
+          "id": "form",
+          "name": "Form",
+          "sees": [
+            "address",
+            "card field"
+          ],
+          "ctas": [
+            {
+              "id": "pay",
+              "label": "Pay"
+            }
+          ]
+        },
+        {
+          "id": "error",
+          "name": "Payment failed",
+          "sees": [
+            "error message"
+          ],
+          "ctas": [
+            {
+              "id": "retry",
+              "label": "Try again"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "transitions": [
+    {
+      "id": "t1",
+      "from": {
+        "screenId": "catalogue",
+        "stateId": "browse",
+        "ctaId": "open"
+      },
+      "to": {
+        "screenId": "product"
+      }
+    },
+    {
+      "id": "t2",
+      "from": {
+        "screenId": "catalogue",
+        "stateId": "browse",
+        "ctaId": "cart"
+      },
+      "to": {
+        "screenId": "cart"
+      }
+    },
+    {
+      "id": "t3",
+      "from": {
+        "screenId": "product",
+        "stateId": "default",
+        "ctaId": "add"
+      },
+      "to": {
+        "screenId": "cart"
+      },
+      "label": "item added"
+    },
+    {
+      "id": "t4",
+      "from": {
+        "screenId": "product",
+        "stateId": "default",
+        "ctaId": "back"
+      },
+      "to": {
+        "screenId": "catalogue",
+        "stateId": "browse"
+      }
+    },
+    {
+      "id": "t5",
+      "from": {
+        "screenId": "cart",
+        "stateId": "full",
+        "ctaId": "checkout"
+      },
+      "to": {
+        "screenId": "checkout"
+      }
+    },
+    {
+      "id": "t6",
+      "from": {
+        "screenId": "cart",
+        "stateId": "full",
+        "ctaId": "keep"
+      },
+      "to": {
+        "screenId": "catalogue"
+      }
+    },
+    {
+      "id": "t7",
+      "from": {
+        "screenId": "cart",
+        "stateId": "empty",
+        "ctaId": "browse"
+      },
+      "to": {
+        "screenId": "catalogue"
+      }
+    },
+    {
+      "id": "t8",
+      "from": {
+        "screenId": "checkout",
+        "stateId": "form",
+        "ctaId": "pay"
+      },
+      "to": {
+        "screenId": "checkout",
+        "stateId": "error"
+      },
+      "label": "declined"
+    },
+    {
+      "id": "t9",
+      "from": {
+        "screenId": "checkout",
+        "stateId": "form",
+        "ctaId": "pay"
+      },
+      "to": {
+        "screenId": "catalogue"
+      },
+      "label": "paid"
+    }
+  ],
+  "layout": {}
+}

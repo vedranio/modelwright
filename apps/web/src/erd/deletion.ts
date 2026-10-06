@@ -1,40 +1,47 @@
 import type { Erd } from '@modelwright/schema';
+import { count, deletedMessage, quoted } from '../editing/deletion';
 
 /**
- * The confirmation to show before deleting these entities and relationships, or null when none
- * is needed. Only a cascade asks: an entity that still has attributes or relationships.
- * Deleting empty entities and bare relationships goes ahead without asking.
- * E.g. "Delete 'User', its 2 attributes and 1 relationship?"
+ * The undo toast's text for deleting these entities and relationships, counting everything
+ * the delete takes with it, or null when nothing would go.
+ * E.g. "Deleted 'User', 2 attributes and 1 relationship".
  */
-export function deletionPrompt(
+export function deletionSummary(
   erd: Erd,
   entityIds: ReadonlySet<string>,
   relationshipIds: ReadonlySet<string>,
 ): string | null {
   const entities = erd.entities.filter((e) => entityIds.has(e.id));
-  if (entities.length === 0) return null;
-
-  const attributes = entities.reduce((n, e) => n + e.attributes.length, 0);
-  const touching = erd.relationships.filter((r) => entityIds.has(r.from) || entityIds.has(r.to));
-  if (attributes === 0 && touching.length === 0) return null;
-
   const relationships = erd.relationships.filter(
     (r) => entityIds.has(r.from) || entityIds.has(r.to) || relationshipIds.has(r.id),
-  ).length;
+  );
+  if (entities.length === 0) {
+    const [only] = relationships;
+    if (!only) return null;
+    if (relationships.length > 1)
+      return deletedMessage(count(relationships.length, 'relationship'));
+    const name = (id: string) => quoted(erd.entities.find((e) => e.id === id)?.name ?? id);
+    return only.from === only.to
+      ? `Deleted the relationship from ${name(only.from)} to itself`
+      : `Deleted the relationship between ${name(only.from)} and ${name(only.to)}`;
+  }
 
   const [only] = entities;
-  const subject = entities.length === 1 && only ? `'${only.name}'` : `${entities.length} entities`;
-  const their = entities.length === 1 ? 'its' : 'their';
-  const parts = [
+  const attributes = entities.reduce((n, e) => n + e.attributes.length, 0);
+  return deletedMessage(
+    entities.length === 1 && only ? quoted(only.name) : count(entities.length, 'entity'),
     attributes > 0 && count(attributes, 'attribute'),
-    relationships > 0 && count(relationships, 'relationship'),
-  ].filter((p): p is string => p !== false);
-
-  return parts.length === 2
-    ? `Delete ${subject}, ${their} ${parts[0]} and ${parts[1]}?`
-    : `Delete ${subject} and ${their} ${parts[0]}?`;
+    relationships.length > 0 && count(relationships.length, 'relationship'),
+  );
 }
 
-function count(n: number, noun: string): string {
-  return `${n} ${noun}${n === 1 ? '' : 's'}`;
+/** "Deleted attribute 'email'". */
+export function attributeDeletionSummary(erd: Erd, entityId: string, attributeId: string) {
+  const attribute = erd.entities
+    .find((e) => e.id === entityId)
+    ?.attributes.find((a) => a.id === attributeId);
+  if (!attribute) return null;
+  return attribute.name.trim()
+    ? `Deleted attribute ${quoted(attribute.name)}`
+    : 'Deleted an attribute';
 }

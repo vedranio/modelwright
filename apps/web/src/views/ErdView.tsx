@@ -1,15 +1,19 @@
 import { useCallback, useMemo, useRef, useState, type MouseEvent } from 'react';
 import type { NodeChange, OnConnectEnd, ReactFlowInstance, XYPosition } from '@xyflow/react';
 import type { Erd } from '@modelwright/schema';
-import { useConfirm } from '../ConfirmDialog';
+import type { Rect } from '../canvas/edgeGeometry';
 import { Canvas } from '../canvas/Canvas';
+import { UndoRedoButtons } from '../canvas/UndoRedoButtons';
+import { useCanvasShortcuts } from '../canvas/useCanvasShortcuts';
 import { useMeasurements } from '../canvas/useMeasurements';
 import { useSelection } from '../canvas/useSelection';
 import { SaveStatusPill } from '../editing/SaveStatusPill';
+import { touchedErd } from '../editing/touched';
+import { useCanvasHistory } from '../editing/useCanvasHistory';
 import type { EditableDoc } from '../editing/useEditableDoc';
 import { CrowsFootEdge, type CrowsFootEdgeType } from '../erd/CrowsFootEdge';
-import { deletionPrompt } from '../erd/deletion';
-import { parallelOffsets } from '../erd/edgeGeometry';
+import { deletionSummary } from '../erd/deletion';
+import { parallelSlots, selfLoopSide } from '../erd/edgeGeometry';
 import { ErdEditorContext, type EditTarget, type ErdEditor } from '../erd/editor';
 import { EntityNode, type EntityNodeType } from '../erd/EntityNode';
 import { ENTITY_WIDTH, estimateEntitySize } from '../erd/metrics';
@@ -18,11 +22,13 @@ import {
   addRelationship,
   deleteEntities,
   deleteRelationships,
+  duplicateEntities,
   moveEntities,
 } from '../erd/ops';
 import { placeEntities } from '../erd/placement';
 import '../erd/erd.css';
 import { useShortcut } from '../shortcuts';
+import { shortcutHint } from '../shortcutRegistry';
 import { Kbd } from '../ui';
 import type { DocState } from '../useDesign';
 import { DocStateView } from './DocStateView';
@@ -64,7 +70,6 @@ function ErdCanvas({
   const [dragging, setDragging] = useState<Record<string, XYPosition>>({});
   const selection = useSelection();
   const measurements = useMeasurements();
-  const [dialog, confirm] = useConfirm();
   const instance = useRef<ReactFlowInstance<EntityNodeType, CrowsFootEdgeType> | null>(null);
   const container = useRef<HTMLDivElement>(null);
 
@@ -83,7 +88,17 @@ function ErdCanvas({
     [applyDoc],
   );
 
-  const editor = useMemo<ErdEditor>(() => ({ apply, editing, setEditing }), [apply, editing]);
+  const history = useCanvasHistory('erd', edit, touchedErd, selection.select);
+  const { remove: removeDoc } = history;
+  const remove = useCallback<ErdEditor['remove']>(
+    (op, describe) => removeDoc(op, describe, apply),
+    [removeDoc, apply],
+  );
+
+  const editor = useMemo<ErdEditor>(
+    () => ({ apply, remove, editing, setEditing }),
+    [apply, remove, editing],
+  );
 
   const flow = useMemo(() => toFlow(erd), [erd]);
   const nodes = useMemo(
@@ -182,17 +197,51 @@ function ErdCanvas({
     createEntity(instance.current.screenToFlowPosition({ x: e.clientX, y: e.clientY }));
   };
 
-  useShortcut(
-    (e) => e.key.toLowerCase() === 'e' && !e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey,
-    (e) => {
-      e.preventDefault();
-      addAtCentre();
+  useCanvasShortcuts({
+    selectAll: () =>
+      selection.select(
+        erd.entities.map((e) => e.id),
+        erd.relationships.map((r) => r.id),
+      ),
+    deselect: selection.clear,
+    duplicate: () => {
+      const chosen = erd.entities.filter((e) => selection.selectedNodes.has(e.id)).map((e) => e.id);
+      if (chosen.length === 0) return;
+      let copies: string[] = [];
+      let links: string[] = [];
+      apply((doc) => {
+        const result = duplicateEntities(doc, chosen);
+        copies = result.ids;
+        links = result.erd.relationships
+          .filter((r) => copies.includes(r.from) && copies.includes(r.to))
+          .map((r) => r.id);
+        return result.erd;
+      });
+      selection.select(copies, links);
     },
-  );
-  useShortcut(
-    (e) => e.key === 'Escape',
-    () => selection.clear(),
-  );
+    nudge: (dx, dy, coalesce) => {
+      const chosen = erd.entities.filter((e) => selection.selectedNodes.has(e.id)).map((e) => e.id);
+      if (chosen.length === 0) return;
+      apply(
+        (doc) =>
+          moveEntities(
+            doc,
+            Object.fromEntries(
+              chosen.flatMap((id) => {
+                const at = doc.layout[id];
+                return at ? [[id, { x: at.x + dx, y: at.y + dy }]] : [];
+              }),
+            ),
+          ),
+        { coalesce },
+      );
+    },
+  });
+
+  useShortcut('add-entity', (e) => {
+    e.preventDefault();
+    addAtCentre();
+  });
 
   return (
     <ErdEditorContext.Provider value={editor}>
@@ -219,30 +268,39 @@ function ErdCanvas({
           onConnectEnd={onConnectEnd}
           // Only dropping onto an entity counts (onConnectEnd); never connect handle to handle.
           isValidConnection={() => false}
-          onBeforeDelete={async ({ nodes: goneNodes, edges: goneEdges }) => {
+          onBeforeDelete={({ nodes: goneNodes, edges: goneEdges }) => {
+            // No confirmation: the toast offers Undo (decisions.md, phase 5).
             const entityIds = new Set(goneNodes.map((n) => n.id));
             const relationshipIds = new Set(goneEdges.map((e) => e.id));
-            const prompt = deletionPrompt(erd, entityIds, relationshipIds);
-            if (prompt && !(await confirm({ title: prompt, confirmLabel: 'Delete' }))) {
-              return false;
-            }
-            apply((doc) => deleteRelationships(deleteEntities(doc, entityIds), relationshipIds));
+            remove(
+              (doc) => deleteRelationships(deleteEntities(doc, entityIds), relationshipIds),
+              (doc) => deletionSummary(doc, entityIds, relationshipIds),
+            );
             selection.clear();
             // The document change removes them; React Flow mustn't remove them a second time.
-            return false;
+            return Promise.resolve(false);
           }}
           toolbarActions={
-            <button
-              type="button"
-              className="btn btn-quiet btn-tight toolbar-add"
-              onClick={addAtCentre}
-            >
-              <span className="toolbar-add-plus" aria-hidden="true">
-                +
-              </span>
-              Add entity
-              <Kbd>E</Kbd>
-            </button>
+            <>
+              <button
+                type="button"
+                className="btn btn-quiet btn-tight toolbar-add"
+                onClick={addAtCentre}
+              >
+                <span className="toolbar-add-plus" aria-hidden="true">
+                  +
+                </span>
+                Add entity
+                <Kbd>{shortcutHint('add-entity')}</Kbd>
+              </button>
+              <span className="divider" aria-hidden="true" />
+              <UndoRedoButtons
+                undo={history.undo}
+                redo={history.redo}
+                canUndo={edit.canUndo}
+                canRedo={edit.canRedo}
+              />
+            </>
           }
           status={
             <SaveStatusPill
@@ -258,7 +316,7 @@ function ErdCanvas({
                 actions={
                   <button type="button" className="btn btn-primary" onClick={addAtCentre}>
                     Add entity
-                    <Kbd>E</Kbd>
+                    <Kbd>{shortcutHint('add-entity')}</Kbd>
                   </button>
                 }
               >
@@ -268,7 +326,6 @@ function ErdCanvas({
           }
         />
       </div>
-      {dialog}
     </ErdEditorContext.Provider>
   );
 }
@@ -301,7 +358,23 @@ function toFlow(erd: Erd): { nodes: EntityNodeType[]; edges: CrowsFootEdgeType[]
       initialHeight: size.height,
     };
   });
-  const offsets = parallelOffsets(erd.relationships);
+  const slots = parallelSlots(erd.relationships);
+  // Self-relationships loop off the side of their card with the most room.
+  const rects = new Map(
+    erd.entities.map((e) => [
+      e.id,
+      { ...(positions[e.id] ?? { x: 0, y: 0 }), ...estimateEntitySize(e) },
+    ]),
+  );
+  const loopSides = new Map(
+    erd.relationships
+      .filter((r) => r.from === r.to && rects.has(r.from))
+      .map((r) => {
+        const own = rects.get(r.from) as Rect;
+        const others = [...rects].filter(([id]) => id !== r.from).map(([, rect]) => rect);
+        return [r.from, selfLoopSide(own, others)];
+      }),
+  );
   const names = new Map(erd.entities.map((e) => [e.id, e.name]));
   const edges = erd.relationships.map((rel): CrowsFootEdgeType => ({
     id: rel.id,
@@ -311,7 +384,8 @@ function toFlow(erd: Erd): { nodes: EntityNodeType[]; edges: CrowsFootEdgeType[]
     data: {
       fromCard: rel.fromCard,
       toCard: rel.toCard,
-      offset: offsets.get(rel.id) ?? 0,
+      slot: slots.get(rel.id) ?? { index: 0, count: 1 },
+      loopSide: loopSides.get(rel.from) ?? 'right',
       fromName: names.get(rel.from) ?? rel.from,
       toName: names.get(rel.to) ?? rel.to,
       editing: false,

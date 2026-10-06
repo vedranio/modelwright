@@ -1,23 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { fanOffsets, orthogonalPath } from '../src/canvas/edgeGeometry';
-
-describe('fanOffsets', () => {
-  it('centres items that share a key on zero, spacing apart', () => {
-    const items = [
-      { id: 'a', k: 'x' },
-      { id: 'b', k: 'x' },
-      { id: 'c', k: 'x' },
-      { id: 'd', k: 'y' },
-    ];
-    const offsets = fanOffsets(items, (i) => i.k, 10);
-    expect([offsets.get('a'), offsets.get('b'), offsets.get('c')]).toEqual([-10, 0, 10]);
-    expect(offsets.get('d')).toBe(0);
-  });
-
-  it('skips items with a null key', () => {
-    expect(fanOffsets([{ id: 'a' }], () => null, 10).has('a')).toBe(false);
-  });
-});
+import { orthogonalPath } from '../src/canvas/edgeGeometry';
 
 describe('orthogonalPath', () => {
   it('draws a straight line through two points', () => {

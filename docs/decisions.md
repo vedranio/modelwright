@@ -465,3 +465,216 @@ Walked the "done means" list by hand in the browser, against a scratch copy of t
 Caveats:
 - **Verified with simulated input:** window blur and focus (synthetic events), and clicks in a small browser pane, with positions taken from the DOM.
 - **Gate screenshots are downscaled:** the 1440×900 shots are 800×500 renders, the browser tool's maximum.
+
+## 2026-10-06 — Phase 5 planning decisions
+
+Settled in the phase 5 interview before any code was written. The brief's "Decisions this brief makes" all stand: per-document undo for ERD and Flows, one committed edit per step, cleared when disk replaces the working copy; undo toasts instead of delete confirmations; one shortcut registry; the proposed shortcut set; ⌥↑/⌥↓ reordering; duplicate copies internal links only; file watching replaces "last writer wins"; `spec.md` written by the server on every successful save, never on open; dark mode through tokens only, System by default. These sharpen them:
+
+- **Spec, data model:** the Mermaid `erDiagram` leaves attributes out. They're in the per-entity tables, so the diagram doesn't imply types the conceptual ERD doesn't have.
+- **Spec, relationship sentences:** the label is the forward verb ("Each User owns zero or more Notes."), "has" when there's no label, and "belongs to" in reverse ("Each Note belongs to exactly one User.").
+- **Spec, plurals:** simple English rules (s, es, y → ies) on a name's last word, plus a short irregular list.
+- **Selection after undo/redo:** a pure before/after diff selects whatever the step touched that still exists. A change inside a card (attribute, sees item, CTA, state) selects the card.
+- **The shortcuts overlay** also lists Delete/⌫ and Esc, and a "While editing" group (Enter, Tab, Esc, ⌥↑/⌥↓, native ⌘Z).
+- **Zoom keys** accept `+` or `=`, and `−` or `-`, unmodified. ⌘+ and ⌘− stay the browser's page zoom. ⇧0, like ⇧1, matches the physical key.
+- **⌘D has no fallback.** If a browser wins it, it's dropped from the web build and logged for Electron.
+- **Browser-conflict checks are done by hand at the end** (milestone 6), not at milestone 1. Simulated keys skip the browser's own shortcut handling (the ⌘R lesson), so only a person at a real keyboard can check them.
+- **The theme control** is one icon button in the header that opens a System/Light/Dark menu.
+- **config.json conflicts** use the same banner as the canvases, shown on the UI view.
+- **The spec review** uses a local page that renders Mermaid, not a gist, so nothing is published.
+
+## 2026-10-06 — Phase 5 milestone 0: undo, redo and the toast
+
+- **History** is pure (`editing/history.ts`) and lives in `EditableState` beside the working copy. `applyEdit(state, shown, next)` records `shown`, the document on screen before the edit, so the first edit on a freshly opened file is undoable too.
+- **History belongs to the working copy.** `historyFor(state, shown)` is empty whenever the document shown isn't the working copy, which is exactly when disk has replaced it (Reload, an external change, a reopen). There's no separate "clear" call to forget, and our own save read back keeps the history.
+- **Undo and redo are ordinary edits** for saving: they make the document dirty and autosave after the usual pause. Each bumps a `revision` counter, as an edit does.
+- **Coalescing:** an edit with a `coalesce` key within 600 ms of the last one with the same key joins that step. Nudging uses it in milestone 1. An undo always ends coalescing.
+- **The touched diff** compares items by id and canonical JSON, with their layout entry (`editing/touched.ts`, one file for both documents).
+- **Deletes:** every delete applies at once and shows a toast with Undo, from the canvas (Delete/⌫), the popovers and the cards' × buttons. `erd/deletion.ts` now words what went ("Deleted 'User', 2 attributes and 1 relationship"), and `flows/deletion.ts` does the same for screens, states, sees items, CTAs and transitions. `deletionPrompt` and the ERD's confirmation are gone. `ConfirmDialog` stays for Reload and close.
+- **The toast** (`Toast.tsx`) is one message at a time, hosted by `Shell` in the view area, centred 72 px above the bottom edge (`--toast-offset`), clear of the canvas toolbar and the save status. It dismisses itself after 6 s, on the next edit of the document it's about (its revision moved on), and on a view switch. Its Undo is the same as ⌘Z, selection included.
+- **⌘Z / ⇧⌘Z** (Ctrl+Z, Ctrl+Shift+Z and Ctrl+Y off macOS) skip text fields, so a field keeps its own native undo.
+
+## 2026-10-06 — Phase 5 milestone 1: shortcuts
+
+- **The registry** (`shortcutRegistry.ts`) lists every shortcut with its key combinations, label and scope (Anywhere, ERD and Flows, ERD, Flows, While editing a field). `useShortcut(id, handler)` matches through it. `shortcutHint(id)` renders the hints (⇧⌘Z on macOS, Ctrl+Shift+Z elsewhere). React Flow's delete keys come from it, and the overlay is generated from it.
+- **A control's own keys aren't app shortcuts.** The project picker's ↑ ↓ ↵ and the dialogs' ↵ and esc stay local (`useKeydown`), like a text field's keys. The overlay only exists inside a project, where they don't apply.
+- **Matching:**
+  - The command modifier is ⌘ on macOS and Ctrl elsewhere. Holding the other one never matches.
+  - 1/2/3, ⇧0 and ⇧1 match the physical key, so they work on layouts where those keys type other characters (AZERTY's 1 is "&").
+  - `?`, `+` and `=` accept Shift either way, because the layout decides whether Shift is needed.
+  - Tests check that no key has two shortcuts in scopes that can be active together, on either platform.
+- **Duplicate:**
+  - Copies keep their names and sit 16 units (one grid step) down and right.
+  - The copies and the links copied between them are selected.
+  - Every id is fresh, including attributes, states and CTAs, following "new ids are unique across the whole file".
+  - The brief says both "relationships or transitions between duplicated nodes are duplicated" and "a duplicated screen's CTAs start with no outgoing transitions". Done-means asks for two connected screens to keep their link, so a copied CTA keeps only transitions whose target screen was copied too, retargeted to the copy and its matching state.
+- **Nudge:** a burst of arrow keydowns shares one coalesce key until an arrow key's keyup, and coalescing also ends after a 600 ms pause. A held key is therefore one undo step, and the 500 ms autosave pause makes it one save. Separate presses are separate steps.
+- **Zoom keys** use React Flow's animated zoom. ⇧0 is `zoomTo(1)` around the viewport centre.
+- **The overlay** opens with `?` or the header's "?" button. While it's open it takes every key in the capture phase, so nothing behind it reacts. Esc, `?`, × or a click outside closes it.
+- **⌥↑/⌥↓** save the field's text, then move the row (two undo steps when the text changed, one otherwise). The field stays open on the moved row. `InlineField` ignores the blur a DOM move can cause, refocuses if it lost focus, and stays usable after a move at the end of the list, which changes nothing.
+- **Fix found while verifying: an untouched draft follows its value.** React Flow hands node data to nodes a render after the editor context changes. After ⌥↑ on a sees item (rows keyed by index), the field reopened on the new row with the previous item's text, and a second ⌥↑ saved that stale text over the moved item. `InlineField` now adopts a changed `value` until the user has typed.
+- **Not checked yet: browser conflicts.** Simulated keys skip the browser's own handling, so ⌘D, ⌘A, ⌘Z/⇧⌘Z, +/−, ⇧0, 1/2/3, ?, ⌥↑/⌥↓ and the arrows are on the milestone 6 hand-check list for Chrome and Safari. Anything a browser wins is dropped then.
+
+## 2026-10-06 — Phase 5 milestone 2: parallel relationships (supersedes phase 2's 16-unit offsets)
+
+- **Groups:** `parallelSlots` gives each relationship its place among those joining the same pair of entities, in either direction and in document order. Self-relationships group per entity.
+- **Spread:** `parallelRoute` spaces a group evenly, centred on the span the facing sides share (or the shorter side), using that room up to 40 units apart.
+  - The minimum is 28 between horizontal lines, enough for each line's label above it clear of the next line.
+  - The minimum is 24 between vertical lines, enough for the 14-unit markers. Their labels, beside the lines, are staggered 20 units apart vertically.
+  - Lines that can't run straight step at nested positions (`centerX`/`centerY`), so their middle runs never cross. Phase 2's fixed offsets put every stepped path's middle run on the same line.
+- **Self-relationships:**
+  - They nest: each loop's ends sit 24 further from the side's middle, and the loop reaches 24 further out, leaving room for the inner loop's label clear of the outer loop.
+  - `selfLoopSide` picks the side with the most room before another card (ties go right, bottom, left, top), from the same size estimates placement uses. A card's loops share one side.
+  - This isn't routing around cards, which stays out of scope. It only chooses where a card's own loops go, because always looping right ran straight through a neighbour 80 units away, as in the notes fixture.
+- **Labels** can now sit above, right of, or below their anchor (`below` for loops under a card).
+- **Selection** is unchanged: each relationship keeps its own 16-unit interaction path, so every line in a group stays individually clickable.
+- `fanOffsets` had no users left, so it's gone.
+
+## 2026-10-06 — Phase 5 milestone 3: file watching (supersedes "External edits while dirty: last writer wins")
+
+- **Server:**
+  - `DesignWatcher` keeps one `fs.watch` on `<project>/.design/` per project, shared by its subscribers and closed when the last one leaves.
+  - It looks only at `erd.json`, `flows.json` and `config.json`, so `spec.md`, editor temp files and everything else are ignored.
+  - Changes are debounced per file (150 ms), then the file is read.
+  - A change is reported only when the content differs both from the server's own last write to that file and from what was last reported. The server records each write (`noteWrite`) before making it, from `PUT` and from `init`, so its own saves never echo back, whatever the timing.
+- **`GET /api/design/events?path=`** is a Server-Sent Events stream behind the same guard:
+  - It sends `ready` once watching has started, then `change` with `{"kind":"erd"}`.
+  - A comment every 25 s keeps proxies from closing an idle stream.
+  - It answers 409 for a folder that isn't initialised.
+- **`ProjectClient.watchDesign(path, onChange)`** uses `EventSource` in the HTTP client, which reconnects by itself if the server restarts.
+- **Web, clean document:** `useDesign.reloadOne(kind)` re-reads just that file, exactly as a focus re-read would. The working copy is replaced, so its undo history goes with it (`historyFor`).
+- **Web, dirty document:**
+  - `hold()` puts saving on hold (`held`, status `held`, "Save on hold" in the pill). Edits keep applying locally.
+  - A banner at the top of that file's view says "<file>.json was changed outside modelwright", with **Load from disk** (discard the edits and history, then re-read) and **Keep mine** (end the hold and save at once, overwriting the file).
+  - For `config.json` the banner is on the UI view, and the header's project name can't be edited while it's held, since the banner may not be in view.
+- **A save already in flight when the hold starts still lands.** The PUT has gone, and its content becomes the file. The hold stays until a choice is made, so the banner never disappears without one, and Load from disk then shows what's really on disk.
+- **The focus re-read stays** as a fallback, still paused while anything is dirty.
+
+## 2026-10-06 — Phase 5 milestone 4: the generated spec
+
+- **`packages/spec`** (TypeScript source, like the schema package) exports:
+  - `renderSpec(config, erd, flows)`
+  - `erdMermaid` and `flowsMermaid` for Copy Mermaid
+  - `relationshipSentences` and `plural`
+  Output follows document order and nothing else, so it's byte-identical for the same input.
+- **Layout of `spec.md`:**
+  - The header line, as a blockquote.
+  - `# <project name>`.
+  - `## Data model`: the diagram, then `### Entities` (an `####` and table per entity, its description above the table, "No attributes." when empty), then `### Relationships` (one bullet of sentences each).
+  - `## Screens and flows`: the diagram, then an `###` per screen with its notes and a "Uses:" line naming its `entities`. Each state has an `####` (single-state screens skip it, and the first state is marked "(default)"), followed by "Sees:" and "Does:" lists.
+  - `## Preview`: URL, dev command and devices, when set.
+  - Empty documents say "No entities yet." or "No screens yet." and draw no diagram.
+- **Where a CTA leads** reads "→ Screen › State (transition label)". Several transitions are separated by "; ". The state is left out for single-state screens, where it's always "Default" and adds nothing. A CTA with no transition is "(dead end)".
+- **The "Uses:" line** isn't in the brief's list. It's the only place a screen's `entities` cross-reference would otherwise be visible, and phase 6 will want it. Flagged for the review gate.
+- **Mermaid:**
+  - Identifiers are `e_`/`s_` plus the schema id with anything outside `[A-Za-z0-9_]` turned into `_`, plus `_2`, `_3`… on collision. The prefix keeps them clear of keywords like `end`, and of `o`/`x` edge syntax.
+  - Names are quoted labels, with `"` as `#quot;`.
+  - Multi-state screens are subgraphs of state nodes. A transition with no `stateId` points at the default state's node. Edge labels are the CTA's label, then ": transition label".
+- **Mermaid's own parser runs in the tests** (`mermaid` with jsdom, as dev dependencies of `packages/spec`). The golden diagrams and every cardinality pair are parsed. The review page renders with Mermaid 11 from a CDN, and both the notes and busy examples draw.
+- **Plurals:**
+  - Acronyms take a lower-case s (SKUs).
+  - A trailing parenthetical is skipped ("Orders (v2)").
+  - A short list of irregular and unchanging words applies (people, children, data, settings…).
+- **Golden files** live in `packages/spec/test/golden/`, are rewritten with `UPDATE_GOLDEN=1`, and are excluded from Prettier because they're compared byte for byte. The busy example's fixture is canonical serialiser output, like the notes fixture.
+- **Server:**
+  - `regenerateSpec` runs after a successful `PUT` of any design file and after `init`, only when all three files parse.
+  - It writes atomically, and skips the write when the text is unchanged.
+  - `specFile` is the one new writable path, checked to sit directly in `.design/`.
+  - A failure to write the spec is logged, not returned as an error, because the design file is already saved.
+  - The watcher already ignores `spec.md`.
+- **Copy Mermaid** is a toolbar button on each canvas, with a "Mermaid copied" toast (or "Couldn’t copy to the clipboard").
+- **Fix found while verifying (milestone 1): React Flow's keyboard handling is off** (`disableKeyboardA11y`). With a node focused after a click, React Flow handled the arrow keys itself, and the registry's nudge never saw them. The milestone 1 check had dispatched keys to the page body, which missed this.
+
+## 2026-10-06 — Phase 5 milestone 5: dark mode
+
+- **Light mode now meets WCAG AA, which moves three values off the design-refs** (settled with you at this milestone: the refs' faint text fails AA):
+  - `--color-text-faint` goes from #9b9b95 (2.6:1) to #6c6c66 (4.5:1 on the sunken background, where the picker and state headers use it). It's now close to `--color-text-muted`, so the hierarchy leans more on size and placement.
+  - `--color-on-accent-muted` (the key hint in a primary button) goes from #c9d0f5 (4.06:1) to #dde2fa.
+  - New `--color-border-input` (#8a8a84 light, #6a6a65 dark) gives text fields and selects a 3:1 edge. `--color-border-strong` stays as it was for decorative edges (secondary buttons, CTA chips, the device frame).
+- **The dark theme lives in tokens only:**
+  - A `[data-theme='dark']` block, and an identical one under `@media (prefers-color-scheme: dark)` for `:root:not([data-theme='light'])`.
+  - It covers every colour token and the three shadows (dark shadows add a faint light ring so cards keep an edge), plus `color-scheme`, so native selects, inputs and scrollbars match.
+  - No component has a dark-mode rule, and no colour existed outside `tokens.css` to begin with.
+  - Values are derived from the light palette (the same warm greys, inverted) with the accent lifted to #7385f2. Text on the accent is dark (#11152b), because white on a lifted accent can't reach 4.5:1.
+- **`test/tokens.test.ts`:**
+  - Both dark blocks must be identical, and must cover exactly the colour and shadow tokens.
+  - Every text pairing the UI uses must reach 4.5:1 in both themes, and text-field edges 3:1. Faint text is never checked against the hover background, because every hovered control switches to full text colour.
+  - The dot grid and card borders are decorative and not held to a ratio. The dot grid is 1.36:1 in light and about 1.5:1 in dark.
+- **Theme setting** (`theme.ts`):
+  - System (default), Light or Dark, saved as `modelwright.theme` (System removes the key).
+  - Light and Dark set `data-theme` on `<html>`. System sets nothing and lets the media query follow the OS live, with no script.
+  - An inline script in `index.html` applies a saved theme before first paint.
+  - The header control is one icon button (◐ ☀ ☾) with a three-item menu, closed by Esc or a click outside.
+- **Canvas colours** (dot grid, edges, markers, handles) were already drawn by CSS from tokens, so nothing in JavaScript needs re-reading on a theme change.
+- **The preview iframe isn't themed.** It gets `color-scheme: light dark`, so the app inside sees the OS's light or dark preference rather than modelwright's choice.
+- **Verified:**
+  - Gate screenshots come from headless Chrome over the DevTools protocol at 1440×900, from a scratchpad script; the browser pane was too narrow for a faithful 1440×900 capture.
+  - System follows an emulated OS change live, with no reload. Light and Dark override it either way.
+
+## 2026-10-06 — Phase 5 milestone 6: verification notes
+
+I walked the "done means" list against fresh copies of the notes fixture, driving headless Chrome over the DevTools protocol with real mouse and keyboard events, and checking the files on disk after every step. The walk scripts live in the session scratchpad, not this repo.
+
+- **Checks:** `pnpm test` (541 tests in 38 files), `pnpm typecheck` and `pnpm lint` pass at the root.
+- **Undo and redo:** on each canvas, rename, add a row, move, connect and delete each saved. ⌘Z undid all five, and ⇧⌘Z redid them, with the file byte-identical to the expected state after every step (32 checks).
+- **Deletes:** deleting User or Notes deleted at once with a toast naming what went ("Deleted 'Note', 3 attributes and 2 relationships", "Deleted 'Notes' and 4 transitions"). The toast's Undo restored `erd.json` byte for byte, layout included.
+- **Field undo:** ⌘Z in a field undid the typing ("Notebook" back to "Note"), and the file was untouched.
+- **⌘D:** two connected entities, and two connected screens, were copied with the links between them (1 relationship, 3 transitions), and the copies were selected.
+- **Nudge:** fifteen held → keydowns (auto-repeat) moved the card 15 units in one save, and one ⌘Z put it back.
+- **⌥↑:** moved an attribute, a sees item, a CTA and a state. A state moved to the top became the default, and the field stayed open on the moved row.
+- **File watching:**
+  - An outside edit to `erd.json` showed within a second, with no refocus.
+  - An outside edit to `flows.json` under unsaved edits showed the banner and "Save on hold", and the file wasn't overwritten.
+  - Keep mine overwrote the file. Load from disk showed the file's content and dropped the local edit.
+- **`spec.md`:**
+  - Opening a project didn't create it, and an edit and its undo both kept it up to date.
+  - With `erd.json` hand-broken, a Flows save left it alone.
+  - Initialising a new folder from the picker writes it beside the three files.
+- **Copy Mermaid:** on both canvases it put `erDiagram` / `flowchart LR` source on the clipboard and showed "Mermaid copied".
+- **Shortcuts:** 1/2/3, = and −, ⇧0, ⇧1, ?, E and Esc all did what the overlay says. The overlay takes the keyboard while open.
+- **Parallel relationships:** two between User and Note, and two self-relationships on User, were each clickable on their own path and opened their own popover.
+- **Phases 1–4 spot checks:** picker initialise, the empty ERD card, close back to the picker with recents, the validation surface (gate screenshots) and the UI view's preview.
+- **Walk-script artefacts, not app bugs:** two first-run failures came from the script. A Shift-click needs a real Shift keydown, as phase 2 found. An open state-name field keeps the name out of the header's text.
+- **Not verifiable here, left as hand checks:**
+  - Whether Chrome or Safari wins any shortcut (simulated keys skip the browser's own handling).
+  - Trackpad gestures.
+  - The System theme following a real OS appearance change (verified with emulated media only).
+  - GitHub's own Mermaid rendering of `spec.md`, which needs a push (verified with Mermaid's parser and a local Mermaid 11 render).
+
+## 2026-10-06 — Copy Mermaid replaced by undo and redo buttons (supersedes the brief's §5 "Copy Mermaid")
+
+Decided after the phase 5 walk.
+
+- **Copy Mermaid is gone.** Both diagrams are already in `.design/spec.md`, which is rewritten on every save and rendered by GitHub, so a button to copy them added little.
+- **`packages/spec` still exports `erdMermaid` and `flowsMermaid`.** `renderSpec` uses them, and phase 6 may too. `apps/web` no longer depends on the package.
+- **Undo and redo buttons** (↶ ↷) now sit in the same toolbar slot, after the view's add button.
+  - They run the same steps as ⌘Z and ⇧⌘Z, through `useCanvasHistory`, so what a step touched is selected afterwards.
+  - Each is disabled when there's nothing to undo or redo, using the editor's `canUndo` / `canRedo`.
+  - Their tooltips give the shortcut from the registry.
+  - A disabled icon button is drawn in faint text and gets no hover background.
+- **Verified in headless Chrome on both canvases, in light and dark:**
+  - Both buttons start disabled, and a delete enables Undo.
+  - Undo restores the file byte for byte, selects the restored card and enables Redo.
+  - Redo applies the delete again.
+
+## 2026-10-06 — CTAs read like sees items (supersedes phase 3's "lo-fi buttons")
+
+Decided after the phase 5 walk.
+
+- **Captions:** a state's CTA list is captioned "Actions" (it was "Does").
+- **No outline:** CTAs are no longer drawn as outlined lo-fi buttons. Each is a one-line row styled exactly like a sees item (muted text, the same indent), marked with a small arrow (a line with a head) where sees items have a dash.
+- **The arrow** is an 8 × 8 SVG used as a CSS mask, so its colour still comes from `--color-text-faint` and it themes with everything else. Its size is the new `--cta-arrow-size`, replacing `--cta-row-h`.
+- **CTA rows are one line now**, so `flows/metrics.ts` estimates them at the same height as sees items.
+- **Dead CSS removed:** phase 1's document-listing styles (`.doc-list`, `.counts`, `.items`, `.ctas`, `.cta`) were left over in `styles.css`. Their `.ctas` margin was pushing the CTA list 8 px right of the sees list.
+- **`spec.md` still says "Does:"** under each state, as the brief named it. Changing it is a separate call.
+- **Later the same day:** the "Sees" caption became "Information", and both captions are now semibold. The "+ Add item" and "+ Add CTA" rows have 8 px (`--space-2`) above them, and the screen size estimate's per-state footer grew from 56 to 72 to match. The schema field stays `sees`, and `spec.md` still says "Sees:" and "Does:".
+- **Then:** `spec.md` lists each state's items under "Information:" and "Actions:", matching the card (the golden files were regenerated). On the card, a thin keyline (`--color-border`, inset to the content) and 8 px of space above and below it separate the "Information" list's "+ Add item" row from the "Actions" list. The footer estimate grew to 90 to match.
+
+## 2026-10-06 — Trial: Google Material Symbols in the theme menu
+
+- The theme menu's ◐ ☀ ☾ glyphs are replaced by Material Symbols (outlined, weight 400): `contrast` for System (first `brightness_auto`, swapped at review), `light_mode` and `dark_mode`.
+- They come from the `@material-symbols/svg-400` npm package (Apache-2.0), so they're self-hosted like the font, with no request to Google at runtime. Only the imported SVGs end up in the bundle.
+- `Icon.tsx` draws each one as a CSS mask over `currentColor`, so icons take their colour from the surrounding text tokens and theme with everything else. The size is `--icon-size` (18px).
+- If the trial is approved, the other glyphs (Reload ↻, close ×, zoom − +, undo/redo ↶ ↷, the shortcuts "?") move to `Icon` too.
+- **Approved and extended:** Material Symbols now also draw the Reload icon (`refresh`, in the header, Reload preview and the validation surface, which all share `ReloadGlyph`), the toolbar's undo and redo (`undo`, `redo`), and the header's shortcuts button (`question_mark`). The unused `.glyph` style is gone. Close ×, zoom − + and the arrow in "Open in browser ↗" are still text characters.
+- **Also:** the header's close × is Material's `close`. In keyboard hints, ⇧ is drawn with Material's `shift` icon (14px, `--kbd-icon-size`), because the font's ⇧ was too narrow to read. `Kbd` swaps it in for any ⇧ in its text, so the toolbar, buttons and the shortcuts overlay all match. The icon sits inline with the hint's text (`vertical-align`), so rows keep their height. Tooltips still spell shortcuts out in text.
+- **And:** "Open in browser" has Material's `open_in_browser` icon in front of its label, replacing the trailing ↗. The icon is in the same leading position as Reload preview's, both in the preview toolbar and on the "refuses to be embedded" card, where it takes the primary button's text colour.

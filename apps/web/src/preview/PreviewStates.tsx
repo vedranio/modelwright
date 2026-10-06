@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { copyText } from '../clipboard';
 import { EmptyCard } from '../views/common';
 import { EditableUrl, UrlField } from './UrlField';
+import { Icon } from '../Icon';
 
 /** The first check is taking a moment. Quiet on purpose: most checks return before this shows. */
 export function CheckingState({ url }: { url: string }) {
@@ -53,7 +54,8 @@ export function RefusesEmbedding({
       title="This page refuses to be embedded"
       actions={
         <a className="btn btn-primary" href={url} target="_blank" rel="noopener noreferrer">
-          Open in browser ↗
+          <Icon name="open_in_browser" />
+          Open in browser
         </a>
       }
     >

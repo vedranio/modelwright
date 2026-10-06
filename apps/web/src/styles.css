@@ -52,6 +52,13 @@ button {
   white-space: nowrap;
 }
 
+/* Inline with the hint's text, so the text keeps the baseline and the line keeps its height. */
+.kbd .icon {
+  width: var(--kbd-icon-size);
+  height: var(--kbd-icon-size);
+  vertical-align: -0.2em;
+}
+
 .label {
   font-size: var(--text-xs);
   line-height: var(--text-xs-lh);
@@ -94,10 +101,6 @@ button {
 
 .dot-error {
   background: var(--color-error);
-}
-
-.glyph {
-  font-size: var(--text-md);
 }
 
 .dot-grid {
@@ -225,10 +228,15 @@ button {
     transform var(--duration-fast) var(--ease-out);
 }
 
-.btn-icon:hover,
-.btn-icon:active {
+.btn-icon:hover:not(:disabled),
+.btn-icon:active:not(:disabled) {
   background: var(--color-surface-hover);
   color: var(--color-text);
+}
+
+.btn-icon:disabled {
+  color: var(--color-text-faint);
+  cursor: default;
 }
 
 :focus-visible {
@@ -242,7 +250,7 @@ button {
   height: var(--control-h);
   min-width: 0;
   padding: 0 var(--space-2);
-  border: var(--border-w) solid var(--color-border-strong);
+  border: var(--border-w) solid var(--color-border-input);
   border-radius: var(--radius-md);
   background: var(--color-surface);
   font-size: var(--text-sm);
@@ -332,6 +340,8 @@ button {
   align-items: center;
   gap: var(--space-2);
   min-width: 0;
+  /* Keeps a long, truncated project path clear of the view toggle. */
+  padding-right: var(--space-5);
 }
 
 .header-left > .logo {
@@ -849,63 +859,6 @@ button {
   margin-top: var(--space-5);
 }
 
-/* Phase 1 document listings (non-empty Flows and UI; ERD until the canvas) */
-
-.doc-list {
-  max-width: var(--problems-w);
-  margin: 0 auto;
-  padding: var(--space-6) var(--space-5);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-}
-
-.counts {
-  font-size: var(--text-sm);
-  color: var(--color-text-muted);
-}
-
-.items {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.items > li {
-  padding: var(--space-3) var(--space-4);
-  border-radius: var(--radius-md);
-  background: var(--color-surface);
-  box-shadow: var(--shadow-sm);
-}
-
-.items ul {
-  list-style: none;
-  margin: var(--space-1) 0 0;
-  padding-left: var(--space-4);
-  color: var(--color-text-muted);
-  font-size: var(--text-sm);
-}
-
-.items strong {
-  font-weight: var(--weight-medium);
-}
-
-.ctas {
-  margin-left: var(--space-2);
-}
-
-.cta {
-  display: inline-block;
-  margin-left: var(--space-1);
-  padding: 0 var(--space-1);
-  border-radius: var(--radius-sm);
-  background: var(--color-surface-sunken);
-  font-size: var(--text-xs);
-}
-
 /* Confirmation dialog */
 
 .dialog-scrim {
@@ -1295,6 +1248,8 @@ button {
 .device-iframe {
   display: block;
   border: 0;
+  /* The previewed app isn't themed: it sees the OS's light or dark setting, not modelwright's. */
+  color-scheme: light dark;
 }
 
 .scale-chip {
@@ -1306,4 +1261,210 @@ button {
   background: var(--color-surface-sunken);
   font-size: var(--text-xs);
   color: var(--color-text-muted);
+}
+
+/* Toast: one short-lived message, centred above the canvas toolbar */
+
+.toast-region {
+  position: absolute;
+  left: 50%;
+  bottom: var(--toast-offset);
+  z-index: 8;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.toast {
+  max-width: var(--toast-max-w);
+  min-height: calc(var(--control-h) + 2 * var(--space-1));
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-1) var(--space-1) var(--space-1) var(--space-3);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-md);
+  font-size: var(--text-sm);
+  line-height: var(--text-sm-lh);
+  color: var(--color-text);
+  pointer-events: auto;
+}
+
+.toast:not(:has(.toast-action)) {
+  padding-right: var(--space-3);
+}
+
+.toast-message {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.btn.toast-action {
+  flex: none;
+  font-weight: var(--weight-medium);
+  color: var(--color-accent);
+}
+
+/* Shortcuts overlay */
+
+.shortcuts-card {
+  width: var(--shortcuts-w);
+  max-width: calc(100vw - 2 * var(--space-5));
+  max-height: calc(100vh - 2 * var(--space-6));
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-5);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-lg);
+  outline: none;
+}
+
+.shortcuts-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-3);
+}
+
+.shortcuts-head .dialog-title {
+  margin: 0;
+}
+
+.shortcuts-groups {
+  overflow: auto;
+  columns: 2;
+  column-gap: var(--space-6);
+}
+
+.shortcuts-group {
+  break-inside: avoid;
+  padding-top: var(--space-3);
+}
+
+.shortcuts-group-title {
+  margin: 0 0 var(--space-1);
+  font-size: var(--text-xs);
+  line-height: var(--text-xs-lh);
+  font-weight: var(--weight-regular);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--color-text-faint);
+}
+
+.shortcuts-list {
+  margin: 0;
+}
+
+.shortcuts-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-1) 0;
+  font-size: var(--text-sm);
+  line-height: var(--text-sm-lh);
+}
+
+.shortcuts-row dt {
+  color: var(--color-text);
+}
+
+.shortcuts-row dd {
+  margin: 0;
+  flex: none;
+}
+
+.shortcuts-row .kbd {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
+/* Conflict banner: a design file changed on disk under unsaved edits */
+
+.conflict-banner {
+  position: absolute;
+  top: var(--space-4);
+  left: 50%;
+  z-index: 8;
+  transform: translateX(-50%);
+  max-width: calc(100% - 2 * var(--space-4));
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-1) var(--space-1) var(--space-3);
+  border-radius: var(--radius-lg);
+  background: var(--color-warning-subtle);
+  box-shadow: var(--shadow-md);
+  font-size: var(--text-sm);
+  line-height: var(--text-sm-lh);
+  color: var(--color-text);
+}
+
+.conflict-message {
+  min-width: 0;
+  margin-right: var(--space-1);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Theme menu in the header */
+
+.theme-menu {
+  position: relative;
+}
+
+.theme-menu-list {
+  position: absolute;
+  top: calc(100% + var(--space-1));
+  right: 0;
+  z-index: 9;
+  min-width: calc(var(--space-9) + var(--space-5));
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-1);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-md);
+}
+
+.theme-menu-item {
+  height: var(--control-h);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0 var(--space-2);
+  border: none;
+  border-radius: var(--radius-md);
+  background: transparent;
+  font: inherit;
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  text-align: left;
+  cursor: pointer;
+}
+
+.theme-menu-item:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text);
+}
+
+.theme-menu-item.selected {
+  color: var(--color-accent);
+}
+
+/* Material Symbols icons (Icon.tsx): a mask filled with the surrounding text colour. */
+
+.icon {
+  flex: none;
+  display: inline-block;
+  width: var(--icon-size);
+  height: var(--icon-size);
+  background-color: currentColor;
+  mask-position: center;
+  mask-size: contain;
+  mask-repeat: no-repeat;
 }

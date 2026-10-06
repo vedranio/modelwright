@@ -9,7 +9,7 @@ import {
 import { version } from '../package.json';
 import { ProjectClientError, useProjectClient, type ProjectSummary } from './platform';
 import { relativeTime } from './relativeTime';
-import { useShortcut } from './shortcuts';
+import { useKeydown } from './shortcuts';
 import { FieldError, Kbd, Logo } from './ui';
 
 interface Props {
@@ -116,7 +116,7 @@ export function ProjectPicker({ onOpen, initialError = null }: Props) {
 
   // ↑/↓ choose and ↵ opens, whenever focus isn't in a text field.
   const navigable = !pending && !busy && count > 0;
-  useShortcut(
+  useKeydown(
     (e) => e.key === 'ArrowDown' || e.key === 'ArrowUp',
     (e) => {
       e.preventDefault();
@@ -124,7 +124,7 @@ export function ProjectPicker({ onOpen, initialError = null }: Props) {
     },
     navigable,
   );
-  useShortcut(
+  useKeydown(
     (e) => e.key === 'Enter' && highlight !== null,
     (e) => {
       const row = highlight !== null ? recents?.[highlight] : undefined;

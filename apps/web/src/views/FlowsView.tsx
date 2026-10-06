@@ -3,10 +3,15 @@ import type { NodeChange, OnConnectEnd, ReactFlowInstance, XYPosition } from '@x
 import type { Flows } from '@modelwright/schema';
 import { Canvas } from '../canvas/Canvas';
 import { placeNodes } from '../canvas/placement';
+import { UndoRedoButtons } from '../canvas/UndoRedoButtons';
+import { useCanvasShortcuts } from '../canvas/useCanvasShortcuts';
 import { useMeasurements } from '../canvas/useMeasurements';
 import { useSelection } from '../canvas/useSelection';
 import { SaveStatusPill } from '../editing/SaveStatusPill';
+import { touchedFlows } from '../editing/touched';
+import { useCanvasHistory } from '../editing/useCanvasHistory';
 import type { EditableDoc } from '../editing/useEditableDoc';
+import { deletionSummary } from '../flows/deletion';
 import { connectedCtas, fanPlaces, screensById, transitionEndpoints } from '../flows/endpoints';
 import { SCREEN_WIDTH, estimateScreenSize } from '../flows/metrics';
 import { ctaForHandle, dropTarget } from '../flows/connect';
@@ -16,12 +21,14 @@ import {
   addTransition,
   deleteScreens,
   deleteTransitions,
+  duplicateScreens,
   moveScreens,
 } from '../flows/ops';
 import { ScreenNode, type ScreenNodeType } from '../flows/ScreenNode';
 import { TransitionEdge, type TransitionEdgeType } from '../flows/TransitionEdge';
 import '../flows/flows.css';
 import { useShortcut } from '../shortcuts';
+import { shortcutHint } from '../shortcutRegistry';
 import { Kbd } from '../ui';
 import type { DocState } from '../useDesign';
 import { DocStateView } from './DocStateView';
@@ -86,7 +93,17 @@ function FlowsCanvas({
     [applyDoc],
   );
 
-  const editor = useMemo<FlowsEditor>(() => ({ apply, editing, setEditing }), [apply, editing]);
+  const history = useCanvasHistory('flows', edit, touchedFlows, selection.select);
+  const { remove: removeDoc } = history;
+  const remove = useCallback<FlowsEditor['remove']>(
+    (op, describe) => removeDoc(op, describe, apply),
+    [removeDoc, apply],
+  );
+
+  const editor = useMemo<FlowsEditor>(
+    () => ({ apply, remove, editing, setEditing }),
+    [apply, remove, editing],
+  );
 
   const flow = useMemo(() => toFlow(flows), [flows]);
   const nodes = useMemo(
@@ -192,17 +209,55 @@ function FlowsCanvas({
     createScreen(instance.current.screenToFlowPosition({ x: e.clientX, y: e.clientY }));
   };
 
-  useShortcut(
-    (e) => e.key.toLowerCase() === 's' && !e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey,
-    (e) => {
-      e.preventDefault();
-      addAtCentre();
+  useCanvasShortcuts({
+    selectAll: () =>
+      selection.select(
+        flows.screens.map((sc) => sc.id),
+        flows.transitions.map((t) => t.id),
+      ),
+    deselect: selection.clear,
+    duplicate: () => {
+      const chosen = flows.screens
+        .filter((sc) => selection.selectedNodes.has(sc.id))
+        .map((sc) => sc.id);
+      if (chosen.length === 0) return;
+      let copies: string[] = [];
+      let links: string[] = [];
+      apply((doc) => {
+        const result = duplicateScreens(doc, chosen);
+        copies = result.ids;
+        links = result.flows.transitions
+          .filter((t) => copies.includes(t.from.screenId))
+          .map((t) => t.id);
+        return result.flows;
+      });
+      selection.select(copies, links);
     },
-  );
-  useShortcut(
-    (e) => e.key === 'Escape',
-    () => selection.clear(),
-  );
+    nudge: (dx, dy, coalesce) => {
+      const chosen = flows.screens
+        .filter((sc) => selection.selectedNodes.has(sc.id))
+        .map((sc) => sc.id);
+      if (chosen.length === 0) return;
+      apply(
+        (doc) =>
+          moveScreens(
+            doc,
+            Object.fromEntries(
+              chosen.flatMap((id) => {
+                const at = doc.layout[id];
+                return at ? [[id, { x: at.x + dx, y: at.y + dy }]] : [];
+              }),
+            ),
+          ),
+        { coalesce },
+      );
+    },
+  });
+
+  useShortcut('add-screen', (e) => {
+    e.preventDefault();
+    addAtCentre();
+  });
 
   return (
     <FlowsEditorContext.Provider value={editor}>
@@ -234,32 +289,38 @@ function FlowsCanvas({
           // Only dropping onto a card counts (onConnectEnd); never connect handle to handle.
           isValidConnection={() => false}
           onBeforeDelete={({ nodes: goneNodes, edges: goneEdges }) => {
-            // Flows deletes never ask (decisions.md); undo arrives in phase 5.
-            apply((doc) =>
-              deleteTransitions(
-                deleteScreens(
-                  doc,
-                  goneNodes.map((n) => n.id),
-                ),
-                goneEdges.map((e) => e.id),
-              ),
+            // Flows deletes never ask (decisions.md); the toast offers Undo.
+            const screenIds = new Set(goneNodes.map((n) => n.id));
+            const transitionIds = new Set(goneEdges.map((e) => e.id));
+            remove(
+              (doc) => deleteTransitions(deleteScreens(doc, screenIds), transitionIds),
+              (doc) => deletionSummary(doc, screenIds, transitionIds),
             );
             selection.clear();
             // The document change removes them; React Flow mustn't remove them a second time.
             return Promise.resolve(false);
           }}
           toolbarActions={
-            <button
-              type="button"
-              className="btn btn-quiet btn-tight toolbar-add"
-              onClick={addAtCentre}
-            >
-              <span className="toolbar-add-plus" aria-hidden="true">
-                +
-              </span>
-              Add screen
-              <Kbd>S</Kbd>
-            </button>
+            <>
+              <button
+                type="button"
+                className="btn btn-quiet btn-tight toolbar-add"
+                onClick={addAtCentre}
+              >
+                <span className="toolbar-add-plus" aria-hidden="true">
+                  +
+                </span>
+                Add screen
+                <Kbd>{shortcutHint('add-screen')}</Kbd>
+              </button>
+              <span className="divider" aria-hidden="true" />
+              <UndoRedoButtons
+                undo={history.undo}
+                redo={history.redo}
+                canUndo={edit.canUndo}
+                canRedo={edit.canRedo}
+              />
+            </>
           }
           status={
             <SaveStatusPill
@@ -275,7 +336,7 @@ function FlowsCanvas({
                 actions={
                   <button type="button" className="btn btn-primary" onClick={addAtCentre}>
                     Add screen
-                    <Kbd>S</Kbd>
+                    <Kbd>{shortcutHint('add-screen')}</Kbd>
                   </button>
                 }
               >

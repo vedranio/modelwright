@@ -42,7 +42,12 @@ export async function summarise(projectDir: string, userHome: string): Promise<P
  * Creates whichever of the three design files are missing, never overwriting one.
  * Refuses with 409 when all three already exist.
  */
-export async function initialise(projectDir: string, name: string | undefined): Promise<void> {
+export async function initialise(
+  projectDir: string,
+  name: string | undefined,
+  /** Told about each file before it's written, so the watcher can ignore it. */
+  onWrite: (kind: DesignKind, text: string) => void = () => {},
+): Promise<void> {
   const state = await designDirState(projectDir);
   if (state === 'invalid') {
     throw new HttpError(409, `${designDir(projectDir)} exists but is not a folder`);
@@ -59,7 +64,9 @@ export async function initialise(projectDir: string, name: string | undefined): 
 
   const displayName = name?.trim() || folderName(projectDir);
   for (const kind of missing) {
-    await writeAtomic(designFile(projectDir, kind), defaultText(kind, displayName));
+    const text = defaultText(kind, displayName);
+    onWrite(kind, text);
+    await writeAtomic(designFile(projectDir, kind), text);
   }
 }
 

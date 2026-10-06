@@ -78,12 +78,12 @@ describe('POST /api/projects/open', () => {
 });
 
 describe('POST /api/projects/init', () => {
-  it('creates three files that pass the schema', async () => {
+  it('creates three files that pass the schema, and the spec generated from them', async () => {
     const dir = await sb.emptyProject();
     const res = await sb.call('POST', '/api/projects/init', { path: dir, name: 'Shop' });
     expect(res.status).toBe(201);
     expect(await json(res)).toEqual(opened(dir, 'Shop', true));
-    expect(await listDesignDir(dir)).toEqual(['config.json', 'erd.json', 'flows.json']);
+    expect(await listDesignDir(dir)).toEqual(['config.json', 'erd.json', 'flows.json', 'spec.md']);
 
     for (const kind of ['erd', 'flows', 'config'] as DesignKind[]) {
       const result = parseDesignJson(kind, await readDesignText(dir, kind));

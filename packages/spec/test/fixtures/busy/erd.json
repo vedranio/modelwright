@@ -1,0 +1,129 @@
+{
+  "schemaVersion": 1,
+  "entities": [
+    {
+      "id": "customer",
+      "name": "Customer",
+      "description": "Someone who has signed up.",
+      "attributes": [
+        {
+          "id": "c-email",
+          "name": "email",
+          "note": "unique | lower-cased"
+        },
+        {
+          "id": "c-name",
+          "name": "full name"
+        }
+      ]
+    },
+    {
+      "id": "order",
+      "name": "Order",
+      "attributes": [
+        {
+          "id": "o-placed",
+          "name": "placed at"
+        },
+        {
+          "id": "o-status",
+          "name": "status",
+          "note": "draft, paid\nor shipped"
+        }
+      ]
+    },
+    {
+      "id": "line-item",
+      "name": "Line item",
+      "attributes": []
+    },
+    {
+      "id": "product",
+      "name": "Product \"SKU\"",
+      "attributes": [
+        {
+          "id": "p-price",
+          "name": "price"
+        }
+      ]
+    },
+    {
+      "id": "category",
+      "name": "Category",
+      "attributes": [
+        {
+          "id": "cat-name",
+          "name": "name"
+        }
+      ]
+    },
+    {
+      "id": "end",
+      "name": "Address",
+      "attributes": [
+        {
+          "id": "a-line",
+          "name": "line 1"
+        }
+      ]
+    }
+  ],
+  "relationships": [
+    {
+      "id": "r1",
+      "from": "customer",
+      "to": "order",
+      "fromCard": "one",
+      "toCard": "zero-many",
+      "label": "places"
+    },
+    {
+      "id": "r2",
+      "from": "order",
+      "to": "line-item",
+      "fromCard": "one",
+      "toCard": "many",
+      "label": "contains"
+    },
+    {
+      "id": "r3",
+      "from": "line-item",
+      "to": "product",
+      "fromCard": "zero-many",
+      "toCard": "one"
+    },
+    {
+      "id": "r4",
+      "from": "product",
+      "to": "category",
+      "fromCard": "many",
+      "toCard": "zero-one",
+      "label": "is filed under"
+    },
+    {
+      "id": "r5",
+      "from": "category",
+      "to": "category",
+      "fromCard": "zero-one",
+      "toCard": "zero-many",
+      "label": "contains"
+    },
+    {
+      "id": "r6",
+      "from": "customer",
+      "to": "end",
+      "fromCard": "one",
+      "toCard": "many",
+      "label": "ships to"
+    },
+    {
+      "id": "r7",
+      "from": "end",
+      "to": "customer",
+      "fromCard": "zero-many",
+      "toCard": "zero-one",
+      "label": "bills"
+    }
+  ],
+  "layout": {}
+}

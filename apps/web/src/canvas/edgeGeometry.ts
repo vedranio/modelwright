@@ -23,29 +23,6 @@ export function sideAngle(side: Side): number {
 }
 
 /**
- * Offsets centred on zero for items that share a key, `spacing` apart, so edges that would
- * otherwise sit on top of each other stay visible and clickable. Keyed by item id; an item
- * alone in its group, or with a null key, gets 0.
- */
-export function fanOffsets<T extends { id: string }>(
-  items: readonly T[],
-  keyOf: (item: T) => string | null,
-  spacing: number,
-): Map<string, number> {
-  const groups = new Map<string, string[]>();
-  for (const item of items) {
-    const key = keyOf(item);
-    if (key === null) continue;
-    groups.set(key, [...(groups.get(key) ?? []), item.id]);
-  }
-  const offsets = new Map<string, number>();
-  for (const ids of groups.values()) {
-    ids.forEach((id, i) => offsets.set(id, (i - (ids.length - 1) / 2) * spacing));
-  }
-  return offsets;
-}
-
-/**
  * An SVG path through axis-aligned waypoints, with each corner rounded by up to `radius`
  * (less where a segment is too short for the full radius). Repeated and collinear points are
  * dropped first, so callers can pass waypoints without tidying them.

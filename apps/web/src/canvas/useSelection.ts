@@ -21,6 +21,11 @@ export function useSelection() {
     setNodeIds(new Set());
     setEdgeIds(new Set());
   }, []);
+  /** Replaces the selection. */
+  const select = useCallback((nodes: Iterable<string>, edges: Iterable<string>) => {
+    setNodeIds(new Set(nodes));
+    setEdgeIds(new Set(edges));
+  }, []);
 
   return {
     selectedNodes: nodeIds,
@@ -28,6 +33,7 @@ export function useSelection() {
     onNodesChange,
     onEdgesChange,
     clear,
+    select,
   };
 }
 
