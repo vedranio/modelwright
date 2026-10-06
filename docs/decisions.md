@@ -609,3 +609,33 @@ Settled in the phase 5 interview before any code was written. The brief's "Decis
 - **Verified:**
   - Gate screenshots come from headless Chrome over the DevTools protocol at 1440×900, from a scratchpad script; the browser pane was too narrow for a faithful 1440×900 capture.
   - System follows an emulated OS change live, with no reload. Light and Dark override it either way.
+
+## 2026-10-06 — Phase 5 milestone 6: verification notes
+
+I walked the "done means" list against fresh copies of the notes fixture, driving headless Chrome over the DevTools protocol with real mouse and keyboard events, and checking the files on disk after every step. The walk scripts live in the session scratchpad, not this repo.
+
+- **Checks:** `pnpm test` (541 tests in 38 files), `pnpm typecheck` and `pnpm lint` pass at the root.
+- **Undo and redo:** on each canvas, rename, add a row, move, connect and delete each saved. ⌘Z undid all five, and ⇧⌘Z redid them, with the file byte-identical to the expected state after every step (32 checks).
+- **Deletes:** deleting User or Notes deleted at once with a toast naming what went ("Deleted 'Note', 3 attributes and 2 relationships", "Deleted 'Notes' and 4 transitions"). The toast's Undo restored `erd.json` byte for byte, layout included.
+- **Field undo:** ⌘Z in a field undid the typing ("Notebook" back to "Note"), and the file was untouched.
+- **⌘D:** two connected entities, and two connected screens, were copied with the links between them (1 relationship, 3 transitions), and the copies were selected.
+- **Nudge:** fifteen held → keydowns (auto-repeat) moved the card 15 units in one save, and one ⌘Z put it back.
+- **⌥↑:** moved an attribute, a sees item, a CTA and a state. A state moved to the top became the default, and the field stayed open on the moved row.
+- **File watching:**
+  - An outside edit to `erd.json` showed within a second, with no refocus.
+  - An outside edit to `flows.json` under unsaved edits showed the banner and "Save on hold", and the file wasn't overwritten.
+  - Keep mine overwrote the file. Load from disk showed the file's content and dropped the local edit.
+- **`spec.md`:**
+  - Opening a project didn't create it, and an edit and its undo both kept it up to date.
+  - With `erd.json` hand-broken, a Flows save left it alone.
+  - Initialising a new folder from the picker writes it beside the three files.
+- **Copy Mermaid:** on both canvases it put `erDiagram` / `flowchart LR` source on the clipboard and showed "Mermaid copied".
+- **Shortcuts:** 1/2/3, = and −, ⇧0, ⇧1, ?, E and Esc all did what the overlay says. The overlay takes the keyboard while open.
+- **Parallel relationships:** two between User and Note, and two self-relationships on User, were each clickable on their own path and opened their own popover.
+- **Phases 1–4 spot checks:** picker initialise, the empty ERD card, close back to the picker with recents, the validation surface (gate screenshots) and the UI view's preview.
+- **Walk-script artefacts, not app bugs:** two first-run failures came from the script. A Shift-click needs a real Shift keydown, as phase 2 found. An open state-name field keeps the name out of the header's text.
+- **Not verifiable here, left as hand checks:**
+  - Whether Chrome or Safari wins any shortcut (simulated keys skip the browser's own handling).
+  - Trackpad gestures.
+  - The System theme following a real OS appearance change (verified with emulated media only).
+  - GitHub's own Mermaid rendering of `spec.md`, which needs a push (verified with Mermaid's parser and a local Mermaid 11 render).
