@@ -133,6 +133,9 @@
   --window-bar-h: 28px;
   --window-dot: 8px;
   --state-card-w: 360px;
+  /* The header's "changes since last build" popover. */
+  --build-popover-w: 400px;
+  --build-popover-max-h: 70vh;
 }
 
 /*

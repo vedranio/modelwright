@@ -45,6 +45,9 @@ export function createHttpClient(baseUrl = '/api'): ProjectClient {
     async writeDesign(path, file, doc) {
       await send('PUT', `/design/${file}${query(path)}`, doc);
     },
+    async readBuildRecord(path) {
+      return (await send('GET', `/design/build${query(path)}`)).json();
+    },
     async checkPreview(url) {
       return (await send('POST', '/preview/check', { url })).json();
     },
@@ -87,5 +90,10 @@ function isErrorBody(body: unknown): body is ApiErrorBody {
 }
 
 function isDesignChange(value: unknown): value is DesignChange {
-  return typeof value === 'object' && value !== null && 'kind' in value && isDesignKind(value.kind);
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'kind' in value &&
+    (isDesignKind(value.kind) || value.kind === 'build')
+  );
 }

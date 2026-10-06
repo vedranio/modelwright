@@ -1,4 +1,8 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { DESIGN_KINDS } from '@modelwright/schema';
+import { BuildIndicator } from './buildRecord/BuildIndicator';
+import { buildStatus } from './buildRecord/status';
+import { useBuildRecord } from './buildRecord/useBuildRecord';
 import { useConfirm } from './ConfirmDialog';
 import { useEditableDoc } from './editing/useEditableDoc';
 import { ProjectName } from './ProjectName';
@@ -54,14 +58,43 @@ export function Shell({ project, onClose }: Props) {
   useLayoutEffect(() => {
     latestEditors.current = editors;
   });
+  // The last build, as `.design/build.json` records it.
+  const build = useBuildRecord(project.path);
+  const loadBuild = build.reload;
+
   useEffect(
     () =>
       client.watchDesign(project.path, ({ kind }) => {
+        if (kind === 'build') {
+          void loadBuild();
+          return;
+        }
         const editor = latestEditors.current[kind];
         if (editor.dirty) editor.hold();
         else void reloadOne(kind);
       }),
-    [client, project.path, reloadOne],
+    [client, project.path, reloadOne, loadBuild],
+  );
+
+  // "Built 3 minutes ago" moves on by itself.
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 30_000);
+    return () => clearInterval(timer);
+  }, []);
+  // Compared against the working copies, so unsaved edits count too.
+  const designLoading = DESIGN_KINDS.some((kind) => docs[kind].status === 'loading');
+  const status = useMemo(
+    () =>
+      buildStatus(
+        build.read,
+        erd.doc && flows.doc && config.doc
+          ? { erd: erd.doc, flows: flows.doc, config: config.doc }
+          : null,
+        designLoading,
+        now,
+      ),
+    [build.read, erd.doc, flows.doc, config.doc, designLoading, now],
   );
   const [toastRegion, toasts] = useToasts();
   const [showShortcuts, setShowShortcuts] = useState(false);
@@ -107,6 +140,7 @@ export function Shell({ project, onClose }: Props) {
       flows.discard();
       config.discard();
     }
+    void loadBuild();
     await reload();
   }
 
@@ -163,6 +197,7 @@ export function Shell({ project, onClose }: Props) {
             <span className={`project-path${editingName ? ' spaced' : ''}`} title={project.path}>
               {project.displayPath}
             </span>
+            <BuildIndicator status={status} />
           </div>
 
           <div className="segmented" role="tablist" aria-label="View">

@@ -768,3 +768,31 @@ User-scope plugin; the CLI for every deterministic step; the committed bundle wi
   - **Renames get rename migrations,** not a drop and an add.
   - **The map file is written outside the repo** (`mktemp -d`), so it never lands in the project.
   - **The skill doesn't commit;** it reminds the user to commit `build.json` with the code.
+
+## 2026-10-07 — Phase 6 milestone 3: changes since last build
+
+- **Server:**
+  - `GET /api/design/build?path=` returns `BuildRead` through `readBuildRecord`, behind the guard. It's registered before `/design/:file`, which would otherwise read "build" as a file kind.
+  - `PUT /design/build` is still a 400 (unknown file kind), and a test pins that saving a design file leaves `build.json` untouched.
+  - `DesignWatcher` also watches `build.json` and reports it as `kind: 'build'` on the existing SSE stream. The server never writes it, so there's no write to ignore.
+- **Web:**
+  - `ProjectClient.readBuildRecord(path)`, and `DesignChange.kind` is `DesignKind | 'build'`.
+  - `buildRecord/useBuildRecord` reads the record on open and on window focus, dropping stale results. `Shell` re-reads it on a `build` event and on Reload.
+  - `buildRecord/status.ts` (pure, tested) gives the indicator's state. `buildStatus(read, design, designLoading, now)` diffs the snapshot against the three working copies, so unsaved edits count at once. `builtAgo` gives the time wording.
+  - **`BuildIndicator`** sits in the header after the project path, as a quiet button with a status dot: success when up to date, accent with changes, warning for an invalid `build.json` or a design that can't be compared. "Not built yet" has no dot. The tooltip gives the full build time.
+  - **The popover** (click to open; Esc or a click outside closes it, as the theme menu does) shows one of:
+    - the grouped changes ("The next build will apply:"), with the same text and groups as `renderDiff`
+    - "up to date"
+    - "nothing built yet"
+    - `build.json`'s problems, with paths like the validation surface's
+  - Below that: the last build time, then "Run this in the project repo…" with `/modelwright:build-from-design` and Copy.
+  - `CommandSnippet` moved out of `PreviewStates` so the popover can share it.
+  - New tokens: `--build-popover-w` (400px) and `--build-popover-max-h` (70vh; the list scrolls past that), plus `.dot-accent`.
+  - `apps/web` depends on `@modelwright/spec` again, for `diffDesign` and `DIFF_GROUPS`.
+- **Verified in the browser against a scratch copy of the notes fixture, light and dark:**
+  - "Built just now" after `record-build`, and back to it when the CLI records again (watcher, no refocus)
+  - an outside rename turned it into "1 change since last build", and a moved card added nothing
+  - a rename on the card counted before its autosave
+  - a hand-broken `build.json` showed "build.json has problems" with both issue paths
+  - deleting it showed "Not built yet"
+  - no console errors

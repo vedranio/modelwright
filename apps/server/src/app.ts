@@ -12,7 +12,12 @@ import {
   type ProjectSummary,
 } from '@modelwright/schema';
 import { DEFAULT_ALLOWED_HOSTS, DEFAULT_ALLOWED_ORIGINS, SERVER_PORT, WEB_PORT } from './config';
-import { readTextOrNull, regenerateSpec, writeAtomic } from '@modelwright/project/node';
+import {
+  readBuildRecord,
+  readTextOrNull,
+  regenerateSpec,
+  writeAtomic,
+} from '@modelwright/project/node';
 import { originGuard } from './guard';
 import { checkPreview, PREVIEW_TIMEOUT_MS } from './previewCheck';
 import { HttpError, designDirState, designFile, resolveProjectDir, tildify } from './paths';
@@ -108,8 +113,8 @@ export function createApp({
     return c.body(null, 204);
   });
 
-  // Server-sent events: `change` with `{ "kind": "erd" }` whenever a design file changes outside
-  // modelwright. Behind the same guard as everything else.
+  // Server-sent events: `change` with `{ "kind": "erd" }` whenever a design file (or `build.json`,
+  // as `"build"`) changes outside modelwright. Behind the same guard as everything else.
   app.get('/design/events', async (c) => {
     const dir = await resolveProjectDir(c.req.query('path'));
     if ((await designDirState(dir)) !== 'dir') {
@@ -125,6 +130,13 @@ export function createApp({
       clearInterval(heartbeat);
       unsubscribe();
     });
+  });
+
+  // The build record, read-only: the CLI writes it after a verified build, never the server.
+  // Registered before `/design/:file`, which would otherwise take "build" as a file kind.
+  app.get('/design/build', async (c) => {
+    const dir = await resolveProjectDir(c.req.query('path'));
+    return c.json(await readBuildRecord(dir));
   });
 
   app.get('/design/:file', async (c) => {

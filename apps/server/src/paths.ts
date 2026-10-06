@@ -48,8 +48,10 @@ export async function statOrNull(p: string) {
 }
 
 export {
+  BUILD_FILE,
   DESIGN_DIR,
   SPEC_FILE,
+  buildFile,
   designDir,
   designDirState,
   designFile,

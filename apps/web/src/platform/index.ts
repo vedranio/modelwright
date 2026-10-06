@@ -3,6 +3,7 @@ import type { ProjectClient } from './ProjectClient';
 
 export {
   ProjectClientError,
+  type BuildRead,
   type DesignChange,
   type DesignDoc,
   type DesignKind,
