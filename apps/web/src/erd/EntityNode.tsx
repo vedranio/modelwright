@@ -6,6 +6,7 @@ import { InlineField, type CommitReason } from '../editing/InlineField';
 import {
   addAttribute,
   deleteAttribute,
+  moveAttribute,
   renameEntity,
   setEntityDescription,
   updateAttribute,
@@ -197,6 +198,11 @@ function AttributeRow({
               const name = value.trim();
               if (name) apply((erd) => updateAttribute(erd, entityId, attribute.id, { name }));
               setEditing(target('note'));
+            }}
+            onMove={(value, offset) => {
+              const name = value.trim();
+              if (name) apply((erd) => updateAttribute(erd, entityId, attribute.id, { name }));
+              apply((erd) => moveAttribute(erd, entityId, attribute.id, offset));
             }}
             onCancel={done}
           />

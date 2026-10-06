@@ -1351,3 +1351,78 @@ button {
   font-weight: var(--weight-medium);
   color: var(--color-accent);
 }
+
+/* Shortcuts overlay */
+
+.shortcuts-card {
+  width: var(--shortcuts-w);
+  max-width: calc(100vw - 2 * var(--space-5));
+  max-height: calc(100vh - 2 * var(--space-6));
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-5);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-lg);
+  outline: none;
+}
+
+.shortcuts-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-3);
+}
+
+.shortcuts-head .dialog-title {
+  margin: 0;
+}
+
+.shortcuts-groups {
+  overflow: auto;
+  columns: 2;
+  column-gap: var(--space-6);
+}
+
+.shortcuts-group {
+  break-inside: avoid;
+  padding-top: var(--space-3);
+}
+
+.shortcuts-group-title {
+  margin: 0 0 var(--space-1);
+  font-size: var(--text-xs);
+  line-height: var(--text-xs-lh);
+  font-weight: var(--weight-regular);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--color-text-faint);
+}
+
+.shortcuts-list {
+  margin: 0;
+}
+
+.shortcuts-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-1) 0;
+  font-size: var(--text-sm);
+  line-height: var(--text-sm-lh);
+}
+
+.shortcuts-row dt {
+  color: var(--color-text);
+}
+
+.shortcuts-row dd {
+  margin: 0;
+  flex: none;
+}
+
+.shortcuts-row .kbd {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}

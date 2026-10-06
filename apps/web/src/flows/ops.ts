@@ -9,6 +9,7 @@ import type {
   TransitionTo,
 } from '@modelwright/schema';
 import { newId } from '../editing/ids';
+import { DUPLICATE_OFFSET, moveItem } from '../editing/reorder';
 
 /**
  * Every edit to a Flows document is one of these pure functions: `(flows, …args) => flows`,
@@ -326,6 +327,136 @@ export function deleteTransitions(flows: Flows, transitionIds: Iterable<string>)
   const gone = new Set(transitionIds);
   if (!flows.transitions.some((t) => gone.has(t.id))) return flows;
   return { ...flows, transitions: flows.transitions.filter((t) => !gone.has(t.id)) };
+}
+
+// Reordering and duplicating
+
+/**
+ * Moves a state `offset` places within its screen. The first state is the default, so moving
+ * one to the top makes it the default, as `makeDefaultState` does.
+ */
+export function moveState(flows: Flows, screenId: string, stateId: string, offset: number): Flows {
+  return mapScreen(flows, screenId, (s) => {
+    const states = moveItem(
+      s.states,
+      s.states.findIndex((st) => st.id === stateId),
+      offset,
+    );
+    return states ? { ...s, states } : s;
+  });
+}
+
+/** Moves the sees item at `index` by `offset` places. */
+export function moveSeesItem(
+  flows: Flows,
+  screenId: string,
+  stateId: string,
+  index: number,
+  offset: number,
+): Flows {
+  return mapState(flows, screenId, stateId, (st) => {
+    const sees = moveItem(st.sees, index, offset);
+    return sees ? { ...st, sees } : st;
+  });
+}
+
+/** Moves a CTA `offset` places within its state. Its transitions go with it. */
+export function moveCta(
+  flows: Flows,
+  screenId: string,
+  stateId: string,
+  ctaId: string,
+  offset: number,
+): Flows {
+  return mapState(flows, screenId, stateId, (st) => {
+    const ctas = moveItem(
+      st.ctas,
+      st.ctas.findIndex((c) => c.id === ctaId),
+      offset,
+    );
+    return ctas ? { ...st, ctas } : st;
+  });
+}
+
+/**
+ * Copies the screens with fresh ids (states and CTAs included), one grid step down and right
+ * of the originals, keeping their names. A transition is copied only when both its ends are
+ * copied screens, so a copy's CTAs have no transitions out of the copied set. Returns the
+ * copies' ids in order.
+ */
+export function duplicateScreens(
+  flows: Flows,
+  screenIds: Iterable<string>,
+): { flows: Flows; ids: string[] } {
+  const chosen = new Set(screenIds);
+  const originals = flows.screens.filter((s) => chosen.has(s.id));
+  if (originals.length === 0) return { flows, ids: [] };
+
+  const taken = idsIn(flows);
+  const fresh = (prefix: 'scr' | 'st' | 'cta' | 'tr') => {
+    const id = newId(prefix, taken);
+    taken.add(id);
+    return id;
+  };
+  /** Old id → new id, per kind (state and CTA ids are only unique within their parent). */
+  const screenCopy = new Map<string, string>();
+  const stateCopy = new Map<string, string>();
+  const ctaCopy = new Map<string, string>();
+  const key = (...parts: string[]) => parts.join('\u0000');
+
+  const layout: Layout = { ...flows.layout };
+  const copies = originals.map((s): Screen => {
+    const id = fresh('scr');
+    screenCopy.set(s.id, id);
+    const at = flows.layout[s.id];
+    if (at) layout[id] = { x: at.x + DUPLICATE_OFFSET, y: at.y + DUPLICATE_OFFSET };
+    return {
+      ...s,
+      id,
+      states: s.states.map((st) => {
+        const stateId = fresh('st');
+        stateCopy.set(key(s.id, st.id), stateId);
+        return {
+          ...st,
+          id: stateId,
+          ctas: st.ctas.map((c) => {
+            const ctaId = fresh('cta');
+            ctaCopy.set(key(s.id, st.id, c.id), ctaId);
+            return { ...c, id: ctaId };
+          }),
+        };
+      }),
+    };
+  });
+
+  const transitions = flows.transitions.flatMap((t): Transition[] => {
+    const fromScreen = screenCopy.get(t.from.screenId);
+    const toScreen = screenCopy.get(t.to.screenId);
+    const fromState = stateCopy.get(key(t.from.screenId, t.from.stateId));
+    const fromCta = ctaCopy.get(key(t.from.screenId, t.from.stateId, t.from.ctaId));
+    if (!fromScreen || !toScreen || !fromState || !fromCta) return [];
+    const toState =
+      t.to.stateId === undefined ? undefined : stateCopy.get(key(t.to.screenId, t.to.stateId));
+    return [
+      {
+        ...t,
+        id: fresh('tr'),
+        from: { screenId: fromScreen, stateId: fromState, ctaId: fromCta },
+        to:
+          toState === undefined ? { screenId: toScreen } : { screenId: toScreen, stateId: toState },
+      },
+    ];
+  });
+
+  return {
+    ids: copies.map((c) => c.id),
+    flows: {
+      ...flows,
+      screens: [...flows.screens, ...copies],
+      transitions: [...flows.transitions, ...transitions],
+      layout,
+    },
+  };
 }
 
 // Helpers

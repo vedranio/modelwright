@@ -8,6 +8,9 @@ import { FlowsView } from './views/FlowsView';
 import { UiView } from './views/UiView';
 import type { DesignKind, ProjectSummary } from './platform';
 import { loadPref, savePref } from './storage';
+import { ShortcutsOverlay } from './ShortcutsOverlay';
+import { useShortcut } from './shortcuts';
+import { shortcutHint } from './shortcutRegistry';
 import { ToastProvider, useToasts } from './Toast';
 import { Logo, ReloadGlyph } from './ui';
 
@@ -41,6 +44,7 @@ export function Shell({ project, onClose }: Props) {
   const config = useEditableDoc('config', project.path, docs.config, noteWritten);
   const [dialog, confirm] = useConfirm();
   const [toastRegion, toasts] = useToasts();
+  const [showShortcuts, setShowShortcuts] = useState(false);
 
   // A toast about an edit goes once its document is edited again (its Undo would undo
   // something else), and on any view switch.
@@ -107,6 +111,18 @@ export function Shell({ project, onClose }: Props) {
 
   const onReload = () => void reloadFromDisk();
 
+  const viewKey = (id: ViewId) => (e: KeyboardEvent) => {
+    e.preventDefault();
+    if (id !== view) selectView(id);
+  };
+  useShortcut('view-erd', viewKey('erd'));
+  useShortcut('view-flows', viewKey('flows'));
+  useShortcut('view-ui', viewKey('ui'));
+  useShortcut('shortcuts', (e) => {
+    e.preventDefault();
+    setShowShortcuts(true);
+  });
+
   return (
     <ToastProvider value={toasts}>
       <div className="shell">
@@ -148,6 +164,16 @@ export function Shell({ project, onClose }: Props) {
           </div>
 
           <div className="header-right">
+            <button
+              type="button"
+              className="btn-icon"
+              onClick={() => setShowShortcuts(true)}
+              aria-label="Keyboard shortcuts"
+              title={`Keyboard shortcuts (${shortcutHint('shortcuts')})`}
+            >
+              ?
+            </button>
+            <span className="divider" aria-hidden="true" />
             <button type="button" className="btn btn-quiet btn-tight" onClick={onReload}>
               <ReloadGlyph />
               Reload
@@ -189,6 +215,7 @@ export function Shell({ project, onClose }: Props) {
           {toastRegion}
         </main>
         {dialog}
+        {showShortcuts && <ShortcutsOverlay onClose={() => setShowShortcuts(false)} />}
       </div>
     </ToastProvider>
   );

@@ -1,5 +1,6 @@
 import type { Attribute, Cardinality, Entity, Erd, Layout, Position } from '@modelwright/schema';
 import { newId } from '../editing/ids';
+import { DUPLICATE_OFFSET, moveItem } from '../editing/reorder';
 import { idsIn } from './ids';
 
 /**
@@ -229,4 +230,68 @@ function omitKeys(layout: Layout, keys: ReadonlySet<string>): Layout {
 
 function roundPosition({ x, y }: Position): Position {
   return { x: Math.round(x), y: Math.round(y) };
+}
+
+/**
+ * Moves an attribute `offset` places within its entity (−1 up, 1 down). Moving past either end
+ * is a no-op.
+ */
+export function moveAttribute(
+  erd: Erd,
+  entityId: string,
+  attributeId: string,
+  offset: number,
+): Erd {
+  return mapEntity(erd, entityId, (e) => {
+    const attributes = moveItem(
+      e.attributes,
+      e.attributes.findIndex((a) => a.id === attributeId),
+      offset,
+    );
+    return attributes ? { ...e, attributes } : e;
+  });
+}
+
+/**
+ * Copies the entities with fresh ids (attributes included), one grid step down and right of
+ * the originals, keeping their names. Relationships between two copied entities are copied
+ * too; ones to entities outside the selection aren't. Returns the copies' ids in order.
+ */
+export function duplicateEntities(
+  erd: Erd,
+  entityIds: Iterable<string>,
+): { erd: Erd; ids: string[] } {
+  const chosen = new Set(entityIds);
+  const originals = erd.entities.filter((e) => chosen.has(e.id));
+  if (originals.length === 0) return { erd, ids: [] };
+
+  const taken = idsIn(erd);
+  const fresh = (prefix: 'ent' | 'attr' | 'rel') => {
+    const id = newId(prefix, taken);
+    taken.add(id);
+    return id;
+  };
+  const copyOf = new Map<string, string>();
+  const layout: Layout = { ...erd.layout };
+  const copies = originals.map((e): Entity => {
+    const id = fresh('ent');
+    copyOf.set(e.id, id);
+    const at = erd.layout[e.id];
+    if (at) layout[id] = { x: at.x + DUPLICATE_OFFSET, y: at.y + DUPLICATE_OFFSET };
+    return { ...e, id, attributes: e.attributes.map((a) => ({ ...a, id: fresh('attr') })) };
+  });
+  const relationships = erd.relationships.flatMap((r) => {
+    const from = copyOf.get(r.from);
+    const to = copyOf.get(r.to);
+    return from && to ? [{ ...r, id: fresh('rel'), from, to }] : [];
+  });
+  return {
+    ids: copies.map((c) => c.id),
+    erd: {
+      ...erd,
+      entities: [...erd.entities, ...copies],
+      relationships: [...erd.relationships, ...relationships],
+      layout,
+    },
+  };
 }

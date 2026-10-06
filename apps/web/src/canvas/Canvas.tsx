@@ -11,6 +11,7 @@ import {
 } from '@xyflow/react';
 import '@xyflow/react/dist/base.css';
 import './canvas.css';
+import { shortcut } from '../shortcutRegistry';
 import { CanvasToolbar, FIT_OPTIONS } from './CanvasToolbar';
 import { tokenNumber } from './tokens';
 import { usePersistedViewport } from './usePersistedViewport';
@@ -45,7 +46,8 @@ export type CanvasProps<N extends Node, E extends Edge> = Omit<ReactFlowProps<N,
 };
 
 export const MIN_ZOOM = 0.2;
-const DELETE_KEYS = ['Delete', 'Backspace'];
+/** Delete and Backspace, from the shortcut registry; React Flow handles them itself. */
+const DELETE_KEYS = shortcut('delete').combos.flatMap((c) => (c.key ? [c.key] : []));
 export const MAX_ZOOM = 2;
 
 /**

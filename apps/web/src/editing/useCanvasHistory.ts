@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { isRedoKey, isUndoKey, useShortcut } from '../shortcuts';
+import { useShortcut } from '../shortcuts';
 import { useToast } from '../Toast';
 import type { Touched } from './touched';
 import type { DesignDoc } from '../platform';
@@ -32,11 +32,11 @@ export function useCanvasHistory<K extends CanvasKind>(
   const undo = useCallback(() => step(undoDoc), [step, undoDoc]);
   const redo = useCallback(() => step(redoDoc), [step, redoDoc]);
 
-  useShortcut(isUndoKey, (e) => {
+  useShortcut('undo', (e) => {
     e.preventDefault();
     undo();
   });
-  useShortcut(isRedoKey, (e) => {
+  useShortcut('redo', (e) => {
     e.preventDefault();
     redo();
   });

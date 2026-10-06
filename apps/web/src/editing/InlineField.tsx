@@ -1,4 +1,5 @@
 import { useLayoutEffect, useRef, useState } from 'react';
+import { shortcutMatches } from '../shortcutRegistry';
 
 export type CommitReason = 'enter' | 'blur';
 
@@ -16,6 +17,11 @@ interface Props {
   onCancel: () => void;
   /** Tab: commit and move to the next field. Without it, Tab leaves the field as usual. */
   onTab?: (value: string) => void;
+  /**
+   * ⌥↑ / ⌥↓: move this row up or down. The handler saves the text and moves the row; the
+   * field stays open on it, even if the row's element is moved or replaced.
+   */
+  onMove?: (value: string, offset: -1 | 1) => void;
 }
 
 /**
@@ -32,8 +38,17 @@ export function InlineField({
   onCommit,
   onCancel,
   onTab,
+  onMove,
 }: Props) {
   const [draft, setDraft] = useState(value);
+  // A field can open a render before its node's data catches up (React Flow passes node data
+  // through its store a render later than the editor context), e.g. on the row a sees item
+  // just moved into. Until the user types, the draft follows the value.
+  const [shown, setShown] = useState(value);
+  if (value !== shown) {
+    setShown(value);
+    if (draft === shown) setDraft(value);
+  }
   const ref = useRef<HTMLInputElement>(null);
   /** Set once committed or cancelled, so the blur that follows doesn't commit again. */
   const settled = useRef(false);
@@ -57,6 +72,22 @@ export function InlineField({
     focus();
     return () => cancelAnimationFrame(handle);
   }, [selectAll]);
+
+  /** Set while a ⌥↑/⌥↓ move re-renders the row, so focus comes back here afterwards. */
+  const moving = useRef(false);
+  // Re-renders after a move, even one that changed nothing (the first row moved up).
+  const [, setMoves] = useState(0);
+  useLayoutEffect(() => {
+    if (!moving.current) return;
+    moving.current = false;
+    settled.current = false;
+    const input = ref.current;
+    if (input && document.activeElement !== input) {
+      const { selectionStart, selectionEnd } = input;
+      input.focus({ preventScroll: true });
+      input.setSelectionRange(selectionStart, selectionEnd);
+    }
+  });
 
   const settle = (action: () => void) => {
     if (settled.current) return;
@@ -86,6 +117,13 @@ export function InlineField({
         } else if (e.key === 'Tab' && !e.shiftKey && onTab) {
           e.preventDefault();
           settle(() => onTab(draft));
+        } else if (onMove && shortcutMatches('move-row', e.nativeEvent)) {
+          e.preventDefault();
+          // Moving the row may move or replace this element; a blur meanwhile mustn't commit.
+          settled.current = true;
+          moving.current = true;
+          setMoves((n) => n + 1);
+          onMove(draft, e.key === 'ArrowUp' ? -1 : 1);
         }
       }}
       onBlur={() => settle(() => onCommit(draft, 'blur'))}

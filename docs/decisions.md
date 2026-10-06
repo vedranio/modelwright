@@ -492,3 +492,24 @@ Settled in the phase 5 interview before any code was written. The brief's "Decis
 - **Deletes:** every delete applies at once and shows a toast with Undo, from the canvas (Delete/⌫), the popovers and the cards' × buttons. `erd/deletion.ts` now words what went ("Deleted 'User', 2 attributes and 1 relationship"), and `flows/deletion.ts` does the same for screens, states, sees items, CTAs and transitions. `deletionPrompt` and the ERD's confirmation are gone. `ConfirmDialog` stays for Reload and close.
 - **The toast** (`Toast.tsx`) is one message at a time, hosted by `Shell` in the view area, centred 72 px above the bottom edge (`--toast-offset`), clear of the canvas toolbar and the save status. It dismisses itself after 6 s, on the next edit of the document it's about (its revision moved on), and on a view switch. Its Undo is the same as ⌘Z, selection included.
 - **⌘Z / ⇧⌘Z** (Ctrl+Z, Ctrl+Shift+Z and Ctrl+Y off macOS) skip text fields, so a field keeps its own native undo.
+
+## 2026-10-06 — Phase 5 milestone 1: shortcuts
+
+- **The registry** (`shortcutRegistry.ts`) lists every shortcut with its key combinations, label and scope (Anywhere, ERD and Flows, ERD, Flows, While editing a field). `useShortcut(id, handler)` matches through it. `shortcutHint(id)` renders the hints (⇧⌘Z on macOS, Ctrl+Shift+Z elsewhere). React Flow's delete keys come from it, and the overlay is generated from it.
+- **A control's own keys aren't app shortcuts.** The project picker's ↑ ↓ ↵ and the dialogs' ↵ and esc stay local (`useKeydown`), like a text field's keys. The overlay only exists inside a project, where they don't apply.
+- **Matching:**
+  - The command modifier is ⌘ on macOS and Ctrl elsewhere. Holding the other one never matches.
+  - 1/2/3, ⇧0 and ⇧1 match the physical key, so they work on layouts where those keys type other characters (AZERTY's 1 is "&").
+  - `?`, `+` and `=` accept Shift either way, because the layout decides whether Shift is needed.
+  - Tests check that no key has two shortcuts in scopes that can be active together, on either platform.
+- **Duplicate:**
+  - Copies keep their names and sit 16 units (one grid step) down and right.
+  - The copies and the links copied between them are selected.
+  - Every id is fresh, including attributes, states and CTAs, following "new ids are unique across the whole file".
+  - The brief says both "relationships or transitions between duplicated nodes are duplicated" and "a duplicated screen's CTAs start with no outgoing transitions". Done-means asks for two connected screens to keep their link, so a copied CTA keeps only transitions whose target screen was copied too, retargeted to the copy and its matching state.
+- **Nudge:** a burst of arrow keydowns shares one coalesce key until an arrow key's keyup, and coalescing also ends after a 600 ms pause. A held key is therefore one undo step, and the 500 ms autosave pause makes it one save. Separate presses are separate steps.
+- **Zoom keys** use React Flow's animated zoom. ⇧0 is `zoomTo(1)` around the viewport centre.
+- **The overlay** opens with `?` or the header's "?" button. While it's open it takes every key in the capture phase, so nothing behind it reacts. Esc, `?`, × or a click outside closes it.
+- **⌥↑/⌥↓** save the field's text, then move the row (two undo steps when the text changed, one otherwise). The field stays open on the moved row. `InlineField` ignores the blur a DOM move can cause, refocuses if it lost focus, and stays usable after a move at the end of the list, which changes nothing.
+- **Fix found while verifying: an untouched draft follows its value.** React Flow hands node data to nodes a render after the editor context changes. After ⌥↑ on a sees item (rows keyed by index), the field reopened on the new row with the previous item's text, and a second ⌥↑ saved that stale text over the moved item. `InlineField` now adopts a changed `value` until the user has typed.
+- **Not checked yet: browser conflicts.** Simulated keys skip the browser's own handling, so ⌘D, ⌘A, ⌘Z/⇧⌘Z, +/−, ⇧0, 1/2/3, ?, ⌥↑/⌥↓ and the arrows are on the milestone 6 hand-check list for Chrome and Safari. Anything a browser wins is dropped then.

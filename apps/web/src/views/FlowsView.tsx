@@ -3,6 +3,7 @@ import type { NodeChange, OnConnectEnd, ReactFlowInstance, XYPosition } from '@x
 import type { Flows } from '@modelwright/schema';
 import { Canvas } from '../canvas/Canvas';
 import { placeNodes } from '../canvas/placement';
+import { useCanvasShortcuts } from '../canvas/useCanvasShortcuts';
 import { useMeasurements } from '../canvas/useMeasurements';
 import { useSelection } from '../canvas/useSelection';
 import { SaveStatusPill } from '../editing/SaveStatusPill';
@@ -19,12 +20,14 @@ import {
   addTransition,
   deleteScreens,
   deleteTransitions,
+  duplicateScreens,
   moveScreens,
 } from '../flows/ops';
 import { ScreenNode, type ScreenNodeType } from '../flows/ScreenNode';
 import { TransitionEdge, type TransitionEdgeType } from '../flows/TransitionEdge';
 import '../flows/flows.css';
 import { useShortcut } from '../shortcuts';
+import { shortcutHint } from '../shortcutRegistry';
 import { Kbd } from '../ui';
 import type { DocState } from '../useDesign';
 import { DocStateView } from './DocStateView';
@@ -205,17 +208,55 @@ function FlowsCanvas({
     createScreen(instance.current.screenToFlowPosition({ x: e.clientX, y: e.clientY }));
   };
 
-  useShortcut(
-    (e) => e.key.toLowerCase() === 's' && !e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey,
-    (e) => {
-      e.preventDefault();
-      addAtCentre();
+  useCanvasShortcuts({
+    selectAll: () =>
+      selection.select(
+        flows.screens.map((sc) => sc.id),
+        flows.transitions.map((t) => t.id),
+      ),
+    deselect: selection.clear,
+    duplicate: () => {
+      const chosen = flows.screens
+        .filter((sc) => selection.selectedNodes.has(sc.id))
+        .map((sc) => sc.id);
+      if (chosen.length === 0) return;
+      let copies: string[] = [];
+      let links: string[] = [];
+      apply((doc) => {
+        const result = duplicateScreens(doc, chosen);
+        copies = result.ids;
+        links = result.flows.transitions
+          .filter((t) => copies.includes(t.from.screenId))
+          .map((t) => t.id);
+        return result.flows;
+      });
+      selection.select(copies, links);
     },
-  );
-  useShortcut(
-    (e) => e.key === 'Escape',
-    () => selection.clear(),
-  );
+    nudge: (dx, dy, coalesce) => {
+      const chosen = flows.screens
+        .filter((sc) => selection.selectedNodes.has(sc.id))
+        .map((sc) => sc.id);
+      if (chosen.length === 0) return;
+      apply(
+        (doc) =>
+          moveScreens(
+            doc,
+            Object.fromEntries(
+              chosen.flatMap((id) => {
+                const at = doc.layout[id];
+                return at ? [[id, { x: at.x + dx, y: at.y + dy }]] : [];
+              }),
+            ),
+          ),
+        { coalesce },
+      );
+    },
+  });
+
+  useShortcut('add-screen', (e) => {
+    e.preventDefault();
+    addAtCentre();
+  });
 
   return (
     <FlowsEditorContext.Provider value={editor}>
@@ -268,7 +309,7 @@ function FlowsCanvas({
                 +
               </span>
               Add screen
-              <Kbd>S</Kbd>
+              <Kbd>{shortcutHint('add-screen')}</Kbd>
             </button>
           }
           status={
@@ -285,7 +326,7 @@ function FlowsCanvas({
                 actions={
                   <button type="button" className="btn btn-primary" onClick={addAtCentre}>
                     Add screen
-                    <Kbd>S</Kbd>
+                    <Kbd>{shortcutHint('add-screen')}</Kbd>
                   </button>
                 }
               >

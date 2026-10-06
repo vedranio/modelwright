@@ -15,6 +15,9 @@ import {
   renameCta,
   renameScreen,
   renameState,
+  moveCta,
+  moveSeesItem,
+  moveState,
   setScreenNotes,
   updateSeesItem,
 } from './ops';
@@ -229,6 +232,10 @@ function StateSection({
                 commitName(value);
                 setEditing(seesStart(screen, stateIndex));
               }}
+              onMove={(value, offset) => {
+                commitName(value);
+                apply((f) => moveState(f, screen.id, state.id, offset));
+              }}
               onCancel={() => setEditing(null)}
             />
           ) : (
@@ -388,6 +395,13 @@ function SeesRow({
             save(value);
             setEditing(afterSees(screen, stateIndex, index));
           }}
+          onMove={(value, offset) => {
+            save(value);
+            const to = index + offset;
+            if (to < 0 || to >= state.sees.length) return;
+            apply((f) => moveSeesItem(f, screen.id, state.id, index, offset));
+            setEditing({ ...target, index: to });
+          }}
           onCancel={() => setEditing(null)}
         />
       ) : (
@@ -511,6 +525,10 @@ function CtaRow({
           onTab={(value) => {
             save(value);
             setEditing(afterCta(screen, stateIndex, cta.id));
+          }}
+          onMove={(value, offset) => {
+            save(value);
+            apply((f) => moveCta(f, screen.id, state.id, cta.id, offset));
           }}
           onCancel={() => setEditing(null)}
         />

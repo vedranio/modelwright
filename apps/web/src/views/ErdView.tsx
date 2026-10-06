@@ -2,6 +2,7 @@ import { useCallback, useMemo, useRef, useState, type MouseEvent } from 'react';
 import type { NodeChange, OnConnectEnd, ReactFlowInstance, XYPosition } from '@xyflow/react';
 import type { Erd } from '@modelwright/schema';
 import { Canvas } from '../canvas/Canvas';
+import { useCanvasShortcuts } from '../canvas/useCanvasShortcuts';
 import { useMeasurements } from '../canvas/useMeasurements';
 import { useSelection } from '../canvas/useSelection';
 import { SaveStatusPill } from '../editing/SaveStatusPill';
@@ -19,11 +20,13 @@ import {
   addRelationship,
   deleteEntities,
   deleteRelationships,
+  duplicateEntities,
   moveEntities,
 } from '../erd/ops';
 import { placeEntities } from '../erd/placement';
 import '../erd/erd.css';
 import { useShortcut } from '../shortcuts';
+import { shortcutHint } from '../shortcutRegistry';
 import { Kbd } from '../ui';
 import type { DocState } from '../useDesign';
 import { DocStateView } from './DocStateView';
@@ -192,17 +195,51 @@ function ErdCanvas({
     createEntity(instance.current.screenToFlowPosition({ x: e.clientX, y: e.clientY }));
   };
 
-  useShortcut(
-    (e) => e.key.toLowerCase() === 'e' && !e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey,
-    (e) => {
-      e.preventDefault();
-      addAtCentre();
+  useCanvasShortcuts({
+    selectAll: () =>
+      selection.select(
+        erd.entities.map((e) => e.id),
+        erd.relationships.map((r) => r.id),
+      ),
+    deselect: selection.clear,
+    duplicate: () => {
+      const chosen = erd.entities.filter((e) => selection.selectedNodes.has(e.id)).map((e) => e.id);
+      if (chosen.length === 0) return;
+      let copies: string[] = [];
+      let links: string[] = [];
+      apply((doc) => {
+        const result = duplicateEntities(doc, chosen);
+        copies = result.ids;
+        links = result.erd.relationships
+          .filter((r) => copies.includes(r.from) && copies.includes(r.to))
+          .map((r) => r.id);
+        return result.erd;
+      });
+      selection.select(copies, links);
     },
-  );
-  useShortcut(
-    (e) => e.key === 'Escape',
-    () => selection.clear(),
-  );
+    nudge: (dx, dy, coalesce) => {
+      const chosen = erd.entities.filter((e) => selection.selectedNodes.has(e.id)).map((e) => e.id);
+      if (chosen.length === 0) return;
+      apply(
+        (doc) =>
+          moveEntities(
+            doc,
+            Object.fromEntries(
+              chosen.flatMap((id) => {
+                const at = doc.layout[id];
+                return at ? [[id, { x: at.x + dx, y: at.y + dy }]] : [];
+              }),
+            ),
+          ),
+        { coalesce },
+      );
+    },
+  });
+
+  useShortcut('add-entity', (e) => {
+    e.preventDefault();
+    addAtCentre();
+  });
 
   return (
     <ErdEditorContext.Provider value={editor}>
@@ -251,7 +288,7 @@ function ErdCanvas({
                 +
               </span>
               Add entity
-              <Kbd>E</Kbd>
+              <Kbd>{shortcutHint('add-entity')}</Kbd>
             </button>
           }
           status={
@@ -268,7 +305,7 @@ function ErdCanvas({
                 actions={
                   <button type="button" className="btn btn-primary" onClick={addAtCentre}>
                     Add entity
-                    <Kbd>E</Kbd>
+                    <Kbd>{shortcutHint('add-entity')}</Kbd>
                   </button>
                 }
               >

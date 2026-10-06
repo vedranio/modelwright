@@ -100,6 +100,7 @@
   --name-input-min-w: 144px;
   --zoom-readout-w: 48px;
   --dialog-w: 360px;
+  --shortcuts-w: 640px;
   --toast-max-w: 480px;
   /* Toasts sit this far above the view's bottom edge, clear of the canvas toolbar below them. */
   --toast-offset: 72px;
