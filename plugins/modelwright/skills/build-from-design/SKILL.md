@@ -22,7 +22,7 @@ Your job is to build the app from the design, or bring it up to date with the de
 
 If the user passed notes with the command, follow them for this run: $ARGUMENTS
 
-Work through the steps in order. Steps 4 and 6 wait for the user.
+Work through the steps in order. Step 4 always waits for the user's approval, and step 3 may ask the user about the stack.
 
 ## 1. Preconditions
 
