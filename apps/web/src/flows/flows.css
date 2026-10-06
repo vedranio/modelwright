@@ -88,6 +88,7 @@
   padding: var(--space-1) var(--space-3) 0;
   font-size: var(--text-xs);
   line-height: var(--text-xs-lh);
+  font-weight: var(--weight-semibold);
   color: var(--color-text-faint);
 }
 
@@ -296,6 +297,8 @@
   gap: var(--space-2);
   width: 100%;
   height: var(--text-sm-lh);
+  /* Space between the list's last item and its "+ add" row. */
+  margin-top: var(--space-2);
   padding: 0 var(--space-3);
   border: none;
   background: none;

@@ -40,7 +40,7 @@ export type ScreenNodeType = Node<
 >;
 
 /**
- * A lo-fi screen card: the name and optional notes, then each state's "Sees" list (what the user
+ * A lo-fi screen card: the name and optional notes, then each state's "Information" list (what the user
  * sees) and "Actions" list (the CTAs they can use). A single-state screen hides its state header, so
  * the common case reads as just name / sees / does. Every CTA row has a source handle on the
  * card's right edge, filled when a transition starts from it and hollow when none does (a dead
@@ -283,7 +283,7 @@ function StateSection({
       )}
 
       <div className="state-body">
-        <div className="list-caption">Sees</div>
+        <div className="list-caption">Information</div>
         <ul className="sees">
           {state.sees.flatMap((item, i) => {
             const row = (

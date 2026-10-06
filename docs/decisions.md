@@ -666,3 +666,4 @@ Decided after the phase 5 walk.
 - **CTA rows are one line now**, so `flows/metrics.ts` estimates them at the same height as sees items.
 - **Dead CSS removed:** phase 1's document-listing styles (`.doc-list`, `.counts`, `.items`, `.ctas`, `.cta`) were left over in `styles.css`. Their `.ctas` margin was pushing the CTA list 8 px right of the sees list.
 - **`spec.md` still says "Does:"** under each state, as the brief named it. Changing it is a separate call.
+- **Later the same day:** the "Sees" caption became "Information", and both captions are now semibold. The "+ Add item" and "+ Add CTA" rows have 8 px (`--space-2`) above them, and the screen size estimate's per-state footer grew from 56 to 72 to match. The schema field stays `sees`, and `spec.md` still says "Sees:" and "Does:".
