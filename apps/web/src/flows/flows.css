@@ -106,6 +106,13 @@
   overflow-wrap: anywhere;
 }
 
+/* A keyline and a little space separate one list's "+ add" row from the next list. */
+.list-add + .list-caption {
+  margin: var(--space-2) var(--space-3) 0;
+  padding: var(--space-2) 0 0;
+  border-top: var(--border-w) solid var(--color-border);
+}
+
 /* A short dash marks each thing the user sees. */
 .sees-item::before {
   content: '';

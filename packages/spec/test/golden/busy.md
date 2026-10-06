@@ -107,34 +107,34 @@ Uses: Product "SKU", Category
 
 #### Browse (default)
 
-Sees:
+Information:
 
 - categories
 - product cards
 
-Does:
+Actions:
 
 - **Open product** → Product "detail"
 - **View cart** → Cart › Has items
 
 #### Loading
 
-Sees:
+Information:
 
 - skeleton cards
 
-Does:
+Actions:
 
 - Nothing yet
 
 ### Product "detail"
 
-Sees:
+Information:
 
 - photos
 - price \| stock
 
-Does:
+Actions:
 
 - **Add to cart** → Cart › Has items (item added)
 - **Back** → Catalogue › Browse
@@ -143,23 +143,23 @@ Does:
 
 #### Has items (default)
 
-Sees:
+Information:
 
 - line items
 - total
 
-Does:
+Actions:
 
 - **Check out** → Check-out › Form
 - **Keep shopping** → Catalogue › Browse
 
 #### Empty
 
-Sees:
+Information:
 
 - Nothing yet
 
-Does:
+Actions:
 
 - **Browse** → Catalogue › Browse
 
@@ -167,22 +167,22 @@ Does:
 
 #### Form (default)
 
-Sees:
+Information:
 
 - address
 - card field
 
-Does:
+Actions:
 
 - **Pay** → Check-out › Payment failed (declined); → Catalogue › Browse (paid)
 
 #### Payment failed
 
-Sees:
+Information:
 
 - error message
 
-Does:
+Actions:
 
 - **Try again** (dead end)
 

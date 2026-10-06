@@ -96,10 +96,10 @@ export function flowsSection(flows: Flows, erd: Erd): string[] {
       if (s.states.length > 1) {
         out.push(`#### ${inlineText(st.name) || '(unnamed)'}${i === 0 ? ' (default)' : ''}`, '');
       }
-      out.push('Sees:', '');
+      out.push('Information:', '');
       if (st.sees.length === 0) out.push('- Nothing yet');
       for (const item of st.sees) out.push(`- ${inlineText(item)}`);
-      out.push('', 'Does:', '');
+      out.push('', 'Actions:', '');
       if (st.ctas.length === 0) out.push('- Nothing yet');
       for (const cta of st.ctas) {
         const leads = flows.transitions.filter(

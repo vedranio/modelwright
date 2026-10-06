@@ -55,24 +55,24 @@ flowchart LR
 
 #### Default (default)
 
-Sees:
+Information:
 
 - email field
 - password field
 
-Does:
+Actions:
 
 - **Sign in** → Notes › List
 
 #### Error
 
-Sees:
+Information:
 
 - email field
 - password field
 - error message
 
-Does:
+Actions:
 
 - **Try again** (dead end)
 
@@ -82,23 +82,23 @@ Uses: Note
 
 #### List (default)
 
-Sees:
+Information:
 
 - note titles
 - updated dates
 
-Does:
+Actions:
 
 - **New note** → Note editor
 - **Open note** (dead end)
 
 #### Empty
 
-Sees:
+Information:
 
 - empty message
 
-Does:
+Actions:
 
 - **Create your first note** → Note editor
 
@@ -106,12 +106,12 @@ Does:
 
 Uses: Note
 
-Sees:
+Information:
 
 - title field
 - body field
 
-Does:
+Actions:
 
 - **Save** (dead end)
 - **Back** → Notes › List

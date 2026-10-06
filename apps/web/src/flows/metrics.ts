@@ -16,8 +16,11 @@ const CAPTION_HEIGHT = 24;
 /** Sees items and CTAs are both one line. */
 const SEES_ROW_HEIGHT = 22;
 const CTA_ROW_HEIGHT = 22;
-/** Room for each list's "+ add" row, the space above it, and the state's padding. */
-const STATE_FOOTER_HEIGHT = 72;
+/**
+ * Room for each list's "+ add" row and the space above it, the keyline between the lists,
+ * and the state's padding.
+ */
+const STATE_FOOTER_HEIGHT = 90;
 
 export function estimateScreenSize(screen: Screen): Size {
   const multi = screen.states.length > 1;
