@@ -655,3 +655,14 @@ Decided after the phase 5 walk.
   - Both buttons start disabled, and a delete enables Undo.
   - Undo restores the file byte for byte, selects the restored card and enables Redo.
   - Redo applies the delete again.
+
+## 2026-10-06 — CTAs read like sees items (supersedes phase 3's "lo-fi buttons")
+
+Decided after the phase 5 walk.
+
+- **Captions:** a state's CTA list is captioned "Actions" (it was "Does").
+- **No outline:** CTAs are no longer drawn as outlined lo-fi buttons. Each is a one-line row styled exactly like a sees item (muted text, the same indent), marked with a small arrow (a line with a head) where sees items have a dash.
+- **The arrow** is an 8 × 8 SVG used as a CSS mask, so its colour still comes from `--color-text-faint` and it themes with everything else. Its size is the new `--cta-arrow-size`, replacing `--cta-row-h`.
+- **CTA rows are one line now**, so `flows/metrics.ts` estimates them at the same height as sees items.
+- **Dead CSS removed:** phase 1's document-listing styles (`.doc-list`, `.counts`, `.items`, `.ctas`, `.cta`) were left over in `styles.css`. Their `.ctas` margin was pushing the CTA list 8 px right of the sees list.
+- **`spec.md` still says "Does:"** under each state, as the brief named it. Changing it is a separate call.

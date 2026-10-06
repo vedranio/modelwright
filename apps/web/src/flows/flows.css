@@ -119,16 +119,27 @@
   position: relative;
   display: flex;
   align-items: center;
-  min-height: var(--cta-row-h);
-  padding: 0 var(--space-3);
+  min-height: var(--text-sm-lh);
+  padding: 0 var(--space-3) 0 calc(var(--space-3) + var(--space-3));
+  color: var(--color-text-muted);
 }
 
-/* A CTA reads as a lo-fi button. */
+/* A CTA reads like a sees item, marked with a small arrow (a line with a head): it's an action. */
+.cta-row::before {
+  content: '';
+  position: absolute;
+  left: var(--space-3);
+  top: calc(var(--text-sm-lh) / 2 - var(--cta-arrow-size) / 2);
+  width: var(--cta-arrow-size);
+  height: var(--cta-arrow-size);
+  background: var(--color-text-faint);
+  /* The shape only; its colour is the token above. */
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3E%3Cpath d='M0.5 4H7M4.5 1.5L7 4L4.5 6.5' fill='none' stroke='black' stroke-width='1' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")
+    center / contain no-repeat;
+}
+
 .cta-label {
   max-width: 100%;
-  padding: 0 var(--space-2);
-  border: var(--border-w) solid var(--color-border-strong);
-  border-radius: var(--radius-sm);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -203,10 +214,6 @@
 .sees-item .inline-input,
 .cta-row .inline-input {
   height: var(--text-sm-lh);
-}
-
-.cta-row .inline-input {
-  margin-left: 0;
 }
 
 /* Hover controls at a header's or row's right, taking no space, so cards don't change size. */

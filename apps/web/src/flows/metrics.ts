@@ -13,8 +13,9 @@ const NOTES_HEIGHT = 20;
 const STATE_HEADER_HEIGHT = 32;
 /** The "Sees" and "Actions" captions. */
 const CAPTION_HEIGHT = 24;
+/** Sees items and CTAs are both one line. */
 const SEES_ROW_HEIGHT = 22;
-const CTA_ROW_HEIGHT = 28;
+const CTA_ROW_HEIGHT = 22;
 /** Room for each list's "+ add" row and the state's padding. */
 const STATE_FOOTER_HEIGHT = 56;
 

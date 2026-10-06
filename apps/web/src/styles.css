@@ -854,63 +854,6 @@ button {
   margin-top: var(--space-5);
 }
 
-/* Phase 1 document listings (non-empty Flows and UI; ERD until the canvas) */
-
-.doc-list {
-  max-width: var(--problems-w);
-  margin: 0 auto;
-  padding: var(--space-6) var(--space-5);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-}
-
-.counts {
-  font-size: var(--text-sm);
-  color: var(--color-text-muted);
-}
-
-.items {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.items > li {
-  padding: var(--space-3) var(--space-4);
-  border-radius: var(--radius-md);
-  background: var(--color-surface);
-  box-shadow: var(--shadow-sm);
-}
-
-.items ul {
-  list-style: none;
-  margin: var(--space-1) 0 0;
-  padding-left: var(--space-4);
-  color: var(--color-text-muted);
-  font-size: var(--text-sm);
-}
-
-.items strong {
-  font-weight: var(--weight-medium);
-}
-
-.ctas {
-  margin-left: var(--space-2);
-}
-
-.cta {
-  display: inline-block;
-  margin-left: var(--space-1);
-  padding: 0 var(--space-1);
-  border-radius: var(--radius-sm);
-  background: var(--color-surface-sunken);
-  font-size: var(--text-xs);
-}
-
 /* Confirmation dialog */
 
 .dialog-scrim {
