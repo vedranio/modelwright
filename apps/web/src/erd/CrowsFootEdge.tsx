@@ -9,8 +9,20 @@ import {
   type InternalNode,
 } from '@xyflow/react';
 import type { Cardinality } from '@modelwright/schema';
-import { CORNER_RADIUS, sideAngle, type Rect, type Side } from '../canvas/edgeGeometry';
-import { floatingEnds, type EdgeEnd } from './edgeGeometry';
+import {
+  CORNER_RADIUS,
+  orthogonalPath,
+  sideAngle,
+  type Rect,
+  type Side,
+} from '../canvas/edgeGeometry';
+import {
+  parallelRoute,
+  selfLoop,
+  type EdgeEnd,
+  type LabelPlacement,
+  type ParallelSlot,
+} from './edgeGeometry';
 import { EdgePopover } from './EdgePopover';
 import { MARKER, markerShapes } from './markers';
 
@@ -19,8 +31,10 @@ export type CrowsFootEdgeType = Edge<
     fromCard: Cardinality;
     toCard: Cardinality;
     label?: string;
-    /** Shift along the cards' sides, to keep parallel relationships apart. */
-    offset: number;
+    /** Its place among relationships joining the same two entities, to keep them apart. */
+    slot: ParallelSlot;
+    /** For a relationship from an entity to itself, the side its loop leaves from. */
+    loopSide: Side;
     fromName: string;
     toName: string;
     /** Whether this is the only thing selected, so its editing popover shows. */
@@ -37,14 +51,14 @@ const POSITION: Record<Side, Position> = {
 };
 
 /** Where a label sits relative to its anchor: centred above a horizontal run, right of a vertical one. */
-type LabelSide = 'above' | 'right';
+type LabelSide = LabelPlacement;
+/** Labels on parallel vertical runs are staggered this far apart, so they don't stack up. */
+const LABEL_STAGGER = 20;
 const LABEL_PLACEMENT: Record<LabelSide, string> = {
   above: 'translate(-50%, calc(-100% - var(--space-1)))',
   right: 'translate(var(--space-2), -50%)',
+  below: 'translate(-50%, var(--space-1))',
 };
-
-/** How far a self-relationship's loop stands off the card's right side. */
-const SELF_LOOP_REACH = 48;
 
 /**
  * A relationship drawn in crow's-foot notation. It floats: the ends sit on whichever sides of
@@ -66,7 +80,9 @@ export function CrowsFootEdge({
   if (!sourceRect || !targetRect) return null;
 
   const { path, labelX, labelY, labelSide, ends } =
-    source === target ? selfLoop(sourceRect) : routed(sourceRect, targetRect, data.offset);
+    source === target
+      ? looped(sourceRect, data.slot, data.loopSide)
+      : routed(sourceRect, targetRect, data.slot);
 
   return (
     <>
@@ -124,9 +140,10 @@ function Marker({ end, card }: { end: EdgeEnd; card: Cardinality }) {
   );
 }
 
-function routed(sourceRect: Rect, targetRect: Rect, offset: number) {
-  const ends = floatingEnds(sourceRect, targetRect, offset);
-  const [path, labelX, labelY] = getSmoothStepPath({
+function routed(sourceRect: Rect, targetRect: Rect, slot: ParallelSlot) {
+  const { ends, center } = parallelRoute(sourceRect, targetRect, slot);
+  const leftRight = ends.source.side === 'left' || ends.source.side === 'right';
+  const [path, pathLabelX, pathLabelY] = getSmoothStepPath({
     sourceX: ends.source.x,
     sourceY: ends.source.y,
     sourcePosition: POSITION[ends.source.side],
@@ -136,30 +153,32 @@ function routed(sourceRect: Rect, targetRect: Rect, offset: number) {
     borderRadius: CORNER_RADIUS,
     // Keep a straight stub at each end long enough for the markers before the path turns.
     offset: MARKER.extent,
+    ...(center !== null && (leftRight ? { centerX: center } : { centerY: center })),
   });
   // The label anchors to the middle of the path. Ends on left/right sides make a horizontal
   // line, unless they're at different heights: then the path steps and its middle run is
   // vertical. The same holds the other way round for top/bottom ends.
-  const leftRight = ends.source.side === 'left' || ends.source.side === 'right';
   const straight = leftRight ? ends.source.y === ends.target.y : ends.source.x === ends.target.x;
   const middleIsHorizontal = leftRight === straight;
   const labelSide: LabelSide = middleIsHorizontal ? 'above' : 'right';
+  // Parallel lines are apart vertically when the middle run is horizontal, so their labels
+  // are too. Beside vertical runs, labels are staggered up and down to keep them apart.
+  const stagger = middleIsHorizontal ? 0 : (slot.index - (slot.count - 1) / 2) * LABEL_STAGGER;
+  const labelX = pathLabelX;
+  const labelY = pathLabelY + stagger;
   return { path, labelX, labelY, labelSide, ends };
 }
 
-/** A loop off the card's right side, for the rare relationship from an entity to itself. */
-function selfLoop(r: Rect) {
-  const x = r.x + r.width;
-  const top = r.y + r.height * 0.3;
-  const bottom = r.y + r.height * 0.7;
-  const out = x + MARKER.extent + SELF_LOOP_REACH;
-  const path = `M ${x} ${top} H ${out} V ${bottom} H ${x}`;
-  const ends = {
-    source: { x, y: top, side: 'right' as const },
-    target: { x, y: bottom, side: 'right' as const },
+/** A loop off the card's right side, for a relationship from an entity to itself. */
+function looped(r: Rect, slot: ParallelSlot, side: Side) {
+  const loop = selfLoop(r, slot, side);
+  return {
+    path: orthogonalPath(loop.points),
+    labelX: loop.label.x,
+    labelY: loop.label.y,
+    labelSide: loop.label.placement,
+    ends: loop.ends,
   };
-  const labelSide: LabelSide = 'right';
-  return { path, labelX: out, labelY: (top + bottom) / 2, labelSide, ends };
 }
 
 function rectOf(node: InternalNode): Rect | null {

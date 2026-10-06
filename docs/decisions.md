@@ -513,3 +513,18 @@ Settled in the phase 5 interview before any code was written. The brief's "Decis
 - **⌥↑/⌥↓** save the field's text, then move the row (two undo steps when the text changed, one otherwise). The field stays open on the moved row. `InlineField` ignores the blur a DOM move can cause, refocuses if it lost focus, and stays usable after a move at the end of the list, which changes nothing.
 - **Fix found while verifying: an untouched draft follows its value.** React Flow hands node data to nodes a render after the editor context changes. After ⌥↑ on a sees item (rows keyed by index), the field reopened on the new row with the previous item's text, and a second ⌥↑ saved that stale text over the moved item. `InlineField` now adopts a changed `value` until the user has typed.
 - **Not checked yet: browser conflicts.** Simulated keys skip the browser's own handling, so ⌘D, ⌘A, ⌘Z/⇧⌘Z, +/−, ⇧0, 1/2/3, ?, ⌥↑/⌥↓ and the arrows are on the milestone 6 hand-check list for Chrome and Safari. Anything a browser wins is dropped then.
+
+## 2026-10-06 — Phase 5 milestone 2: parallel relationships (supersedes phase 2's 16-unit offsets)
+
+- **Groups:** `parallelSlots` gives each relationship its place among those joining the same pair of entities, in either direction and in document order. Self-relationships group per entity.
+- **Spread:** `parallelRoute` spaces a group evenly, centred on the span the facing sides share (or the shorter side), using that room up to 40 units apart.
+  - The minimum is 28 between horizontal lines, enough for each line's label above it clear of the next line.
+  - The minimum is 24 between vertical lines, enough for the 14-unit markers. Their labels, beside the lines, are staggered 20 units apart vertically.
+  - Lines that can't run straight step at nested positions (`centerX`/`centerY`), so their middle runs never cross. Phase 2's fixed offsets put every stepped path's middle run on the same line.
+- **Self-relationships:**
+  - They nest: each loop's ends sit 24 further from the side's middle, and the loop reaches 24 further out, leaving room for the inner loop's label clear of the outer loop.
+  - `selfLoopSide` picks the side with the most room before another card (ties go right, bottom, left, top), from the same size estimates placement uses. A card's loops share one side.
+  - This isn't routing around cards, which stays out of scope. It only chooses where a card's own loops go, because always looping right ran straight through a neighbour 80 units away, as in the notes fixture.
+- **Labels** can now sit above, right of, or below their anchor (`below` for loops under a card).
+- **Selection** is unchanged: each relationship keeps its own 16-unit interaction path, so every line in a group stays individually clickable.
+- `fanOffsets` had no users left, so it's gone.

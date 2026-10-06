@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useRef, useState, type MouseEvent } from 'react';
 import type { NodeChange, OnConnectEnd, ReactFlowInstance, XYPosition } from '@xyflow/react';
 import type { Erd } from '@modelwright/schema';
+import type { Rect } from '../canvas/edgeGeometry';
 import { Canvas } from '../canvas/Canvas';
 import { useCanvasShortcuts } from '../canvas/useCanvasShortcuts';
 import { useMeasurements } from '../canvas/useMeasurements';
@@ -11,7 +12,7 @@ import { useCanvasHistory } from '../editing/useCanvasHistory';
 import type { EditableDoc } from '../editing/useEditableDoc';
 import { CrowsFootEdge, type CrowsFootEdgeType } from '../erd/CrowsFootEdge';
 import { deletionSummary } from '../erd/deletion';
-import { parallelOffsets } from '../erd/edgeGeometry';
+import { parallelSlots, selfLoopSide } from '../erd/edgeGeometry';
 import { ErdEditorContext, type EditTarget, type ErdEditor } from '../erd/editor';
 import { EntityNode, type EntityNodeType } from '../erd/EntityNode';
 import { ENTITY_WIDTH, estimateEntitySize } from '../erd/metrics';
@@ -347,7 +348,23 @@ function toFlow(erd: Erd): { nodes: EntityNodeType[]; edges: CrowsFootEdgeType[]
       initialHeight: size.height,
     };
   });
-  const offsets = parallelOffsets(erd.relationships);
+  const slots = parallelSlots(erd.relationships);
+  // Self-relationships loop off the side of their card with the most room.
+  const rects = new Map(
+    erd.entities.map((e) => [
+      e.id,
+      { ...(positions[e.id] ?? { x: 0, y: 0 }), ...estimateEntitySize(e) },
+    ]),
+  );
+  const loopSides = new Map(
+    erd.relationships
+      .filter((r) => r.from === r.to && rects.has(r.from))
+      .map((r) => {
+        const own = rects.get(r.from) as Rect;
+        const others = [...rects].filter(([id]) => id !== r.from).map(([, rect]) => rect);
+        return [r.from, selfLoopSide(own, others)];
+      }),
+  );
   const names = new Map(erd.entities.map((e) => [e.id, e.name]));
   const edges = erd.relationships.map((rel): CrowsFootEdgeType => ({
     id: rel.id,
@@ -357,7 +374,8 @@ function toFlow(erd: Erd): { nodes: EntityNodeType[]; edges: CrowsFootEdgeType[]
     data: {
       fromCard: rel.fromCard,
       toCard: rel.toCard,
-      offset: offsets.get(rel.id) ?? 0,
+      slot: slots.get(rel.id) ?? { index: 0, count: 1 },
+      loopSide: loopSides.get(rel.from) ?? 'right',
       fromName: names.get(rel.from) ?? rel.from,
       toName: names.get(rel.to) ?? rel.to,
       editing: false,
