@@ -4,7 +4,7 @@ A local design tool that produces a structured spec — an entity relationship d
 
 ## Current phase
 
-**Phase 5 — Polish.** See `docs/phase-5-brief.md`. Phases 1–4 (foundation, ERD canvas, flow canvas, preview) are complete and merged. This phase adds undo/redo, shortcuts, file watching, the generated `.design/spec.md` and dark mode. Do not start phase 6 work until phase 5's "done means" has been verified and committed.
+**Phase 6 — Pipeline.** See `docs/phase-6-brief.md`. Phases 1–5 are complete and merged. This phase adds the `modelwright` Claude Code plugin (published from this repo as a marketplace) with the `build-from-design` skill and the bundled `modelwright-design` CLI, the semantic design diff, `.design/build.json`, and "changes since last build" in the tool. The plugin lives in this repo; apps built with it never do.
 
 Phases, in order:
 
