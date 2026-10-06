@@ -18,6 +18,7 @@ import { checkPreview, PREVIEW_TIMEOUT_MS } from './previewCheck';
 import { HttpError, designDirState, designFile, resolveProjectDir, tildify } from './paths';
 import { initialise, isInitialised, summarise } from './projects';
 import { Recents } from './recents';
+import { regenerateSpec } from './spec';
 import { DesignWatcher } from './watcher';
 
 export interface AppOptions {
@@ -82,6 +83,7 @@ export function createApp({
     const body = await readBody(c, InitBody);
     const dir = await resolveProjectDir(body.path);
     await initialise(dir, body.name, (kind, text) => watcher.noteWrite(dir, kind, text));
+    await refreshSpec(dir);
     const summary = await summarise(dir, userHome);
     const { lastOpenedAt } = await recents.add({ path: summary.path, name: summary.name });
     return c.json({ ...summary, lastOpenedAt }, 201);
@@ -151,6 +153,7 @@ export function createApp({
     const text = stringifyDesign(kind, result.doc);
     watcher.noteWrite(dir, kind, text);
     await writeAtomic(designFile(dir, kind), text);
+    await refreshSpec(dir);
     if (kind === 'config') {
       // Keep the picker in step with the header's inline rename.
       await recents.rename(dir, (result.doc as Config).name);
@@ -168,6 +171,18 @@ export function createApp({
   });
 
   return app;
+}
+
+/**
+ * Regenerates `.design/spec.md` after a successful write. The design file is already saved, so
+ * a failure here is logged rather than failing the request.
+ */
+async function refreshSpec(dir: string): Promise<void> {
+  try {
+    await regenerateSpec(dir);
+  } catch (err) {
+    console.error(`Couldn't write ${dir}/.design/spec.md`, err);
+  }
 }
 
 function designKind(raw: string): DesignKind {

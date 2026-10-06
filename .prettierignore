@@ -6,3 +6,6 @@ CLAUDE.md
 # Fixtures are canonical serialiser output; Prettier formats JSON differently.
 **/fixtures/**
 design-refs/
+
+# Generator output, compared byte for byte.
+packages/spec/test/golden/

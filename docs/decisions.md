@@ -548,3 +548,38 @@ Settled in the phase 5 interview before any code was written. The brief's "Decis
   - For `config.json` the banner is on the UI view, and the header's project name can't be edited while it's held, since the banner may not be in view.
 - **A save already in flight when the hold starts still lands.** The PUT has gone, and its content becomes the file. The hold stays until a choice is made, so the banner never disappears without one, and Load from disk then shows what's really on disk.
 - **The focus re-read stays** as a fallback, still paused while anything is dirty.
+
+## 2026-10-06 — Phase 5 milestone 4: the generated spec
+
+- **`packages/spec`** (TypeScript source, like the schema package) exports:
+  - `renderSpec(config, erd, flows)`
+  - `erdMermaid` and `flowsMermaid` for Copy Mermaid
+  - `relationshipSentences` and `plural`
+  Output follows document order and nothing else, so it's byte-identical for the same input.
+- **Layout of `spec.md`:**
+  - The header line, as a blockquote.
+  - `# <project name>`.
+  - `## Data model`: the diagram, then `### Entities` (an `####` and table per entity, its description above the table, "No attributes." when empty), then `### Relationships` (one bullet of sentences each).
+  - `## Screens and flows`: the diagram, then an `###` per screen with its notes and a "Uses:" line naming its `entities`. Each state has an `####` (single-state screens skip it, and the first state is marked "(default)"), followed by "Sees:" and "Does:" lists.
+  - `## Preview`: URL, dev command and devices, when set.
+  - Empty documents say "No entities yet." or "No screens yet." and draw no diagram.
+- **Where a CTA leads** reads "→ Screen › State (transition label)". Several transitions are separated by "; ". The state is left out for single-state screens, where it's always "Default" and adds nothing. A CTA with no transition is "(dead end)".
+- **The "Uses:" line** isn't in the brief's list. It's the only place a screen's `entities` cross-reference would otherwise be visible, and phase 6 will want it. Flagged for the review gate.
+- **Mermaid:**
+  - Identifiers are `e_`/`s_` plus the schema id with anything outside `[A-Za-z0-9_]` turned into `_`, plus `_2`, `_3`… on collision. The prefix keeps them clear of keywords like `end`, and of `o`/`x` edge syntax.
+  - Names are quoted labels, with `"` as `#quot;`.
+  - Multi-state screens are subgraphs of state nodes. A transition with no `stateId` points at the default state's node. Edge labels are the CTA's label, then ": transition label".
+- **Mermaid's own parser runs in the tests** (`mermaid` with jsdom, as dev dependencies of `packages/spec`). The golden diagrams and every cardinality pair are parsed. The review page renders with Mermaid 11 from a CDN, and both the notes and busy examples draw.
+- **Plurals:**
+  - Acronyms take a lower-case s (SKUs).
+  - A trailing parenthetical is skipped ("Orders (v2)").
+  - A short list of irregular and unchanging words applies (people, children, data, settings…).
+- **Golden files** live in `packages/spec/test/golden/`, are rewritten with `UPDATE_GOLDEN=1`, and are excluded from Prettier because they're compared byte for byte. The busy example's fixture is canonical serialiser output, like the notes fixture.
+- **Server:**
+  - `regenerateSpec` runs after a successful `PUT` of any design file and after `init`, only when all three files parse.
+  - It writes atomically, and skips the write when the text is unchanged.
+  - `specFile` is the one new writable path, checked to sit directly in `.design/`.
+  - A failure to write the spec is logged, not returned as an error, because the design file is already saved.
+  - The watcher already ignores `spec.md`.
+- **Copy Mermaid** is a toolbar button on each canvas, with a "Mermaid copied" toast (or "Couldn’t copy to the clipboard").
+- **Fix found while verifying (milestone 1): React Flow's keyboard handling is off** (`disableKeyboardA11y`). With a node focused after a click, React Flow handled the arrow keys itself, and the registry's nudge never saw them. The milestone 1 check had dispatched keys to the page body, which missed this.

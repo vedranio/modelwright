@@ -5,6 +5,6 @@ export default defineConfig({
   format: ['esm'],
   target: 'node24',
   clean: true,
-  // @modelwright/schema ships TypeScript source, which Node won't run from node_modules: bundle it.
-  noExternal: ['@modelwright/schema'],
+  // The workspace packages ship TypeScript source, which Node won't run from node_modules: bundle them.
+  noExternal: ['@modelwright/schema', '@modelwright/spec'],
 });

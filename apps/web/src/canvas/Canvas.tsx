@@ -32,6 +32,7 @@ type Owned =
   | 'proOptions'
   | 'zoomOnDoubleClick'
   | 'deleteKeyCode'
+  | 'disableKeyboardA11y'
   | 'children';
 
 export type CanvasProps<N extends Node, E extends Edge> = Omit<ReactFlowProps<N, E>, Owned> & {
@@ -95,6 +96,9 @@ function CanvasInner<N extends Node, E extends Edge>({
         zoomOnDoubleClick={false}
         // Delete or Backspace deletes the selection; React Flow ignores them inside text fields.
         deleteKeyCode={DELETE_KEYS}
+        // Arrow keys nudge through the shortcut registry, as one undo step. React Flow's own
+        // arrow handling on a focused node would swallow them and move nothing in the document.
+        disableKeyboardA11y
         proOptions={{ hideAttribution: true }}
       >
         <Background variant={BackgroundVariant.Dots} gap={gap} size={dot} />

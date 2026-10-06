@@ -1,8 +1,10 @@
 import { useCallback, useMemo, useRef, useState, type MouseEvent } from 'react';
 import type { NodeChange, OnConnectEnd, ReactFlowInstance, XYPosition } from '@xyflow/react';
 import type { Erd } from '@modelwright/schema';
+import { erdMermaid } from '@modelwright/spec';
 import type { Rect } from '../canvas/edgeGeometry';
 import { Canvas } from '../canvas/Canvas';
+import { CopyMermaidButton } from '../canvas/CopyMermaidButton';
 import { useCanvasShortcuts } from '../canvas/useCanvasShortcuts';
 import { useMeasurements } from '../canvas/useMeasurements';
 import { useSelection } from '../canvas/useSelection';
@@ -280,17 +282,20 @@ function ErdCanvas({
             return Promise.resolve(false);
           }}
           toolbarActions={
-            <button
-              type="button"
-              className="btn btn-quiet btn-tight toolbar-add"
-              onClick={addAtCentre}
-            >
-              <span className="toolbar-add-plus" aria-hidden="true">
-                +
-              </span>
-              Add entity
-              <Kbd>{shortcutHint('add-entity')}</Kbd>
-            </button>
+            <>
+              <button
+                type="button"
+                className="btn btn-quiet btn-tight toolbar-add"
+                onClick={addAtCentre}
+              >
+                <span className="toolbar-add-plus" aria-hidden="true">
+                  +
+                </span>
+                Add entity
+                <Kbd>{shortcutHint('add-entity')}</Kbd>
+              </button>
+              <CopyMermaidButton source={() => erdMermaid(erd)} />
+            </>
           }
           status={
             <SaveStatusPill
