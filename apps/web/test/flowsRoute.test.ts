@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import type { Point, Rect } from '../src/canvas/edgeGeometry';
-import { CLEARANCE, FAN_SPACING, STUB, TRACK_SPACING, routeTransition } from '../src/flows/route';
+import {
+  CLEARANCE,
+  FAN_SPACING,
+  STUB,
+  TRACK_SPACING,
+  cutsThrough,
+  routeTransition,
+  routeTransitionSides,
+} from '../src/flows/route';
 
 const card = (x: number, y: number, height = 200): Rect => ({ x, y, width: 260, height });
 const right = (r: Rect) => r.x + r.width;
@@ -86,5 +94,67 @@ describe('routeTransition', () => {
     const b = card(600, 0);
     const route = routeTransition({ x: 260, y: 50 }, { x: 600, y: 50 }, a, b);
     expect(route.label).toEqual({ x: 430, y: 50 });
+  });
+});
+
+describe('routeTransitionSides', () => {
+  const sides = (r: { from: string; to: string }) => `${r.from}→${r.to}`;
+
+  it('keeps right → left when the target is ahead, exactly as routeTransition draws it', () => {
+    const a = card(0, 0);
+    const b = card(400, 100);
+    const route = routeTransitionSides(50, 120, a, b);
+    expect(sides(route)).toBe('right→left');
+    expect(route.points).toEqual(
+      routeTransition({ x: 260, y: 50 }, { x: 400, y: 120 }, a, b).points,
+    );
+  });
+
+  it('goes left → right when the target is behind the source', () => {
+    const a = card(600, 0);
+    const b = card(0, 40);
+    const route = routeTransitionSides(50, 120, a, b);
+    expect(sides(route)).toBe('left→right');
+    expect(route.points[0]).toEqual({ x: 600, y: 50 });
+    expect(route.points.at(-1)).toEqual({ x: 260, y: 120 });
+  });
+
+  it('loops to another state of the same card along its nearer side, not round the whole card', () => {
+    const a = card(0, 0, 500);
+    const route = routeTransitionSides(400, 100, a, a);
+    expect(['right→right', 'left→left']).toContain(sides(route));
+    expect(route.points).toHaveLength(4);
+    expect(cutsThrough(route.points, a)).toBe(false);
+  });
+
+  it('uses a C on one side for stacked cards', () => {
+    const a = card(0, 0);
+    const b = card(20, 400);
+    const route = routeTransitionSides(150, 420, a, b);
+    expect(['right→right', 'left→left']).toContain(sides(route));
+    expect(cutsThrough(route.points, a)).toBe(false);
+    expect(cutsThrough(route.points, b)).toBe(false);
+  });
+
+  it('never cuts through either card', () => {
+    const a = card(0, 0, 300);
+    for (const b of [card(400, 0), card(-500, 50), card(100, 400), card(0, -350), card(300, 250)]) {
+      for (const [sy, ty] of [
+        [40, b.y + 20],
+        [250, b.y + 150],
+      ] as const) {
+        const route = routeTransitionSides(sy, ty, a, b);
+        expect(cutsThrough(route.points, a), JSON.stringify({ b, sy, ty, route })).toBe(false);
+        expect(cutsThrough(route.points, b), JSON.stringify({ b, sy, ty, route })).toBe(false);
+      }
+    }
+  });
+
+  it('turns fanned same-side routes at separate columns', () => {
+    const a = card(0, 0);
+    const b = card(20, 400);
+    const one = routeTransitionSides(150, 420, a, b, { index: 0, count: 2 });
+    const two = routeTransitionSides(150, 420, a, b, { index: 1, count: 2 });
+    expect(Math.abs((one.points[1]?.x ?? 0) - (two.points[1]?.x ?? 0))).toBe(FAN_SPACING);
   });
 });

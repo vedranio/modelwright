@@ -1,7 +1,7 @@
 import type { Flows, TransitionFrom, TransitionTo } from '@modelwright/schema';
 import { ctaHandle } from './endpoints';
 
-/** The CTA a connection drag started from, found by its source handle id. */
+/** The CTA a connection drag started from, found by its source handle id (either side). */
 export function ctaForHandle(
   flows: Flows,
   screenId: string,
@@ -10,7 +10,10 @@ export function ctaForHandle(
   const screen = flows.screens.find((s) => s.id === screenId);
   for (const state of screen?.states ?? []) {
     for (const cta of state.ctas) {
-      if (ctaHandle(state.id, cta.id) === handleId) {
+      if (
+        ctaHandle(state.id, cta.id) === handleId ||
+        ctaHandle(state.id, cta.id, 'left') === handleId
+      ) {
         return { screenId, stateId: state.id, ctaId: cta.id };
       }
     }

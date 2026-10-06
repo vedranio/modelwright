@@ -54,7 +54,8 @@ export type ScreenNodeType = Node<
  * sees) and "Actions" list (the CTAs they can use). A single-state screen hides its state header, so
  * the common case reads as just name / sees / does. Every CTA row has a source handle on the
  * card's right edge, filled when a transition starts from it and hollow when none does (a dead
- * end). The screen header and each shown state header have a target handle on the left edge.
+ * end), and a second on the left edge, shown on hover. The screen header and each shown state
+ * header have a target handle; transitions route to whichever side of a card is nearer.
  *
  * Every text is edited in place: click it, then Enter or click away to keep the change, Escape
  * to drop it, Tab to move on through the card. (Dragging a card by its text doesn't count as a
@@ -601,6 +602,13 @@ function CtaRow({
           ×
         </button>
       </span>
+      {/* Drag from either side; the left one shows on hover or selection. */}
+      <Handle
+        type="source"
+        id={ctaHandle(state.id, cta.id, 'left')}
+        position={Position.Left}
+        className={`cta-handle left${connected ? ' connected' : ''}`}
+      />
       <Handle
         type="source"
         id={ctaHandle(state.id, cta.id)}

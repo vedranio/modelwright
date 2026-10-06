@@ -8,7 +8,7 @@ import {
   type InternalNode,
 } from '@xyflow/react';
 import { orthogonalPath, type Rect } from '../canvas/edgeGeometry';
-import { routeTransition, type Fan } from './route';
+import { routeTransitionSides, type Fan } from './route';
 import { TransitionPopover } from './TransitionPopover';
 
 export type TransitionEdgeType = Edge<
@@ -37,8 +37,9 @@ const ARROW_LENGTH = 8;
 const ARROW_HALF_WIDTH = 4;
 
 /**
- * A transition: a directed arrow from a CTA's row on the right of its card to a screen or state
- * header on the left of the target card, in orthogonal steps with rounded corners. The label
+ * A transition: a directed arrow from a CTA's row to a screen or state header, in orthogonal
+ * steps with rounded corners. It leaves and arrives on whichever sides of the two cards make
+ * the shortest path (`routeTransitionSides`); the handles only fix the heights. The label
  * sits above the longest horizontal run, beside the line rather than on it.
  */
 export function TransitionEdge({
@@ -57,19 +58,20 @@ export function TransitionEdge({
   const targetRect = targetNode && rectOf(targetNode);
   if (!sourceRect || !targetRect) return null;
 
-  // The handles sit across the cards' edges; the line starts and ends exactly on the edges.
-  const start = { x: sourceRect.x + sourceRect.width, y: sourceY };
-  const tip = { x: targetRect.x, y: targetY };
-  const { points, label } = routeTransition(
-    start,
-    tip,
+  // The handles fix each end's height; the line starts and ends exactly on the cards' edges.
+  const { points, label, from, to } = routeTransitionSides(
+    sourceY,
+    targetY,
     sourceRect,
     targetRect,
     data?.fan,
     data?.track ?? 0,
   );
-  // The line stops at the arrowhead's base so its end doesn't poke through the tip.
-  const lineEnd = { x: tip.x - ARROW_LENGTH, y: tip.y };
+  const tip = points[points.length - 1] ?? { x: targetRect.x, y: targetY };
+  // Arriving on the left side the arrow points right, and on the right side, left. The line
+  // stops at the arrowhead's base so its end doesn't poke through the tip.
+  const inward = to === 'left' ? 1 : -1;
+  const lineEnd = { x: tip.x - inward * ARROW_LENGTH, y: tip.y };
   const path = orthogonalPath([...points.slice(0, -1), lineEnd]);
 
   return (
@@ -84,6 +86,18 @@ export function TransitionEdge({
         className="transition-arrow"
         d={`M ${lineEnd.x} ${tip.y - ARROW_HALF_WIDTH} L ${tip.x} ${tip.y} L ${lineEnd.x} ${tip.y + ARROW_HALF_WIDTH} Z`}
       />
+      {/* The CTA's dot is drawn on its card's right edge; leaving from the left, the line marks
+          its own start the same way, above the card as labels are. */}
+      {from === 'left' && points[0] && (
+        <EdgeLabelRenderer>
+          <div
+            className="transition-origin"
+            style={{
+              transform: `translate(${points[0].x}px, ${points[0].y}px) translate(-50%, -50%)`,
+            }}
+          />
+        </EdgeLabelRenderer>
+      )}
       {data?.editing && (
         <EdgeLabelRenderer>
           <div

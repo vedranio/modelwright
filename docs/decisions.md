@@ -838,3 +838,24 @@ Designing PhotoBackup for the milestone 4 dry run turned up twelve UI changes, l
   - one-click editing, and a drag by the name not opening it
   - hover highlighting
 - **Not verifiable with simulated input:** the outline during a drag (the browser tool can't pause mid-drag). This wants a look by hand.
+
+### Commit B: connectors on either side, by the shortest path (item 7)
+
+- **`routeTransitionSides`** (`flows/route.ts`, pure, tested) builds four candidates:
+  - right → left: `routeTransition`, unchanged
+  - left → right: the same router run on a mirror image
+  - right → right and left → left: a "C" out past the far edge of both cards
+- **Choosing a candidate:** any that would cut through either card is dropped (`cutsThrough`), and the shortest of the rest wins. Ties go right → left, right → right, left → right, left → left, so the usual left-to-right reading stays the default.
+- **Fans and tracks** turn at their own columns on whichever side is used.
+- **In practice:**
+  - A loop to another state of the same card now runs down that card's nearer side instead of wrapping round it.
+  - A target to the left is reached left → right.
+  - Stacked cards use a C.
+- **Handles only fix heights.** Edges are still drawn between the right CTA handle and the left header anchor, because both sides share a height. The route decides the sides, and the arrowhead faces whichever side it enters.
+- **Dragging from the left:** each CTA row has a second source handle there (`cta-left:<state>:<cta>`), shown on a hovered or selected card. `ctaForHandle` accepts either.
+- **Start dots:** a transition leaving from a card's left side draws its own start dot in the label layer, above the card, styled like a connected handle. The CTA's own dot stays on the right edge.
+- **Not done:** no target anchors were added on the right of headers. The route computes the arrival point itself, so there's nothing for them to do.
+- **Verified in the browser** on the PhotoBackup copy:
+  - Home's state loops run down its right side
+  - Confirm cancel's actions go left → right into Home
+  - dragging from a left handle onto Splash connects

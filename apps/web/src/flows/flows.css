@@ -176,6 +176,27 @@
   background: var(--color-text-muted);
 }
 
+/* Where a transition leaving from a card's left side starts: drawn like a connected handle. */
+.transition-origin {
+  position: absolute;
+  width: var(--space-2);
+  height: var(--space-2);
+  border-radius: var(--radius-full);
+  background: var(--color-text-muted);
+  pointer-events: none;
+}
+
+/* The left-side handle shows only on a hovered or selected card, to keep cards uncluttered. */
+.react-flow__handle.cta-handle.left {
+  opacity: 0;
+  transition: opacity var(--duration-fast) var(--ease-out);
+}
+
+.react-flow__node:hover .react-flow__handle.cta-handle.left,
+.react-flow__node.selected .react-flow__handle.cta-handle.left {
+  opacity: 1;
+}
+
 /* Transition edges */
 
 .canvas .transition-line {
