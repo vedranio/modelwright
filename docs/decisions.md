@@ -675,3 +675,4 @@ Decided after the phase 5 walk.
 - They come from the `@material-symbols/svg-400` npm package (Apache-2.0), so they're self-hosted like the font, with no request to Google at runtime. Only the imported SVGs end up in the bundle.
 - `Icon.tsx` draws each one as a CSS mask over `currentColor`, so icons take their colour from the surrounding text tokens and theme with everything else. The size is `--icon-size` (18px).
 - If the trial is approved, the other glyphs (Reload ↻, close ×, zoom − +, undo/redo ↶ ↷, the shortcuts "?") move to `Icon` too.
+- **Approved and extended:** Material Symbols now also draw the Reload icon (`refresh`, in the header, Reload preview and the validation surface, which all share `ReloadGlyph`), the toolbar's undo and redo (`undo`, `redo`), and the header's shortcuts button (`question_mark`). The unused `.glyph` style is gone. Close ×, zoom − + and the arrow in "Open in browser ↗" are still text characters.

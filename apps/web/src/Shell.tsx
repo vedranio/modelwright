@@ -8,6 +8,7 @@ import { FlowsView } from './views/FlowsView';
 import { UiView } from './views/UiView';
 import { useProjectClient, type DesignKind, type ProjectSummary } from './platform';
 import { loadPref, savePref } from './storage';
+import { Icon } from './Icon';
 import { ShortcutsOverlay } from './ShortcutsOverlay';
 import { ThemeMenu } from './ThemeMenu';
 import { useShortcut } from './shortcuts';
@@ -193,7 +194,7 @@ export function Shell({ project, onClose }: Props) {
               aria-label="Keyboard shortcuts"
               title={`Keyboard shortcuts (${shortcutHint('shortcuts')})`}
             >
-              ?
+              <Icon name="question_mark" />
             </button>
             <span className="divider" aria-hidden="true" />
             <button type="button" className="btn btn-quiet btn-tight" onClick={onReload}>

@@ -96,10 +96,6 @@ button {
   background: var(--color-error);
 }
 
-.glyph {
-  font-size: var(--text-md);
-}
-
 .dot-grid {
   background-color: var(--color-bg);
   background-image: radial-gradient(

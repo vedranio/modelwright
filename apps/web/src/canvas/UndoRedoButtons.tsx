@@ -1,3 +1,4 @@
+import { Icon } from '../Icon';
 import { shortcutHint } from '../shortcutRegistry';
 
 interface Props {
@@ -13,23 +14,23 @@ export function UndoRedoButtons({ undo, redo, canUndo, canRedo }: Props) {
     <>
       <button
         type="button"
-        className="btn-icon btn-glyph"
+        className="btn-icon"
         aria-label="Undo"
         title={`Undo (${shortcutHint('undo')})`}
         disabled={!canUndo}
         onClick={undo}
       >
-        ↶
+        <Icon name="undo" />
       </button>
       <button
         type="button"
-        className="btn-icon btn-glyph"
+        className="btn-icon"
         aria-label="Redo"
         title={`Redo (${shortcutHint('redo')})`}
         disabled={!canRedo}
         onClick={redo}
       >
-        ↷
+        <Icon name="redo" />
       </button>
     </>
   );

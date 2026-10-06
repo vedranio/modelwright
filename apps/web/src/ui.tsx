@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { Icon } from './Icon';
 
 /** The modelwright logo mark. */
 export function Logo() {
@@ -15,13 +16,9 @@ export function Dot({ tone }: { tone: 'success' | 'warning' | 'error' }) {
   return <span className={`dot dot-${tone}`} aria-hidden="true" />;
 }
 
-/** The reload glyph used beside "Reload". */
+/** The reload icon beside "Reload" and "Reload preview": Material Symbols' refresh. */
 export function ReloadGlyph() {
-  return (
-    <span className="glyph" aria-hidden="true">
-      ↻
-    </span>
-  );
+  return <Icon name="refresh" />;
 }
 
 /** A field's error line, with an error dot. */

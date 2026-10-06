@@ -1,6 +1,10 @@
 import contrast from '@material-symbols/svg-400/outlined/contrast.svg';
 import darkMode from '@material-symbols/svg-400/outlined/dark_mode.svg';
 import lightMode from '@material-symbols/svg-400/outlined/light_mode.svg';
+import questionMark from '@material-symbols/svg-400/outlined/question_mark.svg';
+import redo from '@material-symbols/svg-400/outlined/redo.svg';
+import refresh from '@material-symbols/svg-400/outlined/refresh.svg';
+import undo from '@material-symbols/svg-400/outlined/undo.svg';
 
 /**
  * Google's Material Symbols (outlined, weight 400), from the self-hosted
@@ -11,6 +15,10 @@ const ICONS = {
   contrast,
   dark_mode: darkMode,
   light_mode: lightMode,
+  question_mark: questionMark,
+  redo,
+  refresh,
+  undo,
 } as const;
 
 export type IconName = keyof typeof ICONS;
