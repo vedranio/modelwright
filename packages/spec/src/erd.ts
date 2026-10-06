@@ -64,7 +64,8 @@ export function relationshipSentences(erd: Erd, r: Relationship): string {
   return `Each ${from} ${verb} ${counted(r.toCard, to)}. Each ${to} ${REVERSE_VERB} ${counted(r.fromCard, from)}.`;
 }
 
-function counted(card: Cardinality, name: string): string {
+/** "zero or more Notes", "exactly one User". */
+export function counted(card: Cardinality, name: string): string {
   const { words, plural: many } = CARDINALITY_WORDS[card];
   return `${words} ${many ? plural(name) : name}`;
 }

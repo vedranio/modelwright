@@ -22,7 +22,7 @@ export const stringifyFlows = (doc: Flows): string => stringifyDesign('flows', d
 export const stringifyConfig = (doc: Config): string => stringifyDesign('config', doc);
 
 /** Rebuilds a value following the schema's shape, so key order comes from the schema, not the input. */
-function canonicalise(schema: z.ZodType, value: unknown): unknown {
+export function canonicalise(schema: z.ZodType, value: unknown): unknown {
   if (value === undefined) return undefined;
   if (schema instanceof z.ZodOptional) return canonicalise(schema.unwrap() as z.ZodType, value);
   if (schema instanceof z.ZodArray && Array.isArray(value)) {
@@ -47,7 +47,7 @@ function canonicalise(schema: z.ZodType, value: unknown): unknown {
 }
 
 /** Puts layout entries in node order; any keys without a node (invalid, but be safe) keep their order at the end. */
-function orderLayout(doc: Record<string, unknown>, nodes: readonly { id: string }[]): void {
+export function orderLayout(doc: Record<string, unknown>, nodes: readonly { id: string }[]): void {
   const layout = doc['layout'] as Layout;
   const ordered: Layout = {};
   for (const { id } of nodes) {

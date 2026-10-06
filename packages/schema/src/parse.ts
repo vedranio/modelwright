@@ -51,7 +51,7 @@ export const parseErd = (data: unknown): ParseResult<Erd> => parseDesign('erd', 
 export const parseFlows = (data: unknown): ParseResult<Flows> => parseDesign('flows', data);
 export const parseConfig = (data: unknown): ParseResult<Config> => parseDesign('config', data);
 
-function toIssues(error: z.ZodError): Issue[] {
+export function toIssues(error: z.ZodError): Issue[] {
   return error.issues.flatMap((issue): Issue[] => {
     const path = issue.path.map((segment) =>
       typeof segment === 'number' ? segment : String(segment),

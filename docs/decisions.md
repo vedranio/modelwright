@@ -678,3 +678,49 @@ Decided after the phase 5 walk.
 - **Approved and extended:** Material Symbols now also draw the Reload icon (`refresh`, in the header, Reload preview and the validation surface, which all share `ReloadGlyph`), the toolbar's undo and redo (`undo`, `redo`), and the header's shortcuts button (`question_mark`). The unused `.glyph` style is gone. Close ×, zoom − + and the arrow in "Open in browser ↗" are still text characters.
 - **Also:** the header's close × is Material's `close`. In keyboard hints, ⇧ is drawn with Material's `shift` icon (14px, `--kbd-icon-size`), because the font's ⇧ was too narrow to read. `Kbd` swaps it in for any ⇧ in its text, so the toolbar, buttons and the shortcuts overlay all match. The icon sits inline with the hint's text (`vertical-align`), so rows keep their height. Tooltips still spell shortcuts out in text.
 - **And:** "Open in browser" has Material's `open_in_browser` icon in front of its label, replacing the trailing ↗. The icon is in the same leading position as Reload preview's, both in the preview toolbar and on the "refuses to be embedded" card, where it takes the primary button's text colour.
+
+## 2026-10-06 — Phase 6 planning decisions
+
+Settled in the phase 6 interview before any code was written.
+
+### The plugin replaces "a skill in each project repo" (supersedes the founding "Claude Design vs Claude Code" line)
+
+The founding entry said `/build-from-design` would eventually be a skill in each project repo. Phase 6 makes it a user-scope Claude Code plugin, `modelwright`, published from this repo as a marketplace (`modelwright@modelwright`). It's installed once and works in every project repo, so modelwright still never writes outside `.design/`.
+
+### Where the Claude Code docs differ from the brief (the docs win)
+
+- **No `version` in `plugin.json`.** A set version pins every install to that string until it's bumped, whatever is pushed. Without one, a relative-path plugin in a git-hosted marketplace is versioned by its commit, so every pushed change is an update. `claude plugin validate` passes with a "missing version" warning, which is expected.
+- **Updates are manual.** Auto-update is off by default for marketplaces that aren't Anthropic's. `claude plugin marketplace update modelwright` then `claude plugin update modelwright@modelwright`, or turn auto-update on in `/plugin`.
+- **`bin/` is on the Bash tool's `PATH`,** not the user's shell's. The skill calls `modelwright-design` as a bare command; `${CLAUDE_PLUGIN_ROOT}` isn't set in Bash.
+- **A branch is installed with `vedranio/modelwright#<branch>`** (or `@<branch>`). A marketplace name can be registered once, so switching branches means removing and re-adding it, which uninstalls the plugin.
+- **For the dry run, this checkout is added as a local directory marketplace.** Such a plugin loads in place, so a fix takes effect on `/reload-plugins` with no commit.
+- `claude` isn't on this machine's shell `PATH`; `claude plugin validate` runs through the desktop app's bundled CLI.
+
+### The brief's decisions stand
+
+User-scope plugin; the CLI for every deterministic step; the committed bundle with a drift test; a full snapshot plus an id → code map in `build.json`, written only by the CLI after a verified build; diffs ignore layout; the design is read-only to the build; plan first, explicit assumptions, removals approved; every state reachable; plain styling; the map lives in `build.json` only, with no markers in code. Markers would clutter generated code and break under hand edits. Instead the skill checks that mapped paths still exist and falls back to searching by name.
+
+### Sharpened
+
+- **`map.states` nests under the screen** (`{ [screenId]: { [stateId]: string[] } }`), because state ids are only unique within their screen.
+- **A state with no natural trigger is reachable through a dev-only `?state=<stateId>` query parameter,** the one convention the skill uses in every stack, so any state can be shown in the UI preview by editing the URL.
+- **Information items have no ids,** so the diff lines them up by text (longest common subsequence). In each gap, removed and added items pair up in order as "changed from X to Y"; the rest are plain removals or additions. Reordering shows as a removal plus an addition.
+- **"Built <time>"** counts minutes and hours under a day ("just now", "12 minutes ago", "3 hours ago"), then uses the day wording from the picker.
+- **The skill pre-approves its CLI** with `allowed-tools: Bash(modelwright-design *)`.
+- **Shared code lives in a new `packages/project`:** pure config ops and URL rules (moved from `apps/web`, so the UI and the CLI apply the same ones) and the Node file I/O and `spec.md` writer (moved from `apps/server`, so the server and the CLI share them).
+
+## 2026-10-06 — Phase 6 milestone 0: diff and build record
+
+- **`diffDesign(before, after)`** (`packages/spec/src/diff.ts`) returns `{ dataModel, screens, config }`, each a list of `{ kind, ids, text }`. `renderDiff` turns it into Markdown with a `###` per group that has changes, or "No changes."
+  - **Order:** the newer design's order, with removed items placed right after what they followed in the older one (`mergedOrder`). Within an entity: its own changes, then its attributes, then a reorder. Within a screen: the screen, its default and order, then each state's information, then its actions. Relationships follow entities; transitions follow screens.
+  - **Names** are quoted with “ ”, and named as they are now. A removed transition, or the old end of a retargeted one, uses the current names whenever that element still exists.
+  - **Folded changes:** a transition that went because its CTA, state or screen went, or because its target screen went, isn't listed on its own. It's part of that removal, and a CTA left with nowhere to go shows as "is now a dead end".
+  - **Reversed** means the ends swapped (as Reverse direction does). Ends that changed otherwise are "now joins X and Y", with the new sentences.
+  - **A new default state** and the resulting reorder are both reported.
+  - **Preview `devCommand` and `devices`** aren't reported; the brief lists only the name and the URL for config.
+- **`BuildRecord`** (`packages/schema/src/build.ts`), with `parseBuildRecord(Json)` and `stringifyBuildRecord`:
+  - The snapshot is built from the design schemas themselves, so issue paths run into it (`snapshot.erd.entities.0.attributes.0.type`).
+  - Map ids must exist in the snapshot, as layout keys must exist in their document.
+  - Canonical serialisation reuses the design files' `canonicalise` and `orderLayout`, and map keys follow design order.
+  - A newer `schemaVersion` is refused with the same wording as the design files.
+  - **A future design `schemaVersion` bump must ship a build-record migration that upgrades the snapshot,** since the snapshot uses the current design schemas.
