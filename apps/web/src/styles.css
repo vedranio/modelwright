@@ -52,6 +52,13 @@ button {
   white-space: nowrap;
 }
 
+/* Inline with the hint's text, so the text keeps the baseline and the line keeps its height. */
+.kbd .icon {
+  width: var(--kbd-icon-size);
+  height: var(--kbd-icon-size);
+  vertical-align: -0.2em;
+}
+
 .label {
   font-size: var(--text-xs);
   line-height: var(--text-xs-lh);

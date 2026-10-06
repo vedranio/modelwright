@@ -209,7 +209,7 @@ export function Shell({ project, onClose }: Props) {
               aria-label="Close project"
               title="Close project"
             >
-              ×
+              <Icon name="close" />
             </button>
           </div>
         </header>

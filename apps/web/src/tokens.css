@@ -112,6 +112,8 @@
   --shortcuts-w: 640px;
   /* Material Symbols icons (phase 5 trial). */
   --icon-size: 18px;
+  /* A ⇧ drawn as an icon inside a keyboard hint. */
+  --kbd-icon-size: 14px;
   --toast-max-w: 480px;
   /* Toasts sit this far above the view's bottom edge, clear of the canvas toolbar below them. */
   --toast-offset: 72px;

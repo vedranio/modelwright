@@ -1,9 +1,11 @@
+import close from '@material-symbols/svg-400/outlined/close.svg';
 import contrast from '@material-symbols/svg-400/outlined/contrast.svg';
 import darkMode from '@material-symbols/svg-400/outlined/dark_mode.svg';
 import lightMode from '@material-symbols/svg-400/outlined/light_mode.svg';
 import questionMark from '@material-symbols/svg-400/outlined/question_mark.svg';
 import redo from '@material-symbols/svg-400/outlined/redo.svg';
 import refresh from '@material-symbols/svg-400/outlined/refresh.svg';
+import shift from '@material-symbols/svg-400/outlined/shift.svg';
 import undo from '@material-symbols/svg-400/outlined/undo.svg';
 
 /**
@@ -12,12 +14,14 @@ import undo from '@material-symbols/svg-400/outlined/undo.svg';
  * text colour (and therefore the theme) of whatever it sits in. Add icons here as they're used.
  */
 const ICONS = {
+  close,
   contrast,
   dark_mode: darkMode,
   light_mode: lightMode,
   question_mark: questionMark,
   redo,
   refresh,
+  shift,
   undo,
 } as const;
 
