@@ -438,3 +438,30 @@ There's no phase 4 design, so all of this is built from tokens in the existing l
   - The device remembered across a page reload.
   - Reload preview loads the iframe once more, and the header Reload doesn't touch it.
   - Blur and focus were simulated with window events.
+
+## 2026-10-06 — Phase 4 milestone 5: verification notes
+
+Walked the "done means" list by hand in the browser, against a scratch copy of the notes fixture, a throwaway Vite app on 5173 and an `X-Frame-Options: DENY` server on 5174. All three live in the session scratchpad, not this repo. Every item passed:
+
+- **Checks:** `pnpm test` (430 tests), `pnpm typecheck` and `pnpm lint` pass at the root.
+- **Revert fix:** reverting `erd.json`, `flows.json` and (in the final walk) `config.json` to their pre-edit text and pressing Reload shows the reverted content. Editing afterwards still saves.
+- **Rename:** the header rename saves through the shared editor, and the recents entry updates.
+- **Setting and clearing the URL:**
+  - `localhost:5173` typed into the No-URL card is saved as `http://localhost:5173`.
+  - Clearing the URL from the toolbar, or from the Invalid-URL card, removes the key.
+  - `devCommand` and a five-device `devices` list are untouched.
+  - `localhost:4300` is refused: "That’s modelwright’s own address…"
+- **Nothing running:** the state shows `devCommand`, polls about every 3 s, and the preview appeared on its own when the Vite app started.
+- **Refuses embedding:** the DENY server shows that state and names `X-Frame-Options: DENY`. Open in browser is a link with the right href and `target="_blank" rel="noopener noreferrer"`. The browser pane can't open new windows, so it opened in place; a normal browser opens a new tab.
+- **Devices and scaling:**
+  - Mobile is 390 wide with the mobile layout, and Desktop is 1280 with the desktop layout. Text typed in the app survives switching between them.
+  - Desktop at 1000 px wide scales to 74% and shows it. At 1440 it stays at 100%.
+- **Mounting:** switching to ERD and back keeps the same iframe element with no new load.
+- **Custom devices** replace the presets. Phone 375 × 667 uses its height, and Wide (1440, no height) fills the stage exactly. Five devices turn the toggle into a select. A remembered device that no longer exists falls back to the first.
+- **Device memory:** the chosen device survives a page reload, stored per project.
+- **Reloads:** Reload preview reloads only the iframe, and the header Reload doesn't touch it.
+- **Bad config:** `"url": "ftp://x"` shows the Invalid-URL state. A `config.json` with an unknown key shows the validation surface with a warning dot on UI, and the name is read-only. ERD and Flows still render.
+
+Caveats:
+- **Verified with simulated input:** window blur and focus (synthetic events), and clicks in a small browser pane, with positions taken from the DOM.
+- **Gate screenshots are downscaled:** the 1440×900 shots are 800×500 renders, the browser tool's maximum.
