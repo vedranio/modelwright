@@ -1,0 +1,15 @@
+{
+  "name": "modelwright",
+  "description": "Build and update apps from modelwright designs with Claude Code",
+  "owner": {
+    "name": "Vedran Arnautovic",
+    "url": "https://github.com/vedranio"
+  },
+  "plugins": [
+    {
+      "name": "modelwright",
+      "source": "./plugins/modelwright",
+      "description": "The build-from-design skill and the modelwright-design CLI: build an app from a project's .design/ folder, then apply only what changed"
+    }
+  ]
+}

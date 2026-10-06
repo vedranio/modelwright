@@ -752,3 +752,19 @@ User-scope plugin; the CLI for every deterministic step; the committed bundle wi
   - The bundle test builds afresh in memory and compares byte for byte, checks the executable bits, and runs the committed file.
   - The bundle is excluded from ESLint and Prettier.
 - **The byte-for-byte spec test** runs the CLI's `spec` and the server's `PUT` on two copies of the same design and compares the files. Both use `regenerateSpec` from `packages/project`.
+
+## 2026-10-06 — Phase 6 milestone 2: plugin and skill
+
+- **Layout as the brief has it,** confirmed against the docs:
+  - `.claude-plugin/marketplace.json`: marketplace `modelwright`, one relative-path entry `./plugins/modelwright`
+  - `plugins/modelwright/.claude-plugin/plugin.json`: name, description, author, homepage, repository, keywords; no `version`
+  - `skills/build-from-design/SKILL.md`
+  - `bin/modelwright-design`
+- **`claude plugin validate`** passes on the marketplace root and on the plugin directory, each with the expected "No version specified" warning.
+- **SKILL.md calls that go slightly past the brief,** for the review gate:
+  - **Every state answers to `?state=<stateId>` in development,** including states with real conditions, not only those without one. This makes every state viewable in the UI preview the same way, and gives verification one uniform route to each state.
+  - **Arguments** passed with the command (`/modelwright:build-from-design use SvelteKit`) are followed for that run (`argument-hint: [notes for this build]`).
+  - **iframe constraints** for a first build's stack: framing allowed from `localhost:4300` / `127.0.0.1:4300`, and ports 4300/4301 avoided.
+  - **Renames get rename migrations,** not a drop and an add.
+  - **The map file is written outside the repo** (`mktemp -d`), so it never lands in the project.
+  - **The skill doesn't commit;** it reminds the user to commit `build.json` with the code.
