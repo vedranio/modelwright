@@ -1,21 +1,26 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { parseDesign, stringifyDesign, type Issue } from '@modelwright/schema';
+import { parseDesign, type Issue } from '@modelwright/schema';
 import { useProjectClient, type DesignDoc } from '../platform';
-import type { DocState } from '../useDesign';
+import type { DocState } from '../docState';
+import {
+  applyEdit,
+  initialEditableState,
+  resolveDoc,
+  saveFailed,
+  saveRefused,
+  saveStarted,
+  saveSucceeded,
+  type EditableState,
+  type SaveStatus,
+} from './editableState';
 
-/** The documents that have editors. Config is edited through its own small form. */
-export type EditableKind = 'erd' | 'flows';
+export type { SaveStatus };
 
-export type SaveStatus =
-  /** Everything is on disk. */
-  | 'saved'
-  /** Edits are waiting for the autosave. */
-  | 'unsaved'
-  | 'saving'
-  /** The write failed (server down, disk error); edits are kept. */
-  | 'failed'
-  /** An edit produced a document that fails the schema. Not saved: that's a bug to fix. */
-  | 'invalid';
+/**
+ * Every design file has an editor. The canvases autosave after a pause; config edits are
+ * discrete commits (Enter or blur) and pass `saveNow`.
+ */
+export type EditableKind = 'erd' | 'flows' | 'config';
 
 /** About this long after the last edit, the document saves. */
 export const AUTOSAVE_DELAY_MS = 500;
@@ -36,50 +41,31 @@ export interface EditableDoc<K extends EditableKind> {
   discard: () => void;
 }
 
-interface State<K extends EditableKind> {
-  /** The working copy; null until the first edit. */
-  local: DesignDoc<K> | null;
-  /** The on-disk document the working copy was made from. */
-  base: DesignDoc<K> | null;
-  dirty: boolean;
-  status: SaveStatus;
-  issues: Issue[];
-}
-
 /**
  * A local working copy of one design document, layered on useDesign's on-disk state. Edits
  * apply locally at once and autosave through ProjectClient.writeDesign about 500 ms after the
  * last one. While there are unsaved edits, the local copy wins: a newer on-disk document is
- * ignored until the edits are saved or discarded. Generic so the flow editor can reuse it.
+ * ignored until the edits are saved or discarded. The state logic is in editableState.ts.
+ *
+ * `noteWritten` tells useDesign what each save put on disk, so `remote` stays true to the file
+ * and a later re-read that differs from it (say, a revert by hand) takes over.
  */
 export function useEditableDoc<K extends EditableKind>(
   kind: K,
   projectPath: string,
   remote: DocState<K>,
+  noteWritten: (kind: K, doc: DesignDoc<K>) => void,
 ): EditableDoc<K> {
   const client = useProjectClient();
-  const [state, setState] = useState<State<K>>({
-    local: null,
-    base: null,
-    dirty: false,
-    status: 'saved',
-    issues: [],
-  });
+  const [state, setState] = useState<EditableState<K>>(initialEditableState);
 
   const remoteDoc = remote.status === 'ok' ? remote.doc : null;
-  const doc = useMemo(() => {
-    const { local, base, dirty } = state;
-    if (!local) return remoteDoc;
-    if (dirty || base === remoteDoc || !remoteDoc) return local;
-    // A newer on-disk document arrived while clean. Keep the local object if it's the same
-    // content (typically our own save read back), so the canvas doesn't re-render.
-    return stringifyDesign(kind, local) === stringifyDesign(kind, remoteDoc) ? local : remoteDoc;
-  }, [kind, state, remoteDoc]);
+  const doc = useMemo(() => resolveDoc(kind, state, remoteDoc), [kind, state, remoteDoc]);
 
   // Event handlers and timers read the latest values through refs.
-  const latest = useRef({ state, doc, remoteDoc });
+  const latest = useRef({ state, doc });
   useLayoutEffect(() => {
-    latest.current = { state, doc, remoteDoc };
+    latest.current = { state, doc };
   });
 
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -100,24 +86,22 @@ export function useEditableDoc<K extends EditableKind>(
     const parsed = parseDesign(kind, target);
     if (!parsed.ok) {
       console.error(`Refusing to save an invalid ${kind}.json`, parsed.error.issues);
-      setState((s) => ({ ...s, status: 'invalid', issues: parsed.error.issues }));
+      setState((s) => saveRefused(s, parsed.error.issues));
       return false;
     }
 
-    setState((s) => ({ ...s, status: 'saving' }));
+    setState(saveStarted);
     try {
       await client.writeDesign(projectPath, kind, target);
-      // Edits made during the write keep the document dirty for the next save.
-      setState((s) =>
-        s.local === target ? { ...s, dirty: false, status: 'saved', issues: [] } : s,
-      );
+      noteWritten(kind, target);
+      setState((s) => saveSucceeded(s, target));
       return true;
     } catch {
-      setState((s) => ({ ...s, status: 'failed' }));
+      setState(saveFailed);
       saveAgain.current = false;
       return false;
     }
-  }, [client, kind, projectPath]);
+  }, [client, kind, projectPath, noteWritten]);
 
   /** Saves now. One write at a time: a save requested mid-write runs once that one settles. */
   const save = useCallback((): Promise<boolean> => {
@@ -143,12 +127,11 @@ export function useEditableDoc<K extends EditableKind>(
 
   const apply = useCallback<EditableDoc<K>['apply']>(
     (edit, options) => {
-      const { doc: current, remoteDoc: onDisk, state: s } = latest.current;
+      const { doc: current } = latest.current;
       if (!current) return;
       const next = edit(current);
       if (next === current) return;
-      const base = s.dirty ? s.base : onDisk;
-      const nextState: State<K> = { local: next, base, dirty: true, status: 'unsaved', issues: [] };
+      const nextState = applyEdit(next);
       // Update the ref at once so a save scheduled below sees this edit.
       latest.current = { ...latest.current, state: nextState, doc: next };
       setState(nextState);
@@ -162,7 +145,7 @@ export function useEditableDoc<K extends EditableKind>(
 
   const discard = useCallback(() => {
     clearTimer();
-    setState({ local: null, base: null, dirty: false, status: 'saved', issues: [] });
+    setState(initialEditableState<K>());
   }, []);
 
   // Warn before the page unloads with edits that aren't on disk.

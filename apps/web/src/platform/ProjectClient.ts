@@ -1,6 +1,12 @@
-import type { DesignDoc, DesignKind, Issue, ProjectSummary } from '@modelwright/schema';
+import type {
+  DesignDoc,
+  DesignKind,
+  Issue,
+  PreviewCheck,
+  ProjectSummary,
+} from '@modelwright/schema';
 
-export type { DesignDoc, DesignKind, ProjectSummary };
+export type { DesignDoc, DesignKind, PreviewCheck, ProjectSummary };
 
 /**
  * Everything the UI needs from disk. The web build talks HTTP to apps/server; Electron will
@@ -14,6 +20,11 @@ export interface ProjectClient {
   removeRecent(path: string): Promise<void>;
   readDesign<K extends DesignKind>(path: string, file: K): Promise<DesignDoc<K>>;
   writeDesign<K extends DesignKind>(path: string, file: K, doc: DesignDoc<K>): Promise<void>;
+  /**
+   * Whether a preview URL can be shown in an iframe: reachable, and not refusing to be framed.
+   * A browser can't see why a cross-origin iframe is blank, so the host process finds out.
+   */
+  checkPreview(url: string): Promise<PreviewCheck>;
 }
 
 /** A failed ProjectClient call. `issues` is set when a design file failed validation. */

@@ -21,3 +21,13 @@ export interface ProjectSummary {
 export interface ApiErrorBody {
   message: string;
 }
+
+/**
+ * Whether a preview URL can be shown in the tool's iframe, as the server found it. Only a
+ * classification and a short detail: never anything from the response body.
+ */
+export interface PreviewCheck {
+  status: 'ok' | 'unreachable' | 'refuses-embedding' | 'invalid';
+  /** What happened, e.g. "Connection refused" or "X-Frame-Options: DENY". */
+  detail?: string;
+}

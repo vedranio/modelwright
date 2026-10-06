@@ -10,9 +10,10 @@ import {
   type DesignKind,
   type ProjectSummary,
 } from '@modelwright/schema';
-import { DEFAULT_ALLOWED_HOSTS, DEFAULT_ALLOWED_ORIGINS } from './config';
+import { DEFAULT_ALLOWED_HOSTS, DEFAULT_ALLOWED_ORIGINS, SERVER_PORT, WEB_PORT } from './config';
 import { readTextOrNull, writeAtomic } from './fsio';
 import { originGuard } from './guard';
+import { checkPreview, PREVIEW_TIMEOUT_MS } from './previewCheck';
 import { HttpError, designDirState, designFile, resolveProjectDir, tildify } from './paths';
 import { initialise, isInitialised, summarise } from './projects';
 import { Recents } from './recents';
@@ -26,10 +27,18 @@ export interface AppOptions {
   now?: () => Date;
   allowedHosts?: readonly string[];
   allowedOrigins?: readonly string[];
+  /** modelwright's own ports, which a preview URL may not use on a loopback host. */
+  toolPorts?: readonly number[];
+  /** How long a preview check waits for a response. */
+  previewTimeoutMs?: number;
 }
+
+/** The web app's origin when a request doesn't say (curl, tests). */
+const DEFAULT_TOOL_ORIGIN = `http://localhost:${WEB_PORT}`;
 
 const PathBody = z.object({ path: z.string() });
 const InitBody = z.object({ path: z.string(), name: z.string().optional() });
+const PreviewBody = z.object({ url: z.string() });
 
 export function createApp({
   homeDir,
@@ -37,6 +46,8 @@ export function createApp({
   now,
   allowedHosts = DEFAULT_ALLOWED_HOSTS,
   allowedOrigins = DEFAULT_ALLOWED_ORIGINS,
+  toolPorts = [WEB_PORT, SERVER_PORT],
+  previewTimeoutMs = PREVIEW_TIMEOUT_MS,
 }: AppOptions) {
   const recents = new Recents(homeDir, now);
   const app = new Hono().basePath('/api');
@@ -116,6 +127,15 @@ export function createApp({
       await recents.rename(dir, (result.doc as Config).name);
     }
     return c.body(null, 204);
+  });
+
+  // Classifies a preview URL for the UI view. Reads no files; returns no response bodies.
+  app.post('/preview/check', async (c) => {
+    const body = await readBody(c, PreviewBody);
+    const toolOrigin = c.req.header('origin') ?? DEFAULT_TOOL_ORIGIN;
+    return c.json(
+      await checkPreview(body.url, { toolOrigin, toolPorts, timeoutMs: previewTimeoutMs }),
+    );
   });
 
   return app;

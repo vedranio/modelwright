@@ -131,6 +131,12 @@ button {
     transform var(--duration-fast) var(--ease-out);
 }
 
+/* Links styled as buttons (Open in browser). Zero specificity, so variants set the colour. */
+:where(a.btn) {
+  text-decoration: none;
+  color: inherit;
+}
+
 .btn:active:not(:disabled),
 .btn-icon:active:not(:disabled) {
   transform: scale(var(--press-scale));
@@ -981,4 +987,323 @@ button {
   color: inherit;
   text-decoration: underline;
   cursor: pointer;
+}
+
+/* Preview URL field */
+
+.url-field {
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+}
+
+.url-field-row {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.url-field-row .input {
+  flex: 1;
+}
+
+.empty-url {
+  margin-top: var(--space-4);
+}
+
+.inline-retry {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+
+.inline-retry:hover {
+  text-decoration: underline;
+}
+
+/* UI view: preview states */
+
+.ui-view .empty-card {
+  width: var(--state-card-w);
+}
+
+.state-url {
+  display: block;
+  color: var(--color-text);
+  overflow-wrap: anywhere;
+}
+
+.state-detail,
+.state-problem {
+  margin-top: var(--space-1);
+}
+
+.state-problem {
+  color: var(--color-error);
+}
+
+.state-step {
+  margin-top: var(--space-4);
+}
+
+.state-header {
+  display: inline-block;
+  margin-top: var(--space-3);
+  padding: var(--space-0) var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-sunken);
+  color: var(--color-text);
+}
+
+.state-hint {
+  margin-top: var(--space-3);
+  font-size: var(--text-xs);
+  line-height: var(--text-xs-lh);
+  color: var(--color-text-faint);
+}
+
+.state-waiting {
+  margin-top: var(--space-4);
+  font-size: var(--text-xs);
+  color: var(--color-text-faint);
+}
+
+.command {
+  margin-top: var(--space-2);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-1) var(--space-1) var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-sunken);
+  text-align: left;
+}
+
+.command-text {
+  flex: 1;
+  min-width: 0;
+  color: var(--color-text);
+  overflow-wrap: anywhere;
+}
+
+.preview-checking {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--text-sm);
+  color: var(--color-text-faint);
+}
+
+/* Inline URL editing (toolbar and state cards) */
+
+.editable-url.url-text {
+  cursor: text;
+  border-radius: var(--radius-sm);
+  transition: background var(--duration-fast) var(--ease-out);
+}
+
+.editable-url.url-text:hover {
+  background: var(--color-surface-hover);
+}
+
+.editable-url.editing {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.url-inline {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+
+.url-inline .field-error {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 1;
+  width: max-content;
+  max-width: var(--state-card-w);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-md);
+  text-align: left;
+}
+
+.state-url.editing {
+  margin-top: var(--space-1);
+}
+
+/* UI view: the preview */
+
+.preview {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.preview-toolbar {
+  flex: none;
+  height: var(--preview-toolbar-h);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: 0 var(--space-3) 0 var(--space-4);
+  border-bottom: var(--border-w) solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.preview-toolbar-left,
+.preview-toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+/* In a narrow window the URL gives way first, then the buttons run off the edge; nothing overlaps. */
+.preview-toolbar-left {
+  flex: none;
+}
+
+.preview-toolbar-right {
+  flex: 1;
+  min-width: 0;
+  gap: var(--space-1);
+  overflow: hidden;
+}
+
+/* Right-aligned by margin rather than justify-content, so overflow runs off the right edge. */
+.preview-toolbar-right > :first-child {
+  margin-left: auto;
+}
+
+.preview-toolbar-right > .btn {
+  flex: none;
+}
+
+.preview-size {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+.preview-device-name {
+  margin-right: var(--space-2);
+  font-weight: var(--weight-medium);
+  color: var(--color-text);
+}
+
+.device-select {
+  width: auto;
+}
+
+.toolbar-url {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: var(--preview-url-max-w);
+  margin-right: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
+.toolbar-url.url-text {
+  padding: var(--space-0) var(--space-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.toolbar-url.editing {
+  width: var(--preview-url-max-w);
+}
+
+.preview-stage {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-5);
+  overflow: hidden;
+}
+
+.device-slot {
+  flex: none;
+  position: relative;
+}
+
+.device-frame {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: top left;
+  display: flex;
+  flex-direction: column;
+  border: var(--border-w) solid var(--color-border-strong);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-md);
+}
+
+.device-phone {
+  padding: var(--device-bezel);
+  border-radius: var(--device-radius);
+}
+
+.device-window {
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.device-bar {
+  display: none;
+}
+
+.device-window .device-bar {
+  flex: none;
+  height: var(--window-bar-h);
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 0 var(--space-3);
+  border-bottom: var(--border-w) solid var(--color-border);
+  background: var(--color-surface-sunken);
+}
+
+.device-bar span {
+  width: var(--window-dot);
+  height: var(--window-dot);
+  border-radius: var(--radius-full);
+  background: var(--color-border-strong);
+}
+
+.device-screen {
+  overflow: hidden;
+  background: var(--color-surface);
+}
+
+.device-phone .device-screen {
+  border-radius: var(--device-screen-radius);
+  box-shadow: 0 0 0 var(--border-w) var(--color-border);
+}
+
+.device-iframe {
+  display: block;
+  border: 0;
+}
+
+.scale-chip {
+  height: var(--chip-h);
+  display: flex;
+  align-items: center;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-sunken);
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
 }

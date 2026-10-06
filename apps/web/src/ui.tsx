@@ -23,3 +23,13 @@ export function ReloadGlyph() {
     </span>
   );
 }
+
+/** A field's error line, with an error dot. */
+export function FieldError({ message }: { message: string }) {
+  return (
+    <p className="field-error" role="alert">
+      <Dot tone="error" />
+      {message}
+    </p>
+  );
+}

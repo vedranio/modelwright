@@ -353,3 +353,115 @@ Walked the "done means" list by hand in the browser against scratch copies of th
 
 - **Verified with simulated input:** Shift-click (a synthesized Shift keydown, as in phase 2), and drags in a small browser pane, with positions taken from the DOM. They want a check by hand on a real trackpad and keyboard.
 - **Not fixed, outside this phase's scope: a phase 2 `useEditableDoc` bug.** After an edit has saved, if `flows.json` (or `erd.json`) on disk is reverted to exactly its pre-edit text, Reload keeps showing the edited copy. The re-read hands back the same document object the working copy was based on, so the hook can't tell anything changed. Reopening the project shows the file correctly. Editing a file by hand to anything else works as intended.
+
+## 2026-10-06 — Phase 4 milestone 0: the `useEditableDoc` revert fix
+
+- **Cause:** after a save, `useDesign` still held the pre-edit document, because nothing had re-read the file. Reverting the file to that exact text and pressing Reload made `useDesign` keep that same object, and the hook's "the on-disk document hasn't changed since my edit" identity check let the edited copy win.
+- **Fix, in two parts:**
+  - `useDesign.noteWritten(kind, doc)` records each successful save, so the on-disk state stays true to the file without a re-read. A re-read already in flight keeps the written document for that file rather than its own possibly-older result.
+  - Once clean, `useEditableDoc` compares canonical text and never identity. A different on-disk text always takes over. The same text keeps the working copy's object, so nothing re-renders. The working copy's `base` is gone.
+- **Testable state:** the state logic now lives in `editing/editableState.ts` (pure, tested), and `DocState` with `keepUnchanged` in `docState.ts`. The hook is a thin shell over them. The regression test drives both together, as `Shell` does.
+- **Verified by hand** on ERD and Flows: edit, revert the file with git, Reload shows the reverted text, and a further edit saves.
+
+## 2026-10-06 — Phase 4 planning decisions
+
+Settled in the phase 4 interview before any code was written. The brief's "Decisions this brief makes" all stand as written: modelwright never runs the dev server; one editing path for all three files; no schema change; one guarded endpoint that returns no bodies; the preview never shares the tool's origin; device switching resizes without remounting, and the iframe stays mounted across view switches; scale down to fit, never up; a device without a height fills the available height; poll only while "Nothing running" and visible. These sharpen them:
+
+- **Showing the UI view re-checks, but keeps the iframe.** While that check runs, the preview stays as it is. The state changes only if the result isn't `ok`, so a dev server that stopped while you were in the ERD is noticed when you come back. There's still no background polling once the preview is up.
+- **`frame-ancestors` beats `X-Frame-Options`, as in browsers.** When an enforced CSP header has a `frame-ancestors` directive, that decides, and XFO is ignored. Otherwise XFO `DENY` or `SAMEORIGIN` refuses. Report-only CSP is ignored, and every enforced CSP header has to allow the tool. Classifying by the brief's letter would report "refuses embedding" for a page the iframe actually shows.
+- **Odd failures are `unreachable` with a specific detail:** too many redirects (more than 5) and a TLS certificate Node doesn't trust. The "Nothing running" card shows the detail and keeps polling. The four statuses stay as the brief has them.
+- **The URL can be edited from the "Nothing running" and "Refuses embedding" cards too** (double-click, same validation), so a wrong port doesn't need a hand edit of `config.json`.
+- **The tool's own address** is ports 4300 and 4301 on any loopback host (`localhost`, `*.localhost`, `127.0.0.0/8`, `[::1]`, `[::]`, `0.0.0.0`, IPv4-mapped loopback), plus the exact origin the page is served from. The same ports on another machine are allowed.
+- **Smaller calls:**
+  - `devices: []` falls back to the presets. With a single device there's no toggle, just its size.
+  - Devices narrower than 768 get a phone-like frame; wider ones get a window frame.
+  - "Checking" shows only once a check has taken about 300 ms.
+  - Reload preview re-navigates the iframe to the configured URL. It's cross-origin, so the tool can't reload the app's current route.
+  - The No-URL card replaces 05's JSON snippet and its Reload button with the URL field, "Set preview URL" and a line saying where the URL is saved. The header still has Reload.
+- **Not changed:** the untracked `docs/CLAUDE.md` (a stale copy of the root file) is left alone.
+
+## 2026-10-06 — Phase 4 milestone 1: config editing
+
+- **`useEditableDoc` covers `config`.** `Shell` hosts a third editor. The focus re-read waits while any of the three is dirty. Reload's prompt and close's failure message name it "UI" (via a small `listed()` helper: "ERD, Flows and UI").
+- **The header's name edit goes through it,** with `saveNow`. The recents entry is still renamed by the server on `PUT config`, so the header no longer re-reads the files after a rename. A failed config save, from the name or the URL, shows "Couldn’t save — retry" beside the name in the header, which is always visible, rather than beside whichever field made the edit.
+- **A blank project name is refused by `renameProject`** (same object back), because the schema requires one. The header still says "Name can’t be empty".
+- **URL rules** (`preview/url.ts`) prefix a bare host, with or without port and path (`localhost`, `localhost:5173/app`, `[::1]:3000`), with `http://`. The URL is saved exactly as entered (no trailing slash from `URL.href`). A stored URL is checked without prefixing, so a hand-edited `localhost:5173` shows the invalid-URL state, with the fix one Enter away in its field.
+- **`UrlField`** is the single input for preview URLs. `FieldError` moved from the picker to `ui.tsx` so both share it.
+
+## 2026-10-06 — Phase 4 milestone 2: preview check
+
+- **`POST /api/preview/check`** takes `{ url }` and returns `PreviewCheck` (`packages/schema/src/api.ts`, an API shape, so no `schemaVersion` bump). It sits behind the existing guard and reads no files.
+- **The request:**
+  - It's a GET with `redirect: 'manual'`, following redirects itself so each hop is validated. A redirect to a non-http(s) URL or to the tool counts as `invalid`, and more than 5 redirects as `unreachable`.
+  - One 3-second deadline covers the whole check, redirects included.
+  - Every response body is cancelled unread. The detail is one of a fixed set of messages or the refusing header's value (clipped to 160 characters), never an error message or body text.
+- **The tool's origin** for `frame-ancestors` is the request's `Origin` (the address you're actually using), or `http://localhost:4300` when there's none (curl, tests).
+- **`frame-ancestors` matching** (`frameHeaders.ts`) covers:
+  - `'none'` (ignored beside other sources, per the spec), `'self'` and `*`
+  - scheme sources, with `http:` also matching `https`
+  - host sources with optional scheme, `*.` subdomain wildcards, explicit or `*` ports, and default ports when the port is omitted
+  - Nonces, hashes and other keywords never match.
+- **The URL rule is duplicated on the server** (absolute http(s), not loopback on 4300/4301, not the request's origin), because the server can't import `apps/web`. Both copies point at each other.
+- **Failure details:** "Connection refused", "Host not found", "No response within 3 s — it may still be starting", "Certificate not trusted (<code>)", "Too many redirects (more than 5)", otherwise "Couldn’t connect (<code>)".
+
+## 2026-10-06 — Phase 4 milestone 3: preview pane and states
+
+There's no phase 4 design, so all of this is built from tokens in the existing language and judged at the gate.
+
+- **The toolbar shows only with a preview.** The other states are 05-style cards, without a toolbar.
+- **Toolbar layout:** the device toggle (`.segmented`, as in the header), the size and a "74%" scale readout on the left. The URL (double-click to edit), Reload preview and Open in browser are on the right. With a single device, it shows the device's name and size instead of a one-segment toggle.
+- **Device frame:**
+  - Narrow devices (under 768) get a light, phone-like bezel (`--device-bezel`, `--device-radius`, `--device-screen-radius`). Wide ones get a window with a sunken title bar and three dots (`--window-bar-h`, `--window-dot`).
+  - Both share one element tree, with the bar hidden on phones, so switching between them only restyles and never remounts the iframe.
+  - `DeviceFrame` reads the bezel and bar sizes from `tokens.css` at runtime to work out the scale.
+- **Scale-to-fit** applies a CSS transform to the whole frame inside a slot sized to the scaled result, so the frame stays centred. The iframe keeps its device-width viewport. A ResizeObserver on the stage drives it.
+- **Open in browser is a link** (`<a target="_blank" rel="noopener noreferrer">` styled as a button), not script. A zero-specificity `:where(a.btn)` reset keeps each button variant's colour.
+- **Cards:**
+  - UI-view cards are `--state-card-w` (360) wide, so URLs and the field fit.
+  - "Nothing running" shows the URL (editable), the failure detail, "Start your project’s dev server", `devCommand` with Copy, and "Checking again…".
+  - "Refuses embedding" shows the header and value, what it means, how to allow the tool's origin, and Open in browser.
+  - "Invalid URL" shows the problem and the field. Saving it blank clears the URL. A server-side `invalid` (say, a redirect to the tool) uses the same card with the server's detail.
+- **Fix found at the gate: a clean working copy no longer outlives an invalid file.** With `config.json` broken by hand, the header still offered the stale copy's name for editing, and a rename would have overwritten the broken file. `resolveDoc` now returns nothing to edit when the file is clean and missing or invalid on disk. Unsaved edits still win, as before.
+
+## 2026-10-06 — Phase 4 milestone 4: behaviour
+
+- **Polling** runs one check 3 seconds after each result while the result is `unreachable`, the UI view is visible and the window has focus. Chaining after each result, rather than a fixed interval, means a check that waits out its 3-second timeout never overlaps the next. Focus is tracked from `focus` and `blur` events, starting from `document.hasFocus()`. Clicking into the preview iframe blurs the window, but there's no iframe while "Nothing running", so that never pauses polling that's needed.
+- **The UI view stays mounted** once visited: `Shell` renders it with `hidden` while another view shows. ERD and Flows still unmount as before. Showing it again re-checks, keeping the iframe up unless the result isn't `ok`.
+- **A hidden frame keeps its last size.** The stage reports 0×0 while hidden. Without ignoring that, the app would be resized to a 1-pixel viewport every time you switched away.
+- **Device memory** is `loadPref`/`savePref('preview-device:<projectPath>')`, so it's stored as `modelwright.preview-device:<path>` like every other preference. A remembered device that's no longer in the list falls back to the first.
+- **Toolbar in narrow windows:** the left group keeps its size, the URL truncates first, and the buttons run off the right edge rather than overlapping. They're right-aligned by an auto margin, because `justify-content: flex-end` spills overflow to the left.
+- **Verified in the browser:**
+  - Polling at about 3 s.
+  - The preview appears on its own when the Vite app starts.
+  - No checks while hidden or blurred.
+  - The same iframe element, with no reload and typed text intact, across ERD and back.
+  - The device remembered across a page reload.
+  - Reload preview loads the iframe once more, and the header Reload doesn't touch it.
+  - Blur and focus were simulated with window events.
+
+## 2026-10-06 — Phase 4 milestone 5: verification notes
+
+Walked the "done means" list by hand in the browser, against a scratch copy of the notes fixture, a throwaway Vite app on 5173 and an `X-Frame-Options: DENY` server on 5174. All three live in the session scratchpad, not this repo. Every item passed:
+
+- **Checks:** `pnpm test` (430 tests), `pnpm typecheck` and `pnpm lint` pass at the root.
+- **Revert fix:** reverting `erd.json`, `flows.json` and (in the final walk) `config.json` to their pre-edit text and pressing Reload shows the reverted content. Editing afterwards still saves.
+- **Rename:** the header rename saves through the shared editor, and the recents entry updates.
+- **Setting and clearing the URL:**
+  - `localhost:5173` typed into the No-URL card is saved as `http://localhost:5173`.
+  - Clearing the URL from the toolbar, or from the Invalid-URL card, removes the key.
+  - `devCommand` and a five-device `devices` list are untouched.
+  - `localhost:4300` is refused: "That’s modelwright’s own address…"
+- **Nothing running:** the state shows `devCommand`, polls about every 3 s, and the preview appeared on its own when the Vite app started.
+- **Refuses embedding:** the DENY server shows that state and names `X-Frame-Options: DENY`. Open in browser is a link with the right href and `target="_blank" rel="noopener noreferrer"`. The browser pane can't open new windows, so it opened in place; a normal browser opens a new tab.
+- **Devices and scaling:**
+  - Mobile is 390 wide with the mobile layout, and Desktop is 1280 with the desktop layout. Text typed in the app survives switching between them.
+  - Desktop at 1000 px wide scales to 74% and shows it. At 1440 it stays at 100%.
+- **Mounting:** switching to ERD and back keeps the same iframe element with no new load.
+- **Custom devices** replace the presets. Phone 375 × 667 uses its height, and Wide (1440, no height) fills the stage exactly. Five devices turn the toggle into a select. A remembered device that no longer exists falls back to the first.
+- **Device memory:** the chosen device survives a page reload, stored per project.
+- **Reloads:** Reload preview reloads only the iframe, and the header Reload doesn't touch it.
+- **Bad config:** `"url": "ftp://x"` shows the Invalid-URL state. A `config.json` with an unknown key shows the validation surface with a warning dot on UI, and the name is read-only. ERD and Flows still render.
+
+Caveats:
+- **Verified with simulated input:** window blur and focus (synthetic events), and clicks in a small browser pane, with positions taken from the DOM.
+- **Gate screenshots are downscaled:** the 1440×900 shots are 800×500 renders, the browser tool's maximum.
