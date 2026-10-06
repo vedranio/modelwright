@@ -1,7 +1,7 @@
 import { watch, type FSWatcher } from 'node:fs';
 import path from 'node:path';
 import { DESIGN_KINDS, isDesignKind, type DesignKind } from '@modelwright/schema';
-import { readTextOrNull } from './fsio';
+import { readTextOrNull } from '@modelwright/project/node';
 import { designDir, designFile } from './paths';
 
 /** Editors save in several steps (temp file, rename, chmod); one change is reported after this. */

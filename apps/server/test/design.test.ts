@@ -2,7 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { stringifyErd, type Erd } from '@modelwright/schema';
-import { designFile } from '../src/paths';
+import { designFile } from '@modelwright/project/node';
 import { designUrl, json, listDesignDir, readDesignText, useSandbox } from './helpers';
 
 const sb = useSandbox();

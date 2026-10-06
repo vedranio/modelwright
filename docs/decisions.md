@@ -724,3 +724,31 @@ User-scope plugin; the CLI for every deterministic step; the committed bundle wi
   - Canonical serialisation reuses the design files' `canonicalise` and `orderLayout`, and map keys follow design order.
   - A newer `schemaVersion` is refused with the same wording as the design files.
   - **A future design `schemaVersion` bump must ship a build-record migration that upgrades the snapshot,** since the snapshot uses the current design schemas.
+
+## 2026-10-06 — Phase 6 milestone 1: the CLI
+
+- **`packages/project`** holds what the web app, server and CLI share:
+  - `@modelwright/project/rules`: pure, safe in the browser. `renameProject`, `setPreviewUrl`, the new `setDevCommand`, and the preview URL rules (moved from `apps/web/src/config/ops.ts` and `preview/url.ts`, with their tests).
+  - `@modelwright/project/node`: `readTextOrNull`, `writeAtomic`, the `.design/` file paths (each re-checked to sit directly in `.design/`), `designDirState`, `loadDesign`, `regenerateSpec` and `readBuildRecord`. These moved from `apps/server`, whose `paths.ts` re-exports them beside its HTTP-specific helpers.
+  - The server's own copy of the URL rule (`previewCheck.ts`) is unchanged and now points at the shared rules.
+- **`BuildRead`** (`{status:'none'} | {status:'ok', record} | {status:'invalid', issues}`) is an API shape in `schema/api.ts`, used by the CLI now and by the server endpoint in milestone 3.
+- **`modelwright-design`** (`packages/cli/src/main.ts`, `main(argv, io)` for in-process tests):
+  - **Exit codes:** 0 done, 1 the command failed (invalid design, refused URL…), 2 used wrongly (unknown command or option, an option on the wrong command, `set-preview` without `--url`).
+  - **Output:** plain text by default; `--json` prints one object, with `ok: false`, `error` and `issues` on failure. Issues print as the validation surface's Copy problems does (`erd.json: entities › 0 › attributes › 0 › type: Unknown key "type"`).
+  - **Times** print as `2026-10-06 09:30 UTC`, the same on every machine.
+  - **Every command needs a real `.design/` folder** and refuses a symlinked one, as the server does.
+  - **`validate`** checks the three files and `build.json` if present, and exits 1 if any is missing or invalid.
+  - **`diff`, `status` and `record-build` need a valid design;** `diff` and `status` also need a valid `build.json` if there is one.
+  - **`diff --from`** accepts a build record or a bare `{config, erd, flows}` snapshot.
+  - **`record-build`:**
+    - refuses an invalid previous `build.json` rather than overwriting it, since its map would be lost
+    - the new map file is laid over the old map id by id, and ids no longer in the design are dropped
+    - an empty map is left out
+    - the record is validated before it's written
+  - **`set-preview`** uses the UI's `normalizePreviewUrl` with the tool's ports and `http://localhost:4300` as its origin, writes `config.json` only when it changed, then regenerates `spec.md`. It needs only `config.json` to be valid; the spec is regenerated only when all three are.
+- **The bundle:**
+  - `pnpm build:plugin` runs esbuild (one ESM file, node24, everything bundled, not minified, no legal comments) and writes `plugins/modelwright/bin/modelwright-design` with mode 755 and a `#!/usr/bin/env node` banner.
+  - It's about 820 KB, mostly zod (core plus about 340 KB of locales that esbuild can't tree-shake). That's acceptable for a committed tool. Switching to `zod/mini` isn't worth changing the schema package for.
+  - The bundle test builds afresh in memory and compares byte for byte, checks the executable bits, and runs the committed file.
+  - The bundle is excluded from ESLint and Prettier.
+- **The byte-for-byte spec test** runs the CLI's `spec` and the server's `PUT` on two copies of the same design and compares the files. Both use `regenerateSpec` from `packages/project`.

@@ -1,7 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { z } from 'zod';
-import { readTextOrNull, writeAtomic } from './fsio';
+import { readTextOrNull, writeAtomic } from '@modelwright/project/node';
 
 export const RECENTS_LIMIT = 20;
 

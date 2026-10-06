@@ -12,13 +12,12 @@ import {
   type ProjectSummary,
 } from '@modelwright/schema';
 import { DEFAULT_ALLOWED_HOSTS, DEFAULT_ALLOWED_ORIGINS, SERVER_PORT, WEB_PORT } from './config';
-import { readTextOrNull, writeAtomic } from './fsio';
+import { readTextOrNull, regenerateSpec, writeAtomic } from '@modelwright/project/node';
 import { originGuard } from './guard';
 import { checkPreview, PREVIEW_TIMEOUT_MS } from './previewCheck';
 import { HttpError, designDirState, designFile, resolveProjectDir, tildify } from './paths';
 import { initialise, isInitialised, summarise } from './projects';
 import { Recents } from './recents';
-import { regenerateSpec } from './spec';
 import { DesignWatcher } from './watcher';
 
 export interface AppOptions {

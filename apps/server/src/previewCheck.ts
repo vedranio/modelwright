@@ -20,7 +20,7 @@ export const PREVIEW_MAX_REDIRECTS = 5;
  * status counts as `ok`: the dev server is running and the iframe shows its error page.
  *
  * Only the headers are read. The body is cancelled unread and nothing from it is returned.
- * The rules for what's `invalid` mirror apps/web/src/preview/url.ts, which the server can't import.
+ * The rules for what's `invalid` mirror packages/project/src/rules/url.ts.
  */
 export async function checkPreview(
   raw: string,

@@ -1,8 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import type { DesignKind } from '@modelwright/schema';
-
-export const DESIGN_DIR = '.design';
+import { isNotFound } from '@modelwright/project/node';
 
 /** A failure that maps directly onto an HTTP response. */
 export class HttpError extends Error {
@@ -40,53 +38,6 @@ export function tildify(p: string, home: string): string {
   return p.startsWith(prefix) ? `~${path.sep}${p.slice(prefix.length)}` : p;
 }
 
-export function designDir(projectDir: string): string {
-  return path.join(projectDir, DESIGN_DIR);
-}
-
-/**
- * The one place a design file path is built. `kind` is already one of three literals, and the
- * result is re-checked to sit directly inside `<project>/.design/`, so nothing else is writable.
- */
-export function designFile(projectDir: string, kind: DesignKind): string {
-  const dir = designDir(projectDir);
-  const file = path.join(dir, `${kind}.json`);
-  if (path.dirname(file) !== dir) {
-    throw new HttpError(400, `Refusing to touch a file outside ${dir}`);
-  }
-  return file;
-}
-
-/** The generated spec beside the design files. */
-export const SPEC_FILE = 'spec.md';
-
-/**
- * `<project>/.design/spec.md`, the only file the server writes besides the three design files.
- * Like `designFile`, it's re-checked to sit directly inside `.design/`.
- */
-export function specFile(projectDir: string): string {
-  const dir = designDir(projectDir);
-  const file = path.join(dir, SPEC_FILE);
-  if (path.dirname(file) !== dir) {
-    throw new HttpError(400, `Refusing to touch a file outside ${dir}`);
-  }
-  return file;
-}
-
-/**
- * Returns how `.design/` exists: missing, a real directory, or something else. A symlinked
- * `.design/` is treated as "something else" so writes can't be redirected outside the project.
- */
-export async function designDirState(projectDir: string): Promise<'missing' | 'dir' | 'invalid'> {
-  try {
-    const stat = await fs.lstat(designDir(projectDir));
-    return stat.isDirectory() ? 'dir' : 'invalid';
-  } catch (err) {
-    if (isNotFound(err)) return 'missing';
-    throw err;
-  }
-}
-
 export async function statOrNull(p: string) {
   try {
     return await fs.stat(p);
@@ -96,6 +47,12 @@ export async function statOrNull(p: string) {
   }
 }
 
-export function isNotFound(err: unknown): boolean {
-  return err instanceof Error && 'code' in err && (err.code === 'ENOENT' || err.code === 'ENOTDIR');
-}
+export {
+  DESIGN_DIR,
+  SPEC_FILE,
+  designDir,
+  designDirState,
+  designFile,
+  isNotFound,
+  specFile,
+} from '@modelwright/project/node';

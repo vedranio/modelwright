@@ -1,5 +1,5 @@
 import { useState, type FormEvent, type KeyboardEvent } from 'react';
-import { renameProject } from './config/ops';
+import { renameProject } from '@modelwright/project/rules';
 import type { EditableDoc } from './editing/useEditableDoc';
 
 interface Props {

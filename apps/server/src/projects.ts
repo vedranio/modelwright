@@ -10,7 +10,7 @@ import {
   type DesignKind,
   type ProjectSummary,
 } from '@modelwright/schema';
-import { readTextOrNull, writeAtomic } from './fsio';
+import { readTextOrNull, writeAtomic } from '@modelwright/project/node';
 import { HttpError, designDir, designDirState, designFile, statOrNull, tildify } from './paths';
 
 /** Whether `.design/` is a real directory holding all three files. */

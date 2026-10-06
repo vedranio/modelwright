@@ -4,7 +4,7 @@ import { tokenNumber } from '../canvas/tokens';
 import { isNarrow } from './devices';
 import { fitScale, type Area, type Chrome } from './scale';
 
-/** Real apps need scripts, storage, forms, popups, dialogs and downloads. See preview/url.ts. */
+/** Real apps need scripts, storage, forms, popups, dialogs and downloads. See the URL rules in packages/project. */
 const SANDBOX =
   'allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-downloads';
 
