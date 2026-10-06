@@ -296,6 +296,22 @@ export function addTransition(
 }
 
 /**
+ * Adds a screen with its top-left at `position` and a transition to it from `from`, as one
+ * edit: what dropping a connection on empty canvas does. Returns null ids, and the document
+ * unchanged, if the CTA doesn't exist.
+ */
+export function addScreenWithTransition(
+  flows: Flows,
+  position: Position,
+  from: TransitionFrom,
+): { flows: Flows; screenId: string | null; transitionId: string | null } {
+  if (!ctaExists(flows, from)) return { flows, screenId: null, transitionId: null };
+  const screen = addScreen(flows, position);
+  const transition = addTransition(screen.flows, from, { screenId: screen.id });
+  return { flows: transition.flows, screenId: screen.id, transitionId: transition.id };
+}
+
+/**
  * Changes a transition's label (blank removes it) and/or its target state within the same
  * screen: a state id targets that state, null targets the screen's default state. A state
  * that isn't on the target screen is ignored.

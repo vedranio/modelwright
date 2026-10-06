@@ -1,7 +1,9 @@
 import { useCallback, useMemo, useRef, useState, type MouseEvent } from 'react';
 import type { NodeChange, OnConnectEnd, ReactFlowInstance, XYPosition } from '@xyflow/react';
-import type { Flows } from '@modelwright/schema';
+import type { Flows, TransitionFrom } from '@modelwright/schema';
 import { Canvas } from '../canvas/Canvas';
+import { anchorCard, cardRects, nodeUnderPoint, revealCard } from '../canvas/cards';
+import { besideAnchor, nudgeClear } from '../canvas/freeSpot';
 import { placeNodes } from '../canvas/placement';
 import { UndoRedoButtons } from '../canvas/UndoRedoButtons';
 import { useCanvasShortcuts } from '../canvas/useCanvasShortcuts';
@@ -18,13 +20,14 @@ import { ctaForHandle, dropTarget } from '../flows/connect';
 import { FlowsEditorContext, type EditTarget, type FlowsEditor } from '../flows/editor';
 import {
   addScreen,
+  addScreenWithTransition,
   addTransition,
   deleteScreens,
   deleteTransitions,
   duplicateScreens,
   moveScreens,
 } from '../flows/ops';
-import { ScreenNode, type ScreenNodeType } from '../flows/ScreenNode';
+import { ScreenNode, type Highlight, type ScreenNodeType } from '../flows/ScreenNode';
 import { TransitionEdge, type TransitionEdgeType } from '../flows/TransitionEdge';
 import '../flows/flows.css';
 import { useShortcut } from '../shortcuts';
@@ -39,6 +42,13 @@ const EDGE_TYPES = { transition: TransitionEdge };
 
 /** Where a new screen's top-left sits relative to the point it's created at. */
 const NEW_SCREEN_OFFSET = { x: -SCREEN_WIDTH / 2, y: -20 };
+
+/** A new screen's size: one empty default state. */
+const NEW_SCREEN_SIZE = estimateScreenSize({
+  id: '',
+  name: '',
+  states: [{ id: '', name: '', sees: [], ctas: [] }],
+});
 
 type Apply = EditableDoc<'flows'>['apply'];
 
@@ -72,7 +82,10 @@ function FlowsCanvas({
 }) {
   const [editing, setEditing] = useState<EditTarget | null>(null);
   const [dragging, setDragging] = useState<Record<string, XYPosition>>({});
-  const [connecting, setConnecting] = useState(false);
+  /** The CTA a connection is being dragged from, while one is. */
+  const [connecting, setConnecting] = useState<TransitionFrom | null>(null);
+  /** The transition under the pointer, highlighted with its two ends. */
+  const [hoveredEdge, setHoveredEdge] = useState<string | null>(null);
   const selection = useSelection();
   const measurements = useMeasurements();
   const instance = useRef<ReactFlowInstance<ScreenNodeType, TransitionEdgeType> | null>(null);
@@ -106,18 +119,31 @@ function FlowsCanvas({
   );
 
   const flow = useMemo(() => toFlow(flows), [flows]);
+  // The hovered and selected transitions light up their source CTA and target state.
+  const highlights = useMemo(() => {
+    const lit = new Set(selection.selectedEdges);
+    if (hoveredEdge) lit.add(hoveredEdge);
+    return transitionHighlights(flows, lit);
+  }, [flows, hoveredEdge, selection.selectedEdges]);
   const nodes = useMemo(
     () =>
       flow.nodes.map((n) => {
         const measured = measurements.sizes.get(n.id);
+        const highlight = highlights.get(n.id);
         return {
           ...n,
           position: dragging[n.id] ?? n.position,
           selected: selection.selectedNodes.has(n.id),
           ...(measured && { measured }),
+          data: {
+            ...n.data,
+            ...(highlight && { highlight }),
+            // A connection can't be dropped on its own state.
+            ...(connecting?.screenId === n.id && { noDropState: connecting.stateId }),
+          },
         };
       }),
-    [flow, dragging, selection.selectedNodes, measurements.sizes],
+    [flow, dragging, selection.selectedNodes, measurements.sizes, highlights, connecting],
   );
   const edges = useMemo(() => {
     // The popover shows when one transition, and nothing else, is selected. Only count what
@@ -133,22 +159,32 @@ function FlowsCanvas({
   }, [flow, selection.selectedEdges, selection.selectedNodes]);
 
   /**
-   * Dropping a connection dragged from a CTA: on a state header it leads to that state,
-   * anywhere else on a card to that screen's default state (see `dropTarget`). The new
-   * transition is selected, which opens its popover.
+   * Dropping a connection dragged from a CTA: in a state (header or body) it leads to that
+   * state, anywhere else on a card to that screen's default state (see `dropTarget`). On empty
+   * canvas it creates a screen there, already connected, with its name open for typing. The
+   * new transition is selected, which opens its popover.
    */
   const onConnectEnd: OnConnectEnd = (event, connection) => {
-    setConnecting(false);
+    setConnecting(null);
     const screenId = connection.fromNode?.id;
     const handleId = connection.fromHandle?.id;
     const point = 'changedTouches' in event ? event.changedTouches[0] : event;
     if (!screenId || !handleId || !point) return;
     const from = ctaForHandle(flows, screenId, handleId);
     if (!from) return;
-    const under = document.elementFromPoint(point.clientX, point.clientY);
+    const under = nodeUnderPoint(point.clientX, point.clientY);
+    if (!under) {
+      if (!instance.current) return;
+      const at = instance.current.screenToFlowPosition({ x: point.clientX, y: point.clientY });
+      createScreen(at, (doc, position) => {
+        const result = addScreenWithTransition(doc, position, from);
+        return { flows: result.flows, id: result.screenId };
+      });
+      return;
+    }
     const to = dropTarget(flows, from, {
-      screenId: under?.closest<HTMLElement>('.react-flow__node')?.dataset.id ?? null,
-      stateId: under?.closest<HTMLElement>('[data-state-header]')?.dataset.stateHeader ?? null,
+      screenId: under.node.dataset.id ?? null,
+      stateId: under.element.closest<HTMLElement>('[data-state]')?.dataset.state ?? null,
     });
     if (!to) return;
     let id: string | null = null;
@@ -157,10 +193,9 @@ function FlowsCanvas({
       id = result.id;
       return result.flows;
     });
-    if (id) {
-      selection.clear();
-      selection.onEdgesChange([{ type: 'select', id, selected: true }]);
-    }
+    // After the click that ends the drag: dropped on its own card, that click would select
+    // the card instead.
+    if (id) setTimeout(() => selection.select([], [id as string]));
   };
 
   const onNodesChange = (changes: NodeChange<ScreenNodeType>[]) => {
@@ -174,24 +209,51 @@ function FlowsCanvas({
     if (Object.keys(moved).length > 0) setDragging((d) => ({ ...d, ...moved }));
   };
 
-  /** Adds a screen with its top-left near `at`, and opens its name for typing. */
-  const createScreen = (at: XYPosition) => {
+  /**
+   * Adds a screen centred under `at` (nudged right until it overlaps no card), shows it if
+   * it's off-screen, and opens its name for typing. `add` makes it, `addScreen` by default.
+   */
+  const createScreen = (
+    at: XYPosition,
+    add: (doc: Flows, position: XYPosition) => { flows: Flows; id: string | null } = addScreen,
+  ) => {
+    const spot = nudgeClear(
+      cardRects(nodes),
+      { x: at.x + NEW_SCREEN_OFFSET.x, y: at.y + NEW_SCREEN_OFFSET.y },
+      NEW_SCREEN_SIZE,
+    );
+    placeScreen(spot, add);
+  };
+
+  /** Adds a screen with its top-left exactly at `spot`; see `createScreen`. */
+  const placeScreen = (
+    spot: XYPosition,
+    add: (doc: Flows, position: XYPosition) => { flows: Flows; id: string | null } = addScreen,
+  ) => {
     let id: string | null = null;
     apply((doc) => {
-      const result = addScreen(doc, {
-        x: at.x + NEW_SCREEN_OFFSET.x,
-        y: at.y + NEW_SCREEN_OFFSET.y,
-      });
+      const result = add(doc, spot);
       id = result.id;
       return result.flows;
     });
-    if (id) {
-      selection.clear();
-      setEditing({ kind: 'name', screenId: id, selectAll: true });
+    if (!id) return;
+    selection.clear();
+    setEditing({ kind: 'name', screenId: id, selectAll: true });
+    if (instance.current && container.current) {
+      revealCard(instance.current, container.current, { ...spot, ...NEW_SCREEN_SIZE });
     }
   };
 
-  const addAtCentre = () => {
+  /**
+   * Add screen (button or S): beside the selected screen, or the last one added, never on top
+   * of another. The first screen goes at the view's centre.
+   */
+  const addNext = () => {
+    const anchor = anchorCard(nodes, selection.selectedNodes);
+    if (anchor) {
+      placeScreen(besideAnchor(cardRects(nodes), anchor, NEW_SCREEN_SIZE));
+      return;
+    }
     const rect = container.current?.getBoundingClientRect();
     if (!rect || !instance.current) return;
     createScreen(
@@ -203,7 +265,7 @@ function FlowsCanvas({
   };
 
   const onDoubleClick = (e: MouseEvent) => {
-    // Only on empty canvas: double-clicks on cards edit their text.
+    // Only on empty canvas: clicks on cards edit their text.
     if (!(e.target instanceof Element) || !e.target.classList.contains('react-flow__pane')) return;
     if (!instance.current) return;
     createScreen(instance.current.screenToFlowPosition({ x: e.clientX, y: e.clientY }));
@@ -256,7 +318,7 @@ function FlowsCanvas({
 
   useShortcut('add-screen', (e) => {
     e.preventDefault();
-    addAtCentre();
+    addNext();
   });
 
   return (
@@ -284,7 +346,11 @@ function FlowsCanvas({
             );
             setDragging({});
           }}
-          onConnectStart={() => setConnecting(true)}
+          onConnectStart={(_event, { nodeId, handleId }) =>
+            setConnecting(nodeId && handleId ? ctaForHandle(flows, nodeId, handleId) : null)
+          }
+          onEdgeMouseEnter={(_event, edge) => setHoveredEdge(edge.id)}
+          onEdgeMouseLeave={() => setHoveredEdge(null)}
           onConnectEnd={onConnectEnd}
           // Only dropping onto a card counts (onConnectEnd); never connect handle to handle.
           isValidConnection={() => false}
@@ -305,7 +371,7 @@ function FlowsCanvas({
               <button
                 type="button"
                 className="btn btn-quiet btn-tight toolbar-add"
-                onClick={addAtCentre}
+                onClick={addNext}
               >
                 <span className="toolbar-add-plus" aria-hidden="true">
                   +
@@ -334,7 +400,7 @@ function FlowsCanvas({
               <EmptyCard
                 title="No screens yet"
                 actions={
-                  <button type="button" className="btn btn-primary" onClick={addAtCentre}>
+                  <button type="button" className="btn btn-primary" onClick={addNext}>
                     Add screen
                     <Kbd>{shortcutHint('add-screen')}</Kbd>
                   </button>
@@ -419,4 +485,25 @@ function toFlow(flows: Flows): { nodes: ScreenNodeType[]; edges: TransitionEdgeT
     ];
   });
   return { nodes, edges };
+}
+
+/**
+ * Per screen, the CTAs and states that the given transitions start from and lead to. A
+ * transition with no `stateId` leads to the target screen's default (first) state.
+ */
+function transitionHighlights(flows: Flows, ids: ReadonlySet<string>): Map<string, Highlight> {
+  const out = new Map<string, { ctas: Set<string>; states: Set<string> }>();
+  const of = (screenId: string) => {
+    let h = out.get(screenId);
+    if (!h) out.set(screenId, (h = { ctas: new Set(), states: new Set() }));
+    return h;
+  };
+  for (const t of flows.transitions) {
+    if (!ids.has(t.id)) continue;
+    of(t.from.screenId).ctas.add(`${t.from.stateId}:${t.from.ctaId}`);
+    const target =
+      t.to.stateId ?? flows.screens.find((sc) => sc.id === t.to.screenId)?.states[0]?.id;
+    if (target) of(t.to.screenId).states.add(target);
+  }
+  return out;
 }

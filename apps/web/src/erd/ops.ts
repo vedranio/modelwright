@@ -142,6 +142,24 @@ export function addRelationship(
   };
 }
 
+/**
+ * Adds an entity with its top-left at `position`, related to `from` with the default
+ * cardinalities, as one edit: what dropping a connection on empty canvas does. Returns null
+ * ids, and the document unchanged, if `from` doesn't exist.
+ */
+export function addEntityWithRelationship(
+  erd: Erd,
+  position: Position,
+  from: string,
+): { erd: Erd; entityId: string | null; relationshipId: string | null } {
+  if (!erd.entities.some((e) => e.id === from)) {
+    return { erd, entityId: null, relationshipId: null };
+  }
+  const entity = addEntity(erd, position);
+  const relationship = addRelationship(entity.erd, from, entity.id);
+  return { erd: relationship.erd, entityId: entity.id, relationshipId: relationship.id };
+}
+
 /** Changes a relationship's cardinalities and/or label. An empty or blank label removes the key. */
 export function updateRelationship(
   erd: Erd,

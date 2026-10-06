@@ -30,11 +30,21 @@ import {
   seesStart,
 } from './tabOrder';
 
+/** What a hovered or selected transition lights up on a card: its source CTA and target state. */
+export interface Highlight {
+  /** `${stateId}:${ctaId}` of the CTAs to highlight. */
+  ctas: ReadonlySet<string>;
+  states: ReadonlySet<string>;
+}
+
 export type ScreenNodeType = Node<
   {
     screen: Screen;
     /** `${stateId}:${ctaId}` of this screen's CTAs that have a transition from them. */
     connected: ReadonlySet<string>;
+    highlight?: Highlight;
+    /** While a connection is dragged from one of this screen's CTAs: that CTA's state. */
+    noDropState?: string;
   },
   'screen'
 >;
@@ -46,11 +56,16 @@ export type ScreenNodeType = Node<
  * card's right edge, filled when a transition starts from it and hollow when none does (a dead
  * end). The screen header and each shown state header have a target handle on the left edge.
  *
- * Every text is edited in place: double-click it, then Enter or click away to keep the change,
- * Escape to drop it, Tab to move on through the card.
+ * Every text is edited in place: click it, then Enter or click away to keep the change, Escape
+ * to drop it, Tab to move on through the card. (Dragging a card by its text doesn't count as a
+ * click: React Flow swallows the click that ends a drag.)
+ *
+ * While a connection is being dragged, CSS outlines where it would land: the whole card when it
+ * has one state, otherwise the state under the pointer (the default state over the header).
+ * `no-drop` marks the dragged CTA's own state, where a drop does nothing.
  */
 export function ScreenNode({ data }: NodeProps<ScreenNodeType>) {
-  const { screen, connected } = data;
+  const { screen, connected, highlight, noDropState } = data;
   const { apply, editing, setEditing } = useFlowsEditor();
   const multi = showsStateHeaders(screen);
   const at = (kind: 'name' | 'notes') => ({ kind, screenId: screen.id }) as const;
@@ -77,7 +92,15 @@ export function ScreenNode({ data }: NodeProps<ScreenNodeType>) {
   };
 
   return (
-    <div className="screen">
+    <div
+      className={[
+        'screen',
+        multi ? 'multi' : 'single',
+        !multi && noDropState !== undefined ? 'no-drop' : '',
+      ]
+        .filter(Boolean)
+        .join(' ')}
+    >
       <header className="screen-head" data-screen-header="">
         <Handle
           type="target"
@@ -105,7 +128,7 @@ export function ScreenNode({ data }: NodeProps<ScreenNodeType>) {
           <div
             className="screen-name editable"
             title={screen.name}
-            onDoubleClick={(e) => {
+            onClick={(e) => {
               e.stopPropagation();
               setEditing(at('name'));
             }}
@@ -134,7 +157,7 @@ export function ScreenNode({ data }: NodeProps<ScreenNodeType>) {
           screen.notes && (
             <p
               className="screen-notes editable"
-              onDoubleClick={(e) => {
+              onClick={(e) => {
                 e.stopPropagation();
                 setEditing(at('notes'));
               }}
@@ -171,6 +194,8 @@ export function ScreenNode({ data }: NodeProps<ScreenNodeType>) {
           stateIndex={i}
           showHeader={multi}
           connected={connected}
+          highlight={highlight}
+          noDrop={noDropState === state.id}
         />
       ))}
     </div>
@@ -183,12 +208,17 @@ function StateSection({
   stateIndex,
   showHeader,
   connected,
+  highlight,
+  noDrop,
 }: {
   screen: Screen;
   state: ScreenState;
   stateIndex: number;
   showHeader: boolean;
   connected: ReadonlySet<string>;
+  highlight: Highlight | undefined;
+  /** The dragged connection's own state: dropping here does nothing. */
+  noDrop: boolean;
 }) {
   const { apply, remove, editing, setEditing } = useFlowsEditor();
   const ids = { screenId: screen.id, stateId: state.id };
@@ -209,7 +239,16 @@ function StateSection({
     isEditing(editing, { kind: 'ctaDraft', ...ids, after });
 
   return (
-    <section className="screen-state">
+    <section
+      className={[
+        'screen-state',
+        highlight?.states.has(state.id) ? 'highlighted' : '',
+        noDrop ? 'no-drop' : '',
+      ]
+        .filter(Boolean)
+        .join(' ')}
+      data-state={state.id}
+    >
       {showHeader && (
         <div className="state-head" data-state-header={state.id}>
           <Handle
@@ -242,7 +281,7 @@ function StateSection({
             <span
               className="state-name editable"
               title={state.name}
-              onDoubleClick={(e) => {
+              onClick={(e) => {
                 e.stopPropagation();
                 setEditing({ kind: 'stateName', ...ids });
               }}
@@ -320,6 +359,7 @@ function StateSection({
                 stateIndex={stateIndex}
                 cta={cta}
                 connected={connected.has(`${state.id}:${cta.id}`)}
+                highlighted={highlight?.ctas.has(`${state.id}:${cta.id}`) ?? false}
               />
             );
             return ctaDraftAt(cta.id)
@@ -407,7 +447,7 @@ function SeesRow({
       ) : (
         <span
           className="sees-text editable"
-          onDoubleClick={(e) => {
+          onClick={(e) => {
             e.stopPropagation();
             setEditing(target);
           }}
@@ -496,7 +536,8 @@ function CtaRow({
   stateIndex,
   cta,
   connected,
-}: RowProps & { cta: Cta; connected: boolean }) {
+  highlighted,
+}: RowProps & { cta: Cta; connected: boolean; highlighted: boolean }) {
   const { apply, remove, editing, setEditing } = useFlowsEditor();
   const target: EditTarget = { kind: 'cta', screenId: screen.id, stateId: state.id, ctaId: cta.id };
 
@@ -508,7 +549,7 @@ function CtaRow({
   };
 
   return (
-    <li className="cta-row">
+    <li className={`cta-row${highlighted ? ' highlighted' : ''}`}>
       {isEditing(editing, target) ? (
         <InlineField
           ariaLabel="CTA label"
@@ -536,7 +577,7 @@ function CtaRow({
         <span
           className="cta-label editable"
           title={cta.label}
-          onDoubleClick={(e) => {
+          onClick={(e) => {
             e.stopPropagation();
             setEditing(target);
           }}

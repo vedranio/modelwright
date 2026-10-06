@@ -2,6 +2,7 @@ import {
   BaseEdge,
   EdgeLabelRenderer,
   useInternalNode,
+  useStoreApi,
   type Edge,
   type EdgeProps,
   type InternalNode,
@@ -28,6 +29,9 @@ export type TransitionEdgeType = Edge<
   'transition'
 >;
 
+/** How wide a band round the line responds to the pointer, in canvas units. */
+const INTERACTION_WIDTH = 24;
+
 /** Arrowhead length and half-width, in canvas units. */
 const ARROW_LENGTH = 8;
 const ARROW_HALF_WIDTH = 4;
@@ -46,6 +50,7 @@ export function TransitionEdge({
   data,
   selected,
 }: EdgeProps<TransitionEdgeType>) {
+  const store = useStoreApi();
   const sourceNode = useInternalNode(source);
   const targetNode = useInternalNode(target);
   const sourceRect = sourceNode && rectOf(sourceNode);
@@ -69,7 +74,12 @@ export function TransitionEdge({
 
   return (
     <>
-      <BaseEdge id={id} path={path} className="transition-line" interactionWidth={12} />
+      <BaseEdge
+        id={id}
+        path={path}
+        className="transition-line"
+        interactionWidth={INTERACTION_WIDTH}
+      />
       <path
         className="transition-arrow"
         d={`M ${lineEnd.x} ${tip.y - ARROW_HALF_WIDTH} L ${tip.x} ${tip.y} L ${lineEnd.x} ${tip.y + ARROW_HALF_WIDTH} Z`}
@@ -94,7 +104,9 @@ export function TransitionEdge({
       {data?.label && (
         <EdgeLabelRenderer>
           <div
-            className={`edge-label${selected ? ' selected' : ''}`}
+            className={`edge-label transition-label nodrag nopan${selected ? ' selected' : ''}`}
+            // The label selects its transition, as clicking the line does.
+            onClick={() => store.getState().addSelectedEdges([id])}
             style={{
               transform: `translate(${label.x}px, ${label.y}px) translate(-50%, calc(-100% - var(--space-0)))`,
             }}

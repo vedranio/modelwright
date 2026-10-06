@@ -6,6 +6,7 @@ import {
   NEW_STATE_NAME,
   addCta,
   addScreen,
+  addScreenWithTransition,
   addSeesItem,
   addState,
   addTransition,
@@ -425,5 +426,28 @@ describe('entities cross-reference', () => {
       const result = valid(op(frozen()));
       expect(screen(result, 'notes').entities).toEqual(['note']);
     }
+  });
+});
+
+describe('addScreenWithTransition', () => {
+  const from = { screenId: 'notes', stateId: 'notes-list', ctaId: 'notes-open' };
+
+  it('adds a screen and a transition to it from the CTA, in one edit', () => {
+    const before = notesFlows();
+    const { flows, screenId, transitionId } = addScreenWithTransition(
+      before,
+      { x: 900.4, y: 40 },
+      from,
+    );
+    expect(Flows.safeParse(flows).success).toBe(true);
+    expect(flows.screens.at(-1)?.id).toBe(screenId);
+    expect(flows.layout[screenId ?? '']).toEqual({ x: 900, y: 40 });
+    expect(flows.transitions.at(-1)).toEqual({ id: transitionId, from, to: { screenId } });
+  });
+
+  it('changes nothing for a CTA that doesn’t exist', () => {
+    const before = notesFlows();
+    const result = addScreenWithTransition(before, { x: 0, y: 0 }, { ...from, ctaId: 'gone' });
+    expect(result).toEqual({ flows: before, screenId: null, transitionId: null });
   });
 });

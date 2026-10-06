@@ -796,3 +796,45 @@ User-scope plugin; the CLI for every deterministic step; the committed bundle wi
   - a hand-broken `build.json` showed "build.json has problems" with both issue paths
   - deleting it showed "Not built yet"
   - no console errors
+
+## 2026-10-07 — UI feedback round (outside the phase 6 brief)
+
+Designing PhotoBackup for the milestone 4 dry run turned up twelve UI changes, logged in `docs/ui-feedback.md`. You paused the dry run to make them first. They're on `phase-6` in their own commits, because the dry run needs them in the running app. Settled before starting:
+
+- **Single click** opens every text on a screen card, not only information items.
+- **The no-overlap placement rule** applies to new screens as well as new entities.
+- **Item 12 detects a stopped server and says so,** and doesn't restart it: a web page can't start a process.
+- **Items 6 and 8 (primary CTA, state notes) change the schema** and are included now.
+
+### Commit A: canvas interaction (items 1, 2, 3, 4, 5, 9, 10, 11)
+
+- **Item 4, diagnosed on a copy of PhotoBackup:**
+  - On a multi-state screen, only the thin state-header strip was a drop target. Anywhere else on the card meant "this screen's default state".
+  - For a CTA in the default state, such as Home › Default › "Select items to back up", that's its own state, so the drop was silently ignored.
+  - Two smaller causes: CTA handles were 8 units wide (about 5 px at 65%), and `elementFromPoint` stopped at an edge label lying over a card.
+- **Drop targets** (`flows/connect.ts`):
+  - Each state's whole section (`data-state`) leads to that state.
+  - A single-state card leads to its default state from anywhere.
+  - The screen header still leads to the default state.
+  - The own-state rule stands.
+  - `canvas/cards.ts` `nodeUnderPoint` looks through everything stacked at the drop point (`elementsFromPoint`), on both canvases.
+- **While dragging a connection,** CSS outlines the target: the hovered state, the whole single-state card, or the default state when over a multi-state header (`:has`). The dragged CTA's own state is marked `no-drop` and isn't outlined.
+- **CTA handles** keep their 8-unit dot, with a 20-unit invisible hit area (`::before`).
+- **A new transition or relationship is selected after the click that ends the drag.** Dropped on its own card, that click would otherwise select the card and close the popover. This was found while verifying.
+- **Dropping on empty canvas** creates a screen (`addScreenWithTransition`) or an entity (`addEntityWithRelationship`) under the pointer, already connected, as one undo step, with its name open.
+- **Placement** (`canvas/freeSpot.ts`, pure, tested):
+  - Add screen / Add entity (button, S, E) place the new card one `PLACEMENT_GAP` right of the selected card (exactly one selected) or the last one added, top-aligned, moved further right past any card in the way.
+  - Double-click and drop-on-canvas use the pointer spot, nudged right the same way.
+  - A margin of 16 units is kept between cards.
+  - The view pans, keeping its zoom, when the new card isn't fully visible.
+- **Single click** opens screen names, notes, state names, information items and CTA labels. React Flow swallows the click that ends a drag, so dragging a card by its text still just moves it (verified). Entity cards stay double-click.
+- **Connectors** respond within 24 units of the line (up from 12), and a transition's label selects it.
+- **Hover and selection highlight** a transition's source CTA row (accent tint) and target state (accent outline; the first state when `to.stateId` is omitted), via node data computed in `FlowsCanvas`.
+- **Verified in the browser on a scratch copy of PhotoBackup,** with real drags:
+  - a drop into Home › Backup successful's body from "Select items to back up"
+  - a drop on empty canvas creating a connected screen, and a connected entity on the ERD
+  - S beside a selected screen, beside the last screen, and panning to an off-screen one
+  - E beside the last entity
+  - one-click editing, and a drag by the name not opening it
+  - hover highlighting
+- **Not verifiable with simulated input:** the outline during a drag (the browser tool can't pause mid-drag). This wants a look by hand.
