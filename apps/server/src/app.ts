@@ -1,5 +1,6 @@
 import os from 'node:os';
 import { Hono, type Context } from 'hono';
+import { streamSSE } from 'hono/streaming';
 import { z } from 'zod';
 import {
   isDesignKind,
@@ -17,6 +18,7 @@ import { checkPreview, PREVIEW_TIMEOUT_MS } from './previewCheck';
 import { HttpError, designDirState, designFile, resolveProjectDir, tildify } from './paths';
 import { initialise, isInitialised, summarise } from './projects';
 import { Recents } from './recents';
+import { DesignWatcher } from './watcher';
 
 export interface AppOptions {
   /** modelwright's own state directory (recents). */
@@ -31,6 +33,10 @@ export interface AppOptions {
   toolPorts?: readonly number[];
   /** How long a preview check waits for a response. */
   previewTimeoutMs?: number;
+  /** Watches open projects' design files for changes made outside modelwright. */
+  watcher?: DesignWatcher;
+  /** How often an idle event stream sends a comment, so proxies keep it open. */
+  heartbeatMs?: number;
 }
 
 /** The web app's origin when a request doesn't say (curl, tests). */
@@ -48,6 +54,8 @@ export function createApp({
   allowedOrigins = DEFAULT_ALLOWED_ORIGINS,
   toolPorts = [WEB_PORT, SERVER_PORT],
   previewTimeoutMs = PREVIEW_TIMEOUT_MS,
+  watcher = new DesignWatcher(),
+  heartbeatMs = 25_000,
 }: AppOptions) {
   const recents = new Recents(homeDir, now);
   const app = new Hono().basePath('/api');
@@ -73,7 +81,7 @@ export function createApp({
   app.post('/projects/init', async (c) => {
     const body = await readBody(c, InitBody);
     const dir = await resolveProjectDir(body.path);
-    await initialise(dir, body.name);
+    await initialise(dir, body.name, (kind, text) => watcher.noteWrite(dir, kind, text));
     const summary = await summarise(dir, userHome);
     const { lastOpenedAt } = await recents.add({ path: summary.path, name: summary.name });
     return c.json({ ...summary, lastOpenedAt }, 201);
@@ -99,6 +107,25 @@ export function createApp({
     return c.body(null, 204);
   });
 
+  // Server-sent events: `change` with `{ "kind": "erd" }` whenever a design file changes outside
+  // modelwright. Behind the same guard as everything else.
+  app.get('/design/events', async (c) => {
+    const dir = await resolveProjectDir(c.req.query('path'));
+    if ((await designDirState(dir)) !== 'dir') {
+      throw new HttpError(409, `modelwright is not initialised in ${dir}`);
+    }
+    return streamSSE(c, async (stream) => {
+      const unsubscribe = await watcher.subscribe(dir, (kind) => {
+        void stream.writeSSE({ event: 'change', data: JSON.stringify({ kind }) });
+      });
+      const heartbeat = setInterval(() => void stream.write(': keep-alive\n\n'), heartbeatMs);
+      await stream.writeSSE({ event: 'ready', data: '' });
+      await new Promise<void>((resolve) => stream.onAbort(resolve));
+      clearInterval(heartbeat);
+      unsubscribe();
+    });
+  });
+
   app.get('/design/:file', async (c) => {
     const kind = designKind(c.req.param('file'));
     const dir = await resolveProjectDir(c.req.query('path'));
@@ -121,7 +148,9 @@ export function createApp({
     if ((await designDirState(dir)) !== 'dir') {
       throw new HttpError(409, `modelwright is not initialised in ${dir}`);
     }
-    await writeAtomic(designFile(dir, kind), stringifyDesign(kind, result.doc));
+    const text = stringifyDesign(kind, result.doc);
+    watcher.noteWrite(dir, kind, text);
+    await writeAtomic(designFile(dir, kind), text);
     if (kind === 'config') {
       // Keep the picker in step with the header's inline rename.
       await recents.rename(dir, (result.doc as Config).name);

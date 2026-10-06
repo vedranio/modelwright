@@ -5,7 +5,9 @@ import type { DocState } from '../docState';
 import {
   applyEdit,
   historyFor,
+  hold as holdState,
   initialEditableState,
+  keepMine as keepMineState,
   redoEdit,
   resolveDoc,
   undoEdit,
@@ -55,6 +57,12 @@ export interface EditableDoc<K extends EditableKind> {
   flush: () => Promise<boolean>;
   /** Drops the local copy and its unsaved edits, falling back to what's on disk. */
   discard: () => void;
+  /** True while saving is on hold after the file changed on disk under unsaved edits. */
+  held: boolean;
+  /** Puts saving on hold, if there are unsaved edits. */
+  hold: () => void;
+  /** Ends the hold by keeping the local copy: it's saved over the file right away. */
+  keepMine: () => void;
 }
 
 export interface ApplyOptions {
@@ -108,6 +116,7 @@ export function useEditableDoc<K extends EditableKind>(
     const { state: current } = latest.current;
     const target = current.local;
     if (!current.dirty || !target) return true;
+    if (current.held) return false;
 
     const parsed = parseDesign(kind, target);
     if (!parsed.ok) {
@@ -194,6 +203,20 @@ export function useEditableDoc<K extends EditableKind>(
 
   const flush = useCallback(() => save(), [save]);
 
+  const hold = useCallback(() => {
+    clearTimer();
+    const next = holdState(latest.current.state);
+    latest.current = { ...latest.current, state: next };
+    setState(next);
+  }, []);
+
+  const keepMine = useCallback(() => {
+    const next = keepMineState(latest.current.state);
+    latest.current = { ...latest.current, state: next };
+    setState(next);
+    void save();
+  }, [save]);
+
   const discard = useCallback(() => {
     clearTimer();
     setState(initialEditableState<K>());
@@ -224,5 +247,8 @@ export function useEditableDoc<K extends EditableKind>(
     dirty: state.dirty,
     flush,
     discard,
+    held: state.held,
+    hold,
+    keepMine,
   };
 }

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useConfirm } from './ConfirmDialog';
 import { useEditableDoc } from './editing/useEditableDoc';
 import { ProjectName } from './ProjectName';
@@ -6,13 +6,13 @@ import { useDesign } from './useDesign';
 import { ErdView } from './views/ErdView';
 import { FlowsView } from './views/FlowsView';
 import { UiView } from './views/UiView';
-import type { DesignKind, ProjectSummary } from './platform';
+import { useProjectClient, type DesignKind, type ProjectSummary } from './platform';
 import { loadPref, savePref } from './storage';
 import { ShortcutsOverlay } from './ShortcutsOverlay';
 import { useShortcut } from './shortcuts';
 import { shortcutHint } from './shortcutRegistry';
 import { ToastProvider, useToasts } from './Toast';
-import { Logo, ReloadGlyph } from './ui';
+import { Dot, Logo, ReloadGlyph } from './ui';
 
 const VIEWS = [
   { id: 'erd', label: 'ERD', file: 'erd' },
@@ -34,7 +34,8 @@ interface Props {
 }
 
 export function Shell({ project, onClose }: Props) {
-  const { docs, reload, setFocusReloadPaused, noteWritten } = useDesign(project.path);
+  const client = useProjectClient();
+  const { docs, reload, reloadOne, setFocusReloadPaused, noteWritten } = useDesign(project.path);
   const [view, setView] = useState<ViewId>(initialView);
   // The UI view stays mounted (hidden) once visited, so its preview doesn't reload on return.
   const [uiVisited, setUiVisited] = useState(() => view === 'ui');
@@ -43,6 +44,23 @@ export function Shell({ project, onClose }: Props) {
   const flows = useEditableDoc('flows', project.path, docs.flows, noteWritten);
   const config = useEditableDoc('config', project.path, docs.config, noteWritten);
   const [dialog, confirm] = useConfirm();
+
+  // A design file changed on disk. With no unsaved edits it's simply re-read (which also clears
+  // that document's undo history); with unsaved edits, saving waits for a choice on the banner.
+  const editors = { erd, flows, config };
+  const latestEditors = useRef(editors);
+  useLayoutEffect(() => {
+    latestEditors.current = editors;
+  });
+  useEffect(
+    () =>
+      client.watchDesign(project.path, ({ kind }) => {
+        const editor = latestEditors.current[kind];
+        if (editor.dirty) editor.hold();
+        else void reloadOne(kind);
+      }),
+    [client, project.path, reloadOne],
+  );
   const [toastRegion, toasts] = useToasts();
   const [showShortcuts, setShowShortcuts] = useState(false);
 
@@ -110,6 +128,8 @@ export function Shell({ project, onClose }: Props) {
   }
 
   const onReload = () => void reloadFromDisk();
+  const viewFile = VIEWS.find((v) => v.id === view)?.file ?? 'erd';
+  const viewEditor = editors[viewFile];
 
   const viewKey = (id: ViewId) => (e: KeyboardEvent) => {
     e.preventDefault();
@@ -212,6 +232,16 @@ export function Shell({ project, onClose }: Props) {
               onReload={onReload}
             />
           )}
+          {viewEditor.held && (
+            <ConflictBanner
+              file={viewFile}
+              onLoad={() => {
+                viewEditor.discard();
+                void reloadOne(viewFile);
+              }}
+              onKeep={viewEditor.keepMine}
+            />
+          )}
           {toastRegion}
         </main>
         {dialog}
@@ -226,4 +256,28 @@ function listed(names: (string | false)[]): string {
   const present = names.filter((n): n is string => Boolean(n));
   if (present.length <= 1) return present.join('');
   return `${present.slice(0, -1).join(', ')} and ${present[present.length - 1]}`;
+}
+
+/** Shown on a view whose file changed on disk while it had unsaved edits. */
+function ConflictBanner({
+  file,
+  onLoad,
+  onKeep,
+}: {
+  file: DesignKind;
+  onLoad: () => void;
+  onKeep: () => void;
+}) {
+  return (
+    <div className="conflict-banner" role="alert">
+      <Dot tone="warning" />
+      <span className="conflict-message">{file}.json was changed outside modelwright.</span>
+      <button type="button" className="btn btn-quiet btn-tight" onClick={onLoad}>
+        Load from disk
+      </button>
+      <button type="button" className="btn btn-primary btn-tight" onClick={onKeep}>
+        Keep mine
+      </button>
+    </div>
+  );
 }

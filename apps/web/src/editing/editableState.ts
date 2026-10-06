@@ -11,7 +11,9 @@ export type SaveStatus =
   /** The write failed (server down, disk error); edits are kept. */
   | 'failed'
   /** An edit produced a document that fails the schema. Not saved: that's a bug to fix. */
-  | 'invalid';
+  | 'invalid'
+  /** The file changed on disk while there were unsaved edits; saving waits for a choice. */
+  | 'held';
 
 /**
  * useEditableDoc's state, kept pure so it can be tested without React. The on-disk document
@@ -28,6 +30,11 @@ export interface EditableState<K extends DesignKind> {
   history: History<DesignDoc<K>>;
   /** Counts edits, undos and redos, so a toast can tell when the next edit happens. */
   revision: number;
+  /**
+   * The file changed on disk while this copy had unsaved edits. Nothing is saved until the
+   * user chooses: load the file (discarding edits) or keep theirs (overwriting it).
+   */
+  held: boolean;
 }
 
 export function initialEditableState<K extends DesignKind>(): EditableState<K> {
@@ -38,6 +45,7 @@ export function initialEditableState<K extends DesignKind>(): EditableState<K> {
     issues: [],
     history: emptyHistory(),
     revision: 0,
+    held: false,
   };
 }
 
@@ -91,10 +99,11 @@ export function applyEdit<K extends DesignKind>(
   return {
     local: next,
     dirty: true,
-    status: 'unsaved',
+    status: state.held ? 'held' : 'unsaved',
     issues: [],
     history,
     revision: state.revision + 1,
+    held: state.held,
   };
 }
 
@@ -125,10 +134,11 @@ function moved<K extends DesignKind>(
   return {
     local: step.doc,
     dirty: true,
-    status: 'unsaved',
+    status: state.held ? 'held' : 'unsaved',
     issues: [],
     history: step.history,
     revision: state.revision + 1,
+    held: state.held,
   };
 }
 
@@ -141,7 +151,9 @@ export function saveSucceeded<K extends DesignKind>(
   s: EditableState<K>,
   target: DesignDoc<K>,
 ): EditableState<K> {
-  return s.local === target ? { ...s, dirty: false, status: 'saved', issues: [] } : s;
+  if (s.local !== target) return s;
+  // A save already on its way when the hold began still lands; the hold stays until a choice.
+  return { ...s, dirty: false, status: s.held ? 'held' : 'saved', issues: [] };
 }
 
 export function saveFailed<K extends DesignKind>(s: EditableState<K>): EditableState<K> {
@@ -153,4 +165,14 @@ export function saveRefused<K extends DesignKind>(
   issues: Issue[],
 ): EditableState<K> {
   return { ...s, status: 'invalid', issues };
+}
+
+/** The file changed on disk under unsaved edits: stop saving until the user chooses. */
+export function hold<K extends DesignKind>(s: EditableState<K>): EditableState<K> {
+  return s.dirty ? { ...s, held: true, status: 'held' } : s;
+}
+
+/** "Keep mine": saving resumes, and the next save overwrites the file. */
+export function keepMine<K extends DesignKind>(s: EditableState<K>): EditableState<K> {
+  return s.held ? { ...s, held: false, status: s.dirty ? 'unsaved' : 'saved' } : s;
 }

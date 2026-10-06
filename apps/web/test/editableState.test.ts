@@ -4,7 +4,9 @@ import { keepUnchanged, type DocState } from '../src/docState';
 import {
   applyEdit,
   historyFor,
+  hold,
   initialEditableState,
+  keepMine,
   redoEdit,
   resolveDoc,
   undoEdit,
@@ -235,6 +237,36 @@ describe('editable state', () => {
       h.undo();
       h.redo();
       expect(h.state().revision).toBe(3);
+    });
+  });
+
+  describe('hold after an external change', () => {
+    it('holds only with unsaved edits, and edits keep applying while held', () => {
+      const h = harness(notesErd());
+      expect(hold(h.state())).toBe(h.state());
+      h.edit((erd) => renameEntity(erd, firstId(erd), 'Mine'));
+      const held = hold(h.state());
+      expect(held).toMatchObject({ held: true, status: 'held', dirty: true });
+      const later = applyEdit(
+        held,
+        must(held.local),
+        renameEntity(must(held.local), 'user', 'Later'),
+      );
+      expect(later).toMatchObject({ held: true, status: 'held' });
+      expect(undoEdit(later, later.local)).toMatchObject({ held: true, status: 'held' });
+    });
+
+    it('resumes saving on "keep mine"', () => {
+      const h = harness(notesErd());
+      h.edit((erd) => renameEntity(erd, firstId(erd), 'Mine'));
+      expect(keepMine(hold(h.state()))).toMatchObject({ held: false, status: 'unsaved' });
+    });
+
+    it('stays held when a save already on its way lands', () => {
+      const h = harness(notesErd());
+      const target = must(h.edit((erd) => renameEntity(erd, firstId(erd), 'Mine')));
+      const landed = saveSucceeded(hold(saveStarted(h.state())), target);
+      expect(landed).toMatchObject({ held: true, status: 'held', dirty: false });
     });
   });
 });

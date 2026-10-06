@@ -24,6 +24,13 @@ export function SaveStatusPill({ status, issues, onRetry }: Props) {
           Saving…
         </span>
       );
+    case 'held':
+      return (
+        <span className="save-pill strong" role="status">
+          <span className="dot dot-warning" aria-hidden="true" />
+          Save on hold
+        </span>
+      );
     case 'unsaved':
       return (
         <span className="save-pill strong" role="status">

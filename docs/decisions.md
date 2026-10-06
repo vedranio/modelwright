@@ -528,3 +528,23 @@ Settled in the phase 5 interview before any code was written. The brief's "Decis
 - **Labels** can now sit above, right of, or below their anchor (`below` for loops under a card).
 - **Selection** is unchanged: each relationship keeps its own 16-unit interaction path, so every line in a group stays individually clickable.
 - `fanOffsets` had no users left, so it's gone.
+
+## 2026-10-06 — Phase 5 milestone 3: file watching (supersedes "External edits while dirty: last writer wins")
+
+- **Server:**
+  - `DesignWatcher` keeps one `fs.watch` on `<project>/.design/` per project, shared by its subscribers and closed when the last one leaves.
+  - It looks only at `erd.json`, `flows.json` and `config.json`, so `spec.md`, editor temp files and everything else are ignored.
+  - Changes are debounced per file (150 ms), then the file is read.
+  - A change is reported only when the content differs both from the server's own last write to that file and from what was last reported. The server records each write (`noteWrite`) before making it, from `PUT` and from `init`, so its own saves never echo back, whatever the timing.
+- **`GET /api/design/events?path=`** is a Server-Sent Events stream behind the same guard:
+  - It sends `ready` once watching has started, then `change` with `{"kind":"erd"}`.
+  - A comment every 25 s keeps proxies from closing an idle stream.
+  - It answers 409 for a folder that isn't initialised.
+- **`ProjectClient.watchDesign(path, onChange)`** uses `EventSource` in the HTTP client, which reconnects by itself if the server restarts.
+- **Web, clean document:** `useDesign.reloadOne(kind)` re-reads just that file, exactly as a focus re-read would. The working copy is replaced, so its undo history goes with it (`historyFor`).
+- **Web, dirty document:**
+  - `hold()` puts saving on hold (`held`, status `held`, "Save on hold" in the pill). Edits keep applying locally.
+  - A banner at the top of that file's view says "<file>.json was changed outside modelwright", with **Load from disk** (discard the edits and history, then re-read) and **Keep mine** (end the hold and save at once, overwriting the file).
+  - For `config.json` the banner is on the UI view, and the header's project name can't be edited while it's held, since the banner may not be in view.
+- **A save already in flight when the hold starts still lands.** The PUT has gone, and its content becomes the file. The hold stays until a choice is made, so the banner never disappears without one, and Load from disk then shows what's really on disk.
+- **The focus re-read stays** as a fallback, still paused while anything is dirty.

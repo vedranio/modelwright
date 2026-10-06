@@ -25,6 +25,16 @@ export interface ProjectClient {
    * A browser can't see why a cross-origin iframe is blank, so the host process finds out.
    */
   checkPreview(url: string): Promise<PreviewCheck>;
+  /**
+   * Calls `onChange` whenever one of the project's design files changes on disk, other than
+   * by this client's own writes. Returns a function that stops watching.
+   */
+  watchDesign(path: string, onChange: (change: DesignChange) => void): () => void;
+}
+
+/** A design file changed on disk, outside modelwright. */
+export interface DesignChange {
+  kind: DesignKind;
 }
 
 /** A failed ProjectClient call. `issues` is set when a design file failed validation. */
