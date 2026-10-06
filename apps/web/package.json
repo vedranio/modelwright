@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@fontsource/ibm-plex-mono": "^5.3.0",
+    "@material-symbols/svg-400": "^0.47.6",
     "@modelwright/schema": "workspace:*",
     "@xyflow/react": "^12.12.0",
     "nanoid": "^6.0.1",

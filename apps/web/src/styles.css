@@ -1453,7 +1453,15 @@ button {
   color: var(--color-accent);
 }
 
-.theme-menu-glyph {
-  width: var(--space-4);
-  text-align: center;
+/* Material Symbols icons (Icon.tsx): a mask filled with the surrounding text colour. */
+
+.icon {
+  flex: none;
+  display: inline-block;
+  width: var(--icon-size);
+  height: var(--icon-size);
+  background-color: currentColor;
+  mask-position: center;
+  mask-size: contain;
+  mask-repeat: no-repeat;
 }

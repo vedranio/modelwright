@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { Icon } from './Icon';
 import { THEMES, useTheme } from './theme';
 
 /** The header's theme control: an icon showing the current setting, opening a small menu. */
@@ -38,7 +39,7 @@ export function ThemeMenu() {
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
       >
-        <span aria-hidden="true">{current?.glyph}</span>
+        {current && <Icon name={current.icon} />}
       </button>
       {open && (
         <div className="theme-menu-list" role="menu" aria-label="Theme">
@@ -54,9 +55,7 @@ export function ThemeMenu() {
                 setOpen(false);
               }}
             >
-              <span className="theme-menu-glyph" aria-hidden="true">
-                {t.glyph}
-              </span>
+              <Icon name={t.icon} />
               {t.label}
             </button>
           ))}

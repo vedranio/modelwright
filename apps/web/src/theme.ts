@@ -1,13 +1,14 @@
 import { useCallback, useState } from 'react';
+import type { IconName } from './Icon';
 import { loadPref, savePref } from './storage';
 
 /** System follows the OS live; Light and Dark override it. */
 export type ThemeSetting = 'system' | 'light' | 'dark';
 
-export const THEMES: readonly { id: ThemeSetting; label: string; glyph: string }[] = [
-  { id: 'system', label: 'System', glyph: '◐' },
-  { id: 'light', label: 'Light', glyph: '☀' },
-  { id: 'dark', label: 'Dark', glyph: '☾' },
+export const THEMES: readonly { id: ThemeSetting; label: string; icon: IconName }[] = [
+  { id: 'system', label: 'System', icon: 'brightness_auto' },
+  { id: 'light', label: 'Light', icon: 'light_mode' },
+  { id: 'dark', label: 'Dark', icon: 'dark_mode' },
 ];
 
 const KEY = 'theme';

@@ -668,3 +668,10 @@ Decided after the phase 5 walk.
 - **`spec.md` still says "Does:"** under each state, as the brief named it. Changing it is a separate call.
 - **Later the same day:** the "Sees" caption became "Information", and both captions are now semibold. The "+ Add item" and "+ Add CTA" rows have 8 px (`--space-2`) above them, and the screen size estimate's per-state footer grew from 56 to 72 to match. The schema field stays `sees`, and `spec.md` still says "Sees:" and "Does:".
 - **Then:** `spec.md` lists each state's items under "Information:" and "Actions:", matching the card (the golden files were regenerated). On the card, a thin keyline (`--color-border`, inset to the content) and 8 px of space above and below it separate the "Information" list's "+ Add item" row from the "Actions" list. The footer estimate grew to 90 to match.
+
+## 2026-10-06 — Trial: Google Material Symbols in the theme menu
+
+- The theme menu's ◐ ☀ ☾ glyphs are replaced by Material Symbols (outlined, weight 400): `brightness_auto` for System, `light_mode` and `dark_mode`.
+- They come from the `@material-symbols/svg-400` npm package (Apache-2.0), so they're self-hosted like the font, with no request to Google at runtime. Only the imported SVGs end up in the bundle.
+- `Icon.tsx` draws each one as a CSS mask over `currentColor`, so icons take their colour from the surrounding text tokens and theme with everything else. The size is `--icon-size` (18px).
+- If the trial is approved, the other glyphs (Reload ↻, close ×, zoom − +, undo/redo ↶ ↷, the shortcuts "?") move to `Icon` too.
