@@ -3,8 +3,11 @@ import { parseDesignJson, stringifyDesign, type Erd } from '@modelwright/schema'
 import { keepUnchanged, type DocState } from '../src/docState';
 import {
   applyEdit,
+  historyFor,
   initialEditableState,
+  redoEdit,
   resolveDoc,
+  undoEdit,
   saveFailed,
   saveRefused,
   saveStarted,
@@ -26,10 +29,25 @@ function harness(initial: Erd) {
   const h = {
     doc: () => must(resolveDoc('erd', state, onDisk())),
     state: () => state,
-    edit(fn: (erd: Erd) => Erd) {
-      state = applyEdit(fn(h.doc()));
+    edit(fn: (erd: Erd) => Erd, coalesce?: string, now?: number) {
+      const shown = h.doc();
+      state = applyEdit(state, shown, fn(shown), {
+        ...(coalesce !== undefined && { coalesce }),
+        ...(now !== undefined && { now }),
+      });
       return state.local;
     },
+    undo() {
+      const next = undoEdit(state, h.doc());
+      if (next) state = next;
+      return next !== null;
+    },
+    redo() {
+      const next = redoEdit(state, h.doc());
+      if (next) state = next;
+      return next !== null;
+    },
+    history: () => historyFor(state, h.doc()),
     /** A successful save of the current working copy, as writeLatest does it. */
     save() {
       const target = must(state.local);
@@ -51,6 +69,8 @@ function harness(initial: Erd) {
 }
 
 const text = (erd: Erd) => stringifyDesign('erd', erd);
+/** A fresh working-copy state holding `doc` as an edit. */
+const edited = (doc: Erd) => applyEdit<'erd'>(initialEditableState(), notesErd(), doc);
 const firstId = (erd: Erd) => must(erd.entities[0]).id;
 
 describe('editable state', () => {
@@ -103,19 +123,19 @@ describe('editable state', () => {
 
   it('stays dirty when an edit lands during a save', () => {
     const target = notesErd();
-    saveStarted(applyEdit<'erd'>(target));
-    const later = applyEdit<'erd'>(renameEntity(target, firstId(target), 'Later'));
+    const saving = saveStarted(edited(target));
+    const later = applyEdit(saving, target, renameEntity(target, firstId(target), 'Later'));
     const state = saveSucceeded(later, target);
     expect(state.dirty).toBe(true);
     expect(state.local?.entities[0]?.name).toBe('Later');
   });
 
   it('stops offering a clean copy once the file on disk becomes invalid', () => {
-    const state = saveSucceeded(applyEdit<'erd'>(notesErd()), notesErd());
+    const state = saveSucceeded(edited(notesErd()), notesErd());
     const clean = { ...state, dirty: false };
     expect(resolveDoc('erd', clean, null)).toBeNull();
     // Unsaved edits still win: they're the user's.
-    expect(resolveDoc('erd', applyEdit<'erd'>(notesErd()), null)).not.toBeNull();
+    expect(resolveDoc('erd', edited(notesErd()), null)).not.toBeNull();
   });
 
   it('falls back to the file on disk on discard', () => {
@@ -127,11 +147,94 @@ describe('editable state', () => {
   });
 
   it('keeps the edits when a save fails or is refused', () => {
-    const edited = applyEdit<'erd'>(renameEntity(notesErd(), firstId(notesErd()), 'Kept'));
-    const failed = saveFailed(saveStarted(edited));
-    expect(failed).toMatchObject({ dirty: true, status: 'failed', local: edited.local });
-    const refused = saveRefused(edited, [{ path: ['entities'], message: 'bad' }]);
-    expect(refused).toMatchObject({ dirty: true, status: 'invalid', local: edited.local });
-    expect(resolveDoc('erd', failed, notesErd())).toBe(edited.local);
+    const kept = edited(renameEntity(notesErd(), firstId(notesErd()), 'Kept'));
+    const failed = saveFailed(saveStarted(kept));
+    expect(failed).toMatchObject({ dirty: true, status: 'failed', local: kept.local });
+    const refused = saveRefused(kept, [{ path: ['entities'], message: 'bad' }]);
+    expect(refused).toMatchObject({ dirty: true, status: 'invalid', local: kept.local });
+    expect(resolveDoc('erd', failed, notesErd())).toBe(kept.local);
+  });
+
+  describe('undo history', () => {
+    const name = (h: ReturnType<typeof harness>) => h.doc().entities[0]?.name;
+
+    it('undoes and redoes edits through the working copy, which then saves', () => {
+      const h = harness(notesErd());
+      h.edit((erd) => renameEntity(erd, firstId(erd), 'One'));
+      h.edit((erd) => renameEntity(erd, firstId(erd), 'Two'));
+      h.save();
+      expect(h.undo()).toBe(true);
+      expect(name(h)).toBe('One');
+      expect(h.state()).toMatchObject({ dirty: true, status: 'unsaved' });
+      expect(h.undo()).toBe(true);
+      expect(name(h)).toBe('User');
+      expect(h.undo()).toBe(false);
+      expect(h.redo()).toBe(true);
+      expect(h.redo()).toBe(true);
+      expect(name(h)).toBe('Two');
+      expect(h.redo()).toBe(false);
+    });
+
+    it('clears the redo stack on a new edit', () => {
+      const h = harness(notesErd());
+      h.edit((erd) => renameEntity(erd, firstId(erd), 'One'));
+      h.undo();
+      h.edit((erd) => renameEntity(erd, firstId(erd), 'Other'));
+      expect(h.redo()).toBe(false);
+      expect(name(h)).toBe('Other');
+    });
+
+    it('is cleared when the file on disk replaces the working copy', () => {
+      const h = harness(notesErd());
+      h.edit((erd) => renameEntity(erd, firstId(erd), 'Mine'));
+      h.save();
+      h.reread(text(renameEntity(notesErd(), firstId(notesErd()), 'Theirs')));
+      expect(h.history().past).toHaveLength(0);
+      expect(h.undo()).toBe(false);
+      // A later edit starts a fresh history from what's shown.
+      h.edit((erd) => renameEntity(erd, firstId(erd), 'Next'));
+      expect(h.history().past).toHaveLength(1);
+      h.undo();
+      expect(name(h)).toBe('Theirs');
+    });
+
+    it('is kept when our own save is read back', () => {
+      const h = harness(notesErd());
+      h.edit((erd) => renameEntity(erd, firstId(erd), 'Mine'));
+      h.save();
+      h.reread(text(h.doc()));
+      expect(h.undo()).toBe(true);
+      expect(name(h)).toBe('User');
+    });
+
+    it('is cleared on discard', () => {
+      const h = harness(notesErd());
+      h.edit((erd) => renameEntity(erd, firstId(erd), 'Mine'));
+      h.discard();
+      expect(h.undo()).toBe(false);
+    });
+
+    it('coalesces a burst of nudges into one step', () => {
+      const h = harness(notesErd());
+      const nudge = (dx: number) => (erd: Erd) => {
+        const at = must(erd.layout[firstId(erd)]);
+        return { ...erd, layout: { ...erd.layout, [firstId(erd)]: { x: at.x + dx, y: at.y } } };
+      };
+      const start = must(h.doc().layout[firstId(h.doc())]).x;
+      h.edit(nudge(1), 'nudge', 0);
+      h.edit(nudge(1), 'nudge', 100);
+      h.edit(nudge(1), 'nudge', 200);
+      expect(h.history().past).toHaveLength(1);
+      h.undo();
+      expect(h.doc().layout[firstId(h.doc())]?.x).toBe(start);
+    });
+
+    it('counts revisions for edits, undos and redos', () => {
+      const h = harness(notesErd());
+      h.edit((erd) => renameEntity(erd, firstId(erd), 'One'));
+      h.undo();
+      h.redo();
+      expect(h.state().revision).toBe(3);
+    });
   });
 });

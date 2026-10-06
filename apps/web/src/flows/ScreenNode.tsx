@@ -2,6 +2,7 @@ import { Handle, Position, type Node, type NodeProps } from '@xyflow/react';
 import type { Cta, Screen, ScreenState } from '@modelwright/schema';
 import { InlineField } from '../editing/InlineField';
 import { isEditing, useFlowsEditor, type EditTarget } from './editor';
+import { ctaDeletionSummary, seesDeletionSummary, stateDeletionSummary } from './deletion';
 import { SCREEN_HANDLE, ctaHandle, showsStateHeaders, stateHandle } from './endpoints';
 import {
   addCta,
@@ -186,7 +187,7 @@ function StateSection({
   showHeader: boolean;
   connected: ReadonlySet<string>;
 }) {
-  const { apply, editing, setEditing } = useFlowsEditor();
+  const { apply, remove, editing, setEditing } = useFlowsEditor();
   const ids = { screenId: screen.id, stateId: state.id };
   const isDefault = stateIndex === 0;
   const nameTarget =
@@ -260,7 +261,12 @@ function StateSection({
                 className="row-action row-delete nodrag"
                 aria-label={`Delete the ${state.name} state`}
                 title="Delete state"
-                onClick={() => apply((f) => deleteState(f, screen.id, state.id))}
+                onClick={() =>
+                  remove(
+                    (f) => deleteState(f, screen.id, state.id),
+                    (f) => stateDeletionSummary(f, screen.id, state.id),
+                  )
+                }
               >
                 ×
               </button>
@@ -353,7 +359,7 @@ function SeesRow({
   index,
   item,
 }: RowProps & { index: number; item: string }) {
-  const { apply, editing, setEditing } = useFlowsEditor();
+  const { apply, remove, editing, setEditing } = useFlowsEditor();
   const target: EditTarget = { kind: 'sees', screenId: screen.id, stateId: state.id, index };
 
   /** Clearing an item doesn't delete it; that's what × is for. */
@@ -401,7 +407,12 @@ function SeesRow({
           className="row-action row-delete nodrag"
           aria-label={`Delete ${item || 'item'}`}
           title="Delete item"
-          onClick={() => apply((f) => deleteSeesItem(f, screen.id, state.id, index))}
+          onClick={() =>
+            remove(
+              (f) => deleteSeesItem(f, screen.id, state.id, index),
+              (f) => seesDeletionSummary(f, screen.id, state.id, index),
+            )
+          }
         >
           ×
         </button>
@@ -472,7 +483,7 @@ function CtaRow({
   cta,
   connected,
 }: RowProps & { cta: Cta; connected: boolean }) {
-  const { apply, editing, setEditing } = useFlowsEditor();
+  const { apply, remove, editing, setEditing } = useFlowsEditor();
   const target: EditTarget = { kind: 'cta', screenId: screen.id, stateId: state.id, ctaId: cta.id };
 
   /** Clearing a label doesn't delete the CTA; that's what × is for. */
@@ -521,7 +532,12 @@ function CtaRow({
           className="row-action row-delete nodrag"
           aria-label={`Delete ${cta.label || 'CTA'}`}
           title="Delete CTA"
-          onClick={() => apply((f) => deleteCta(f, screen.id, state.id, cta.id))}
+          onClick={() =>
+            remove(
+              (f) => deleteCta(f, screen.id, state.id, cta.id),
+              (f) => ctaDeletionSummary(f, screen.id, state.id, cta.id),
+            )
+          }
         >
           ×
         </button>

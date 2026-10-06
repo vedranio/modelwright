@@ -1,5 +1,6 @@
 import { Cardinality } from '@modelwright/schema';
 import { LabelField } from '../editing/LabelField';
+import { deletionSummary } from './deletion';
 import { useErdEditor } from './editor';
 import { CARDINALITY_LABELS } from './markers';
 import { deleteRelationships, reverseRelationship, updateRelationship } from './ops';
@@ -18,7 +19,7 @@ interface Props {
  * the label, Reverse direction and Delete. Changes apply as they're made.
  */
 export function EdgePopover({ relationshipId, fromName, toName, fromCard, toCard, label }: Props) {
-  const { apply } = useErdEditor();
+  const { apply, remove } = useErdEditor();
   const update = (changes: Parameters<typeof updateRelationship>[2]) =>
     apply((erd) => updateRelationship(erd, relationshipId, changes));
 
@@ -59,7 +60,12 @@ export function EdgePopover({ relationshipId, fromName, toName, fromCard, toCard
         <button
           type="button"
           className="btn btn-quiet btn-tight edge-delete"
-          onClick={() => apply((erd) => deleteRelationships(erd, [relationshipId]))}
+          onClick={() =>
+            remove(
+              (erd) => deleteRelationships(erd, [relationshipId]),
+              (erd) => deletionSummary(erd, new Set(), new Set([relationshipId])),
+            )
+          }
         >
           Delete
         </button>

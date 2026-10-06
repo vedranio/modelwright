@@ -1307,3 +1307,47 @@ button {
   font-size: var(--text-xs);
   color: var(--color-text-muted);
 }
+
+/* Toast: one short-lived message, centred above the canvas toolbar */
+
+.toast-region {
+  position: absolute;
+  left: 50%;
+  bottom: var(--toast-offset);
+  z-index: 8;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.toast {
+  max-width: var(--toast-max-w);
+  min-height: calc(var(--control-h) + 2 * var(--space-1));
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-1) var(--space-1) var(--space-1) var(--space-3);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-md);
+  font-size: var(--text-sm);
+  line-height: var(--text-sm-lh);
+  color: var(--color-text);
+  pointer-events: auto;
+}
+
+.toast:not(:has(.toast-action)) {
+  padding-right: var(--space-3);
+}
+
+.toast-message {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.btn.toast-action {
+  flex: none;
+  font-weight: var(--weight-medium);
+  color: var(--color-accent);
+}

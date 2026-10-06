@@ -6,7 +6,10 @@ import { placeNodes } from '../canvas/placement';
 import { useMeasurements } from '../canvas/useMeasurements';
 import { useSelection } from '../canvas/useSelection';
 import { SaveStatusPill } from '../editing/SaveStatusPill';
+import { touchedFlows } from '../editing/touched';
+import { useCanvasHistory } from '../editing/useCanvasHistory';
 import type { EditableDoc } from '../editing/useEditableDoc';
+import { deletionSummary } from '../flows/deletion';
 import { connectedCtas, fanPlaces, screensById, transitionEndpoints } from '../flows/endpoints';
 import { SCREEN_WIDTH, estimateScreenSize } from '../flows/metrics';
 import { ctaForHandle, dropTarget } from '../flows/connect';
@@ -86,7 +89,17 @@ function FlowsCanvas({
     [applyDoc],
   );
 
-  const editor = useMemo<FlowsEditor>(() => ({ apply, editing, setEditing }), [apply, editing]);
+  const history = useCanvasHistory('flows', edit, touchedFlows, selection.select);
+  const { remove: removeDoc } = history;
+  const remove = useCallback<FlowsEditor['remove']>(
+    (op, describe) => removeDoc(op, describe, apply),
+    [removeDoc, apply],
+  );
+
+  const editor = useMemo<FlowsEditor>(
+    () => ({ apply, remove, editing, setEditing }),
+    [apply, remove, editing],
+  );
 
   const flow = useMemo(() => toFlow(flows), [flows]);
   const nodes = useMemo(
@@ -234,15 +247,12 @@ function FlowsCanvas({
           // Only dropping onto a card counts (onConnectEnd); never connect handle to handle.
           isValidConnection={() => false}
           onBeforeDelete={({ nodes: goneNodes, edges: goneEdges }) => {
-            // Flows deletes never ask (decisions.md); undo arrives in phase 5.
-            apply((doc) =>
-              deleteTransitions(
-                deleteScreens(
-                  doc,
-                  goneNodes.map((n) => n.id),
-                ),
-                goneEdges.map((e) => e.id),
-              ),
+            // Flows deletes never ask (decisions.md); the toast offers Undo.
+            const screenIds = new Set(goneNodes.map((n) => n.id));
+            const transitionIds = new Set(goneEdges.map((e) => e.id));
+            remove(
+              (doc) => deleteTransitions(deleteScreens(doc, screenIds), transitionIds),
+              (doc) => deletionSummary(doc, screenIds, transitionIds),
             );
             selection.clear();
             // The document change removes them; React Flow mustn't remove them a second time.

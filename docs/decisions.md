@@ -465,3 +465,30 @@ Walked the "done means" list by hand in the browser, against a scratch copy of t
 Caveats:
 - **Verified with simulated input:** window blur and focus (synthetic events), and clicks in a small browser pane, with positions taken from the DOM.
 - **Gate screenshots are downscaled:** the 1440×900 shots are 800×500 renders, the browser tool's maximum.
+
+## 2026-10-06 — Phase 5 planning decisions
+
+Settled in the phase 5 interview before any code was written. The brief's "Decisions this brief makes" all stand: per-document undo for ERD and Flows, one committed edit per step, cleared when disk replaces the working copy; undo toasts instead of delete confirmations; one shortcut registry; the proposed shortcut set; ⌥↑/⌥↓ reordering; duplicate copies internal links only; file watching replaces "last writer wins"; `spec.md` written by the server on every successful save, never on open; dark mode through tokens only, System by default. These sharpen them:
+
+- **Spec, data model:** the Mermaid `erDiagram` leaves attributes out. They're in the per-entity tables, so the diagram doesn't imply types the conceptual ERD doesn't have.
+- **Spec, relationship sentences:** the label is the forward verb ("Each User owns zero or more Notes."), "has" when there's no label, and "belongs to" in reverse ("Each Note belongs to exactly one User.").
+- **Spec, plurals:** simple English rules (s, es, y → ies) on a name's last word, plus a short irregular list.
+- **Selection after undo/redo:** a pure before/after diff selects whatever the step touched that still exists. A change inside a card (attribute, sees item, CTA, state) selects the card.
+- **The shortcuts overlay** also lists Delete/⌫ and Esc, and a "While editing" group (Enter, Tab, Esc, ⌥↑/⌥↓, native ⌘Z).
+- **Zoom keys** accept `+` or `=`, and `−` or `-`, unmodified. ⌘+ and ⌘− stay the browser's page zoom. ⇧0, like ⇧1, matches the physical key.
+- **⌘D has no fallback.** If a browser wins it, it's dropped from the web build and logged for Electron.
+- **Browser-conflict checks are done by hand at the end** (milestone 6), not at milestone 1. Simulated keys skip the browser's own shortcut handling (the ⌘R lesson), so only a person at a real keyboard can check them.
+- **The theme control** is one icon button in the header that opens a System/Light/Dark menu.
+- **config.json conflicts** use the same banner as the canvases, shown on the UI view.
+- **The spec review** uses a local page that renders Mermaid, not a gist, so nothing is published.
+
+## 2026-10-06 — Phase 5 milestone 0: undo, redo and the toast
+
+- **History** is pure (`editing/history.ts`) and lives in `EditableState` beside the working copy. `applyEdit(state, shown, next)` records `shown`, the document on screen before the edit, so the first edit on a freshly opened file is undoable too.
+- **History belongs to the working copy.** `historyFor(state, shown)` is empty whenever the document shown isn't the working copy, which is exactly when disk has replaced it (Reload, an external change, a reopen). There's no separate "clear" call to forget, and our own save read back keeps the history.
+- **Undo and redo are ordinary edits** for saving: they make the document dirty and autosave after the usual pause. Each bumps a `revision` counter, as an edit does.
+- **Coalescing:** an edit with a `coalesce` key within 600 ms of the last one with the same key joins that step. Nudging uses it in milestone 1. An undo always ends coalescing.
+- **The touched diff** compares items by id and canonical JSON, with their layout entry (`editing/touched.ts`, one file for both documents).
+- **Deletes:** every delete applies at once and shows a toast with Undo, from the canvas (Delete/⌫), the popovers and the cards' × buttons. `erd/deletion.ts` now words what went ("Deleted 'User', 2 attributes and 1 relationship"), and `flows/deletion.ts` does the same for screens, states, sees items, CTAs and transitions. `deletionPrompt` and the ERD's confirmation are gone. `ConfirmDialog` stays for Reload and close.
+- **The toast** (`Toast.tsx`) is one message at a time, hosted by `Shell` in the view area, centred 72 px above the bottom edge (`--toast-offset`), clear of the canvas toolbar and the save status. It dismisses itself after 6 s, on the next edit of the document it's about (its revision moved on), and on a view switch. Its Undo is the same as ⌘Z, selection included.
+- **⌘Z / ⇧⌘Z** (Ctrl+Z, Ctrl+Shift+Z and Ctrl+Y off macOS) skip text fields, so a field keeps its own native undo.

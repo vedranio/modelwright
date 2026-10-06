@@ -1,14 +1,15 @@
 import { useCallback, useMemo, useRef, useState, type MouseEvent } from 'react';
 import type { NodeChange, OnConnectEnd, ReactFlowInstance, XYPosition } from '@xyflow/react';
 import type { Erd } from '@modelwright/schema';
-import { useConfirm } from '../ConfirmDialog';
 import { Canvas } from '../canvas/Canvas';
 import { useMeasurements } from '../canvas/useMeasurements';
 import { useSelection } from '../canvas/useSelection';
 import { SaveStatusPill } from '../editing/SaveStatusPill';
+import { touchedErd } from '../editing/touched';
+import { useCanvasHistory } from '../editing/useCanvasHistory';
 import type { EditableDoc } from '../editing/useEditableDoc';
 import { CrowsFootEdge, type CrowsFootEdgeType } from '../erd/CrowsFootEdge';
-import { deletionPrompt } from '../erd/deletion';
+import { deletionSummary } from '../erd/deletion';
 import { parallelOffsets } from '../erd/edgeGeometry';
 import { ErdEditorContext, type EditTarget, type ErdEditor } from '../erd/editor';
 import { EntityNode, type EntityNodeType } from '../erd/EntityNode';
@@ -64,7 +65,6 @@ function ErdCanvas({
   const [dragging, setDragging] = useState<Record<string, XYPosition>>({});
   const selection = useSelection();
   const measurements = useMeasurements();
-  const [dialog, confirm] = useConfirm();
   const instance = useRef<ReactFlowInstance<EntityNodeType, CrowsFootEdgeType> | null>(null);
   const container = useRef<HTMLDivElement>(null);
 
@@ -83,7 +83,17 @@ function ErdCanvas({
     [applyDoc],
   );
 
-  const editor = useMemo<ErdEditor>(() => ({ apply, editing, setEditing }), [apply, editing]);
+  const history = useCanvasHistory('erd', edit, touchedErd, selection.select);
+  const { remove: removeDoc } = history;
+  const remove = useCallback<ErdEditor['remove']>(
+    (op, describe) => removeDoc(op, describe, apply),
+    [removeDoc, apply],
+  );
+
+  const editor = useMemo<ErdEditor>(
+    () => ({ apply, remove, editing, setEditing }),
+    [apply, remove, editing],
+  );
 
   const flow = useMemo(() => toFlow(erd), [erd]);
   const nodes = useMemo(
@@ -219,17 +229,17 @@ function ErdCanvas({
           onConnectEnd={onConnectEnd}
           // Only dropping onto an entity counts (onConnectEnd); never connect handle to handle.
           isValidConnection={() => false}
-          onBeforeDelete={async ({ nodes: goneNodes, edges: goneEdges }) => {
+          onBeforeDelete={({ nodes: goneNodes, edges: goneEdges }) => {
+            // No confirmation: the toast offers Undo (decisions.md, phase 5).
             const entityIds = new Set(goneNodes.map((n) => n.id));
             const relationshipIds = new Set(goneEdges.map((e) => e.id));
-            const prompt = deletionPrompt(erd, entityIds, relationshipIds);
-            if (prompt && !(await confirm({ title: prompt, confirmLabel: 'Delete' }))) {
-              return false;
-            }
-            apply((doc) => deleteRelationships(deleteEntities(doc, entityIds), relationshipIds));
+            remove(
+              (doc) => deleteRelationships(deleteEntities(doc, entityIds), relationshipIds),
+              (doc) => deletionSummary(doc, entityIds, relationshipIds),
+            );
             selection.clear();
             // The document change removes them; React Flow mustn't remove them a second time.
-            return false;
+            return Promise.resolve(false);
           }}
           toolbarActions={
             <button
@@ -268,7 +278,6 @@ function ErdCanvas({
           }
         />
       </div>
-      {dialog}
     </ErdEditorContext.Provider>
   );
 }

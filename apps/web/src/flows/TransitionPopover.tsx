@@ -1,4 +1,5 @@
 import { LabelField } from '../editing/LabelField';
+import { deletionSummary } from './deletion';
 import { useFlowsEditor } from './editor';
 import { deleteTransitions, updateTransition } from './ops';
 
@@ -29,7 +30,7 @@ export function TransitionPopover({
   toStateId,
   label,
 }: Props) {
-  const { apply } = useFlowsEditor();
+  const { apply, remove } = useFlowsEditor();
   const update = (changes: Parameters<typeof updateTransition>[2]) =>
     apply((flows) => updateTransition(flows, transitionId, changes));
 
@@ -77,7 +78,12 @@ export function TransitionPopover({
         <button
           type="button"
           className="btn btn-quiet btn-tight edge-delete"
-          onClick={() => apply((flows) => deleteTransitions(flows, [transitionId]))}
+          onClick={() =>
+            remove(
+              (flows) => deleteTransitions(flows, [transitionId]),
+              (flows) => deletionSummary(flows, new Set(), new Set([transitionId])),
+            )
+          }
         >
           Delete
         </button>

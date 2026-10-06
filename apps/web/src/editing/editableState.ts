@@ -1,5 +1,6 @@
 import { stringifyDesign, type Issue } from '@modelwright/schema';
 import type { DesignDoc, DesignKind } from '../platform/ProjectClient';
+import { emptyHistory, record, redo, undo, type History } from './history';
 
 export type SaveStatus =
   /** Everything is on disk. */
@@ -23,10 +24,21 @@ export interface EditableState<K extends DesignKind> {
   dirty: boolean;
   status: SaveStatus;
   issues: Issue[];
+  /** Undo history. It belongs to `local`: once disk replaces the working copy, it's void. */
+  history: History<DesignDoc<K>>;
+  /** Counts edits, undos and redos, so a toast can tell when the next edit happens. */
+  revision: number;
 }
 
 export function initialEditableState<K extends DesignKind>(): EditableState<K> {
-  return { local: null, dirty: false, status: 'saved', issues: [] };
+  return {
+    local: null,
+    dirty: false,
+    status: 'saved',
+    issues: [],
+    history: emptyHistory(),
+    revision: 0,
+  };
 }
 
 /**
@@ -50,8 +62,74 @@ export function resolveDoc<K extends DesignKind>(
   return stringifyDesign(kind, local) === stringifyDesign(kind, onDisk) ? local : onDisk;
 }
 
-export function applyEdit<K extends DesignKind>(next: DesignDoc<K>): EditableState<K> {
-  return { local: next, dirty: true, status: 'unsaved', issues: [] };
+/**
+ * The history that applies to `shown`, the document resolveDoc returned. When that isn't the
+ * working copy, the file on disk has replaced it (a Reload, an external change, a reopen), and
+ * the history describes a document that's gone, so it's empty.
+ */
+export function historyFor<K extends DesignKind>(
+  state: EditableState<K>,
+  shown: DesignDoc<K> | null,
+): History<DesignDoc<K>> {
+  return shown !== null && shown === state.local ? state.history : emptyHistory();
+}
+
+/**
+ * `next` becomes the working copy, as one undo step from `shown` (what was on screen). Steps
+ * with the same `coalesce` key in quick succession merge into one.
+ */
+export function applyEdit<K extends DesignKind>(
+  state: EditableState<K>,
+  shown: DesignDoc<K>,
+  next: DesignDoc<K>,
+  options: { coalesce?: string; now?: number } = {},
+): EditableState<K> {
+  const history = record(historyFor(state, shown), shown, {
+    ...(options.coalesce !== undefined && { key: options.coalesce }),
+    ...(options.now !== undefined && { now: options.now }),
+  });
+  return {
+    local: next,
+    dirty: true,
+    status: 'unsaved',
+    issues: [],
+    history,
+    revision: state.revision + 1,
+  };
+}
+
+/** Steps back, or null when there's nothing to undo. Goes through the normal save path. */
+export function undoEdit<K extends DesignKind>(
+  state: EditableState<K>,
+  shown: DesignDoc<K> | null,
+): EditableState<K> | null {
+  if (!shown) return null;
+  const step = undo(historyFor(state, shown), shown);
+  return step && moved(state, step);
+}
+
+/** Steps forward again, or null when there's nothing to redo. */
+export function redoEdit<K extends DesignKind>(
+  state: EditableState<K>,
+  shown: DesignDoc<K> | null,
+): EditableState<K> | null {
+  if (!shown) return null;
+  const step = redo(historyFor(state, shown), shown);
+  return step && moved(state, step);
+}
+
+function moved<K extends DesignKind>(
+  state: EditableState<K>,
+  step: { history: History<DesignDoc<K>>; doc: DesignDoc<K> },
+): EditableState<K> {
+  return {
+    local: step.doc,
+    dirty: true,
+    status: 'unsaved',
+    issues: [],
+    history: step.history,
+    revision: state.revision + 1,
+  };
 }
 
 export function saveStarted<K extends DesignKind>(s: EditableState<K>): EditableState<K> {

@@ -38,3 +38,24 @@ export function useShortcut(
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [enabled]);
 }
+
+/** True on macOS (and iOS), where ⌘ is the command modifier; elsewhere it's Ctrl. */
+export const IS_MAC =
+  typeof navigator !== 'undefined' &&
+  /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
+
+/** The platform's command modifier is held, and no other modifier besides `shift` when allowed. */
+function commandKey(e: KeyboardEvent): boolean {
+  return IS_MAC ? e.metaKey && !e.ctrlKey : e.ctrlKey && !e.metaKey;
+}
+
+/** ⌘Z (Ctrl+Z off macOS). */
+export const isUndoKey = (e: KeyboardEvent) =>
+  commandKey(e) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === 'z';
+
+/** ⇧⌘Z (Ctrl+Shift+Z, or Ctrl+Y, off macOS). */
+export const isRedoKey = (e: KeyboardEvent) =>
+  commandKey(e) &&
+  !e.altKey &&
+  ((e.shiftKey && e.key.toLowerCase() === 'z') ||
+    (!IS_MAC && !e.shiftKey && e.key.toLowerCase() === 'y'));

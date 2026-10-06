@@ -8,6 +8,7 @@ import { FlowsView } from './views/FlowsView';
 import { UiView } from './views/UiView';
 import type { DesignKind, ProjectSummary } from './platform';
 import { loadPref, savePref } from './storage';
+import { ToastProvider, useToasts } from './Toast';
 import { Logo, ReloadGlyph } from './ui';
 
 const VIEWS = [
@@ -39,6 +40,18 @@ export function Shell({ project, onClose }: Props) {
   const flows = useEditableDoc('flows', project.path, docs.flows, noteWritten);
   const config = useEditableDoc('config', project.path, docs.config, noteWritten);
   const [dialog, confirm] = useConfirm();
+  const [toastRegion, toasts] = useToasts();
+
+  // A toast about an edit goes once its document is edited again (its Undo would undo
+  // something else), and on any view switch.
+  const shownToast = toasts.current;
+  const revisions: Record<string, number> = { erd: erd.revision, flows: flows.revision };
+  const staleToast =
+    shownToast?.owner !== undefined &&
+    revisions[shownToast.owner.doc] !== shownToast.owner.revision;
+  useEffect(() => {
+    if (staleToast) toasts.dismiss();
+  }, [staleToast, toasts]);
 
   // Re-reading on window focus never overwrites edits: it waits while the name is being
   // edited or any file has unsaved changes.
@@ -51,6 +64,7 @@ export function Shell({ project, onClose }: Props) {
     if (view === 'erd') void erd.flush();
     if (view === 'flows') void flows.flush();
     setView(id);
+    toasts.dismiss();
     if (id === 'ui') setUiVisited(true);
     savePref(VIEW_KEY, id);
   }
@@ -94,86 +108,89 @@ export function Shell({ project, onClose }: Props) {
   const onReload = () => void reloadFromDisk();
 
   return (
-    <div className="shell">
-      <header className="shell-header">
-        <div className="header-left">
-          <Logo />
-          <span className="crumb-sep" aria-hidden="true">
-            /
-          </span>
-          <ProjectName
-            config={config}
-            fallbackName={project.name}
-            onEditingChange={setEditingName}
-          />
-          {editingName && <span className="hint">↵ save · esc cancel</span>}
-          <span className={`project-path${editingName ? ' spaced' : ''}`} title={project.path}>
-            {project.displayPath}
-          </span>
-        </div>
+    <ToastProvider value={toasts}>
+      <div className="shell">
+        <header className="shell-header">
+          <div className="header-left">
+            <Logo />
+            <span className="crumb-sep" aria-hidden="true">
+              /
+            </span>
+            <ProjectName
+              config={config}
+              fallbackName={project.name}
+              onEditingChange={setEditingName}
+            />
+            {editingName && <span className="hint">↵ save · esc cancel</span>}
+            <span className={`project-path${editingName ? ' spaced' : ''}`} title={project.path}>
+              {project.displayPath}
+            </span>
+          </div>
 
-        <div className="segmented" role="tablist" aria-label="View">
-          {VIEWS.map((v) => {
-            const invalid = docs[v.file].status === 'invalid';
-            return (
-              <button
-                key={v.id}
-                type="button"
-                role="tab"
-                aria-selected={view === v.id}
-                className={view === v.id ? 'selected' : undefined}
-                onClick={() => selectView(v.id)}
-                title={invalid ? `.design/${v.file}.json has problems` : undefined}
-              >
-                {v.label}
-                {invalid && <span className="dot dot-warning" aria-label="has problems" />}
-              </button>
-            );
-          })}
-        </div>
+          <div className="segmented" role="tablist" aria-label="View">
+            {VIEWS.map((v) => {
+              const invalid = docs[v.file].status === 'invalid';
+              return (
+                <button
+                  key={v.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={view === v.id}
+                  className={view === v.id ? 'selected' : undefined}
+                  onClick={() => selectView(v.id)}
+                  title={invalid ? `.design/${v.file}.json has problems` : undefined}
+                >
+                  {v.label}
+                  {invalid && <span className="dot dot-warning" aria-label="has problems" />}
+                </button>
+              );
+            })}
+          </div>
 
-        <div className="header-right">
-          <button type="button" className="btn btn-quiet btn-tight" onClick={onReload}>
-            <ReloadGlyph />
-            Reload
-          </button>
-          <span className="divider" aria-hidden="true" />
-          <button
-            type="button"
-            className="btn-icon"
-            onClick={() => void close()}
-            aria-label="Close project"
-            title="Close project"
-          >
-            ×
-          </button>
-        </div>
-      </header>
+          <div className="header-right">
+            <button type="button" className="btn btn-quiet btn-tight" onClick={onReload}>
+              <ReloadGlyph />
+              Reload
+            </button>
+            <span className="divider" aria-hidden="true" />
+            <button
+              type="button"
+              className="btn-icon"
+              onClick={() => void close()}
+              aria-label="Close project"
+              title="Close project"
+            >
+              ×
+            </button>
+          </div>
+        </header>
 
-      <main className="view" role="tabpanel">
-        {view === 'erd' && (
-          <ErdView projectPath={project.path} state={docs.erd} edit={erd} onReload={onReload} />
-        )}
-        {view === 'flows' && (
-          <FlowsView
-            projectPath={project.path}
-            state={docs.flows}
-            edit={flows}
-            onReload={onReload}
-          />
-        )}
-        {(view === 'ui' || uiVisited) && (
-          <UiView
-            projectPath={project.path}
-            state={docs.config}
-            edit={config}
-            visible={view === 'ui'}
-            onReload={onReload}
-          />
-        )}
-      </main>
-      {dialog}
-    </div>
+        <main className="view" role="tabpanel">
+          {view === 'erd' && (
+            <ErdView projectPath={project.path} state={docs.erd} edit={erd} onReload={onReload} />
+          )}
+          {view === 'flows' && (
+            <FlowsView
+              projectPath={project.path}
+              state={docs.flows}
+              edit={flows}
+              onReload={onReload}
+            />
+          )}
+          {(view === 'ui' || uiVisited) && (
+            <UiView
+              projectPath={project.path}
+              state={docs.config}
+              edit={config}
+              visible={view === 'ui'}
+              onReload={onReload}
+            />
+          )}
+          {toastRegion}
+        </main>
+        {dialog}
+      </div>
+    </ToastProvider>
   );
 }
 

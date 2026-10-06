@@ -4,8 +4,11 @@ import { useProjectClient, type DesignDoc } from '../platform';
 import type { DocState } from '../docState';
 import {
   applyEdit,
+  historyFor,
   initialEditableState,
+  redoEdit,
   resolveDoc,
+  undoEdit,
   saveFailed,
   saveRefused,
   saveStarted,
@@ -28,8 +31,21 @@ export const AUTOSAVE_DELAY_MS = 500;
 export interface EditableDoc<K extends EditableKind> {
   /** The document to show and edit: the local copy while there is one, else what's on disk. */
   doc: DesignDoc<K> | null;
-  /** Applies an edit to the local copy and schedules a save (or saves right away). */
-  apply: (edit: (doc: DesignDoc<K>) => DesignDoc<K>, options?: { saveNow?: boolean }) => void;
+  /**
+   * Applies an edit to the local copy, as one undo step, and schedules a save (or saves right
+   * away). Edits with the same `coalesce` key in quick succession are one step.
+   */
+  apply: (edit: (doc: DesignDoc<K>) => DesignDoc<K>, options?: ApplyOptions) => void;
+  /** Steps back one edit. Returns the documents before and after, or null if there was none. */
+  undo: () => UndoStep<K> | null;
+  /** Steps forward one undone edit, or returns null. */
+  redo: () => UndoStep<K> | null;
+  canUndo: boolean;
+  canRedo: boolean;
+  /** Counts edits, undos and redos. */
+  revision: number;
+  /** The latest revision, including an `apply` made moments ago in the same handler. */
+  currentRevision: () => number;
   status: SaveStatus;
   /** Validation problems when `status` is `invalid`. */
   issues: Issue[];
@@ -39,6 +55,16 @@ export interface EditableDoc<K extends EditableKind> {
   flush: () => Promise<boolean>;
   /** Drops the local copy and its unsaved edits, falling back to what's on disk. */
   discard: () => void;
+}
+
+export interface ApplyOptions {
+  saveNow?: boolean;
+  coalesce?: string;
+}
+
+export interface UndoStep<K extends EditableKind> {
+  before: DesignDoc<K>;
+  after: DesignDoc<K>;
 }
 
 /**
@@ -125,21 +151,46 @@ export function useEditableDoc<K extends EditableKind>(
     return promise;
   }, [writeLatest]);
 
+  /** Makes `nextState` current and schedules its save. */
+  const commit = useCallback(
+    (nextState: EditableState<K>, next: DesignDoc<K>, saveNow: boolean) => {
+      // Update the ref at once so a save scheduled below, or a second call, sees this edit.
+      latest.current = { ...latest.current, state: nextState, doc: next };
+      setState(nextState);
+      clearTimer();
+      timer.current = setTimeout(() => void save(), saveNow ? 0 : AUTOSAVE_DELAY_MS);
+    },
+    [save],
+  );
+
   const apply = useCallback<EditableDoc<K>['apply']>(
     (edit, options) => {
       const { doc: current } = latest.current;
       if (!current) return;
       const next = edit(current);
       if (next === current) return;
-      const nextState = applyEdit(next);
-      // Update the ref at once so a save scheduled below sees this edit.
-      latest.current = { ...latest.current, state: nextState, doc: next };
-      setState(nextState);
-      clearTimer();
-      timer.current = setTimeout(() => void save(), options?.saveNow ? 0 : AUTOSAVE_DELAY_MS);
+      const nextState = applyEdit(latest.current.state, current, next, {
+        ...(options?.coalesce !== undefined && { coalesce: options.coalesce }),
+      });
+      commit(nextState, next, options?.saveNow ?? false);
     },
-    [save],
+    [commit],
   );
+
+  const step = useCallback(
+    (move: typeof undoEdit): UndoStep<K> | null => {
+      const { state: current, doc: before } = latest.current;
+      const nextState = move(current, before);
+      if (!nextState?.local || !before) return null;
+      const after = nextState.local;
+      commit(nextState, after, false);
+      return { before, after };
+    },
+    [commit],
+  );
+  const undo = useCallback(() => step(undoEdit), [step]);
+  const redo = useCallback(() => step(redoEdit), [step]);
+  const currentRevision = useCallback(() => latest.current.state.revision, []);
 
   const flush = useCallback(() => save(), [save]);
 
@@ -158,9 +209,16 @@ export function useEditableDoc<K extends EditableKind>(
 
   useEffect(() => clearTimer, []);
 
+  const history = historyFor(state, doc);
   return {
     doc,
     apply,
+    undo,
+    redo,
+    canUndo: history.past.length > 0,
+    canRedo: history.future.length > 0,
+    revision: state.revision,
+    currentRevision,
     status: state.status,
     issues: state.issues,
     dirty: state.dirty,

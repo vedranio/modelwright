@@ -1,4 +1,5 @@
 import { createContext, useContext, type Context } from 'react';
+import type { ApplyOptions } from './useEditableDoc';
 
 /**
  * What a canvas's nodes need to edit their document: apply an operation, and know or change
@@ -6,7 +7,12 @@ import { createContext, useContext, type Context } from 'react';
  */
 export interface DocEditor<Doc, Target> {
   /** Applies an operation to the document; see useEditableDoc. */
-  apply: (op: (doc: Doc) => Doc, options?: { saveNow?: boolean }) => void;
+  apply: (op: (doc: Doc) => Doc, options?: ApplyOptions) => void;
+  /**
+   * Applies a delete and shows its undo toast. `describe` words it from the document before
+   * the delete (e.g. "Deleted attribute 'email'"); null means there's nothing to delete.
+   */
+  remove: (op: (doc: Doc) => Doc, describe: (doc: Doc) => string | null) => void;
   editing: Target | null;
   setEditing: (target: Target | null) => void;
 }
