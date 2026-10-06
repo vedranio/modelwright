@@ -4,7 +4,7 @@ A local design tool that produces a structured spec — an entity relationship d
 
 ## Current phase
 
-**Phase 4 — Preview.** See `docs/phase-4-brief.md`. Phases 1 (foundation), 2 (ERD canvas) and 3 (flow canvas) are complete and merged. modelwright never runs a project's dev server; it previews the URL in `config.json`. Do not start phase 5 work until phase 4's "done means" has been verified and committed.
+**Phase 5 — Polish.** See `docs/phase-5-brief.md`. Phases 1–4 (foundation, ERD canvas, flow canvas, preview) are complete and merged. This phase adds undo/redo, shortcuts, file watching, the generated `.design/spec.md` and dark mode. Do not start phase 6 work until phase 5's "done means" has been verified and committed.
 
 Phases, in order:
 
