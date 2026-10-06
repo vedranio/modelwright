@@ -225,10 +225,15 @@ button {
     transform var(--duration-fast) var(--ease-out);
 }
 
-.btn-icon:hover,
-.btn-icon:active {
+.btn-icon:hover:not(:disabled),
+.btn-icon:active:not(:disabled) {
   background: var(--color-surface-hover);
   color: var(--color-text);
+}
+
+.btn-icon:disabled {
+  color: var(--color-text-faint);
+  cursor: default;
 }
 
 :focus-visible {

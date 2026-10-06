@@ -639,3 +639,19 @@ I walked the "done means" list against fresh copies of the notes fixture, drivin
   - Trackpad gestures.
   - The System theme following a real OS appearance change (verified with emulated media only).
   - GitHub's own Mermaid rendering of `spec.md`, which needs a push (verified with Mermaid's parser and a local Mermaid 11 render).
+
+## 2026-10-06 — Copy Mermaid replaced by undo and redo buttons (supersedes the brief's §5 "Copy Mermaid")
+
+Decided after the phase 5 walk.
+
+- **Copy Mermaid is gone.** Both diagrams are already in `.design/spec.md`, which is rewritten on every save and rendered by GitHub, so a button to copy them added little.
+- **`packages/spec` still exports `erdMermaid` and `flowsMermaid`.** `renderSpec` uses them, and phase 6 may too. `apps/web` no longer depends on the package.
+- **Undo and redo buttons** (↶ ↷) now sit in the same toolbar slot, after the view's add button.
+  - They run the same steps as ⌘Z and ⇧⌘Z, through `useCanvasHistory`, so what a step touched is selected afterwards.
+  - Each is disabled when there's nothing to undo or redo, using the editor's `canUndo` / `canRedo`.
+  - Their tooltips give the shortcut from the registry.
+  - A disabled icon button is drawn in faint text and gets no hover background.
+- **Verified in headless Chrome on both canvases, in light and dark:**
+  - Both buttons start disabled, and a delete enables Undo.
+  - Undo restores the file byte for byte, selects the restored card and enables Redo.
+  - Redo applies the delete again.
