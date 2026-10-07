@@ -25,6 +25,7 @@ import {
 } from './edgeGeometry';
 import { EdgePopover } from './EdgePopover';
 import { MARKER, markerShapes } from './markers';
+import { EdgePopoverAnchor } from '../canvas/EdgePopoverAnchor';
 
 export type CrowsFootEdgeType = Edge<
   {
@@ -90,21 +91,16 @@ export function CrowsFootEdge({
       <Marker end={ends.source} card={data.fromCard} />
       <Marker end={ends.target} card={data.toCard} />
       {data.editing && (
-        <EdgeLabelRenderer>
-          <div
-            className="edge-popover-anchor"
-            style={{ transform: `translate(-50%, 0) translate(${labelX}px, ${labelY}px)` }}
-          >
-            <EdgePopover
-              relationshipId={id}
-              fromName={data.fromName}
-              toName={data.toName}
-              fromCard={data.fromCard}
-              toCard={data.toCard}
-              label={data.label ?? ''}
-            />
-          </div>
-        </EdgeLabelRenderer>
+        <EdgePopoverAnchor at={{ x: labelX, y: labelY }}>
+          <EdgePopover
+            relationshipId={id}
+            fromName={data.fromName}
+            toName={data.toName}
+            fromCard={data.fromCard}
+            toCard={data.toCard}
+            label={data.label ?? ''}
+          />
+        </EdgePopoverAnchor>
       )}
       {data.label && (
         <EdgeLabelRenderer>

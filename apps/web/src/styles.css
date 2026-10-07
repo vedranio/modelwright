@@ -78,10 +78,23 @@ button {
 
 .logo {
   flex: none;
-  width: var(--logo-size);
+  /* The mark is a 7:4 tile, white on black in both themes. */
+  width: calc(var(--logo-size) * 1.75);
   height: var(--logo-size);
-  border-radius: var(--radius-sm);
-  background: var(--color-accent);
+}
+
+.logo rect {
+  fill: #000;
+}
+
+.logo path {
+  fill: none;
+  stroke: #fff;
+  stroke-width: 80;
+}
+
+.wordmark > .logo {
+  --logo-size: 20px;
 }
 
 .dot {

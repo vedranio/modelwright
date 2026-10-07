@@ -134,11 +134,11 @@
   stroke-width: var(--border-w);
 }
 
+/* Placed in screen space by EdgePopoverAnchor, above React Flow's panels (z-index 5). */
 .edge-popover-anchor {
   position: absolute;
-  padding-top: var(--space-5);
   pointer-events: all;
-  z-index: 5;
+  z-index: 6;
 }
 
 .edge-popover {

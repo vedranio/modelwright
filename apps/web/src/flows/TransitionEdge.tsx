@@ -7,6 +7,7 @@ import {
   type EdgeProps,
   type InternalNode,
 } from '@xyflow/react';
+import { EdgePopoverAnchor } from '../canvas/EdgePopoverAnchor';
 import { orthogonalPath, type Rect } from '../canvas/edgeGeometry';
 import { routeTransitionSides, type Fan } from './route';
 import { TransitionPopover } from './TransitionPopover';
@@ -99,21 +100,16 @@ export function TransitionEdge({
         </EdgeLabelRenderer>
       )}
       {data?.editing && (
-        <EdgeLabelRenderer>
-          <div
-            className="edge-popover-anchor"
-            style={{ transform: `translate(-50%, 0) translate(${label.x}px, ${label.y}px)` }}
-          >
-            <TransitionPopover
-              transitionId={id}
-              fromText={data.fromText}
-              toScreenName={data.toScreenName}
-              toStates={data.toStates}
-              toStateId={data.toStateId}
-              label={data.label ?? ''}
-            />
-          </div>
-        </EdgeLabelRenderer>
+        <EdgePopoverAnchor at={label}>
+          <TransitionPopover
+            transitionId={id}
+            fromText={data.fromText}
+            toScreenName={data.toScreenName}
+            toStates={data.toStates}
+            toStateId={data.toStateId}
+            label={data.label ?? ''}
+          />
+        </EdgePopoverAnchor>
       )}
       {data?.label && (
         <EdgeLabelRenderer>

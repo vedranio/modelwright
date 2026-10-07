@@ -929,3 +929,17 @@ Designing PhotoBackup for the milestone 4 dry run turned up twelve UI changes, l
   - the computed cursors
   - ERD hover and selection lighting Config and Source, with a 2px selected line
   - both help tabs
+
+### Commit F: a connector's details card stays in view (item 18)
+
+- **The cause:** the popover for a relationship or transition was drawn inside React Flow's zoomed layer, at the line's label point. When that point was near an edge of the view, or off it, the card was too. It also scaled with the zoom.
+- **The fix:** `canvas/EdgePopoverAnchor.tsx` draws the popover in screen space instead, in a portal on the React Flow element, outside the zoomed layer. It converts the label point with the live viewport (`useViewport`), measures itself with a `ResizeObserver`, and places itself with `placePopover` (`canvas/popoverPlacement.ts`, pure, tested):
+  - centred 16 px below the point
+  - above it when there's no room below
+  - always held 12 px inside the canvas, so even with the line off-screen the card is pinned to the nearest edge
+- **Size and stacking:** the card keeps its size at any zoom, and sits above React Flow's panels (z-index 6).
+- **Both canvases** use the anchor: `CrowsFootEdge` for relationships and `TransitionEdge` for transitions.
+- **Verified in the browser** on the PhotoBackup copy:
+  - a transition whose line ran off the top of the view opened its card on screen
+  - panning the line out of view left the card pinned 12 px from the top
+  - typing a label into the card still saved

@@ -3,7 +3,17 @@ import { Icon } from './Icon';
 
 /** The modelwright logo mark. */
 export function Logo() {
-  return <span className="logo" aria-hidden="true" />;
+  // The m and w share their middle stroke; the arches and bowls overshoot the flat stem ends
+  // slightly so both letters read as the same height. Source art lives in brand/.
+  return (
+    <svg className="logo" viewBox="0 0 1680 960" aria-hidden="true">
+      <rect width="1680" height="960" rx="200" />
+      <path
+        transform="translate(840 480) scale(1.1) translate(-500 -220)"
+        d="M0 440V159A125 125 0 0 1 250 159A125 125 0 0 1 500 159V281A125 125 0 0 0 750 281A125 125 0 0 0 1000 281V0M250 159V440M750 281V0"
+      />
+    </svg>
+  );
 }
 
 /**

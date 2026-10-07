@@ -31,6 +31,7 @@ Changes to make to modelwright's UI, collected from use. Items 1–12 were built
 14. **Arrow cursor on empty canvas.** _Done (commit E)._ The default pointer on empty canvas is the standard arrow. Only selectable or editable things (cards, their text, connectors) show a pointing hand.
 15. **Hover highlights a connector and both ends, on both canvases.** _Done (commit E)._ Hovering a connector highlights it and the two items it connects. Flows already lit the source CTA and target state; the ERD now lights both entities.
 16. **A stronger selected connector.** _Done (commit E)._ A selected connector is thicker as well as accent-coloured.
+18. **Keep a connector's details card in view.** _Done (commit F)._ Selecting a connector sometimes put its details card out of view. It must show where it can be seen.
 
 ## Help
 
