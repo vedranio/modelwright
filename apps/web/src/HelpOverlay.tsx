@@ -118,8 +118,8 @@ function HowItWorks() {
   return (
     <div className="help-guide">
       <p className="help-lead">
-        You design the app here. Your AI coding tool builds it. They meet in your project’s{' '}
-        <code>.design/</code> folder.
+        You design how the app works here: its data and its screen flows. Your AI tools build it and
+        design how it looks. They meet in your project’s <code>.design/</code> folder.
       </p>
 
       <div className="help-sides">
@@ -135,7 +135,8 @@ function HowItWorks() {
               and the actions that lead elsewhere.
             </li>
             <li>
-              <strong>UI:</strong> the running app, previewed from its dev server.
+              <strong>UI:</strong> a live preview of the running app, for checking what was built.
+              It’s not for designing: you can’t change the app from it.
             </li>
             <li>
               Everything saves to <code>.design/</code>. modelwright never touches your code.
@@ -154,18 +155,30 @@ function HowItWorks() {
             </li>
             <li>It writes the code, checks every screen and state, and records the build.</li>
             <li>It never changes your design. If something is missing or unclear, it asks you.</li>
+            <li>
+              The first build is deliberately plain: it follows your design’s structure, not a look.
+            </li>
           </ul>
         </section>
       </div>
 
+      <h3 className="shortcuts-group-title">Designing how it looks</h3>
+      <p>
+        Visual design happens in your AI tools, not in modelwright. Once the screens are built,
+        design the UI in your AI design tool (e.g. Claude Design), then ask your coding tool to
+        apply it to the app. Check the result in the UI view. Later changes to the flows still
+        update only what changed, so the visual design is kept.
+      </p>
+
       <h3 className="shortcuts-group-title">The loop</h3>
       <ol>
-        <li>Design here.</li>
+        <li>Design the data and flows here.</li>
         <li>Run the build command in your project, and approve the plan.</li>
         <li>Check the app in the UI view.</li>
+        <li>Design the look in your AI design tool, and have your coding tool apply it.</li>
         <li>
-          Change the design. The header shows what changed since the last build; running the command
-          again applies only those changes.
+          Change the data or flows here. The header shows what changed since the last build; running
+          the command again applies only those changes.
         </li>
       </ol>
       <CommandSnippet command={BUILD_COMMAND} />

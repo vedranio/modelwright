@@ -943,3 +943,11 @@ Designing PhotoBackup for the milestone 4 dry run turned up twelve UI changes, l
   - a transition whose line ran off the top of the view opened its card on screen
   - panning the line out of view left the card pinned 12 px from the top
   - typing a label into the card still saved
+
+### Commit G: where visual design happens, in the help
+
+"How it works" now says that modelwright designs how the app works (data and flows), and that the AI tools build it and design how it looks:
+- **The UI tab** is described as a live preview for checking what was built, not a place to design.
+- **The coding tool's list** notes that the first build is deliberately plain.
+- **A "Designing how it looks" section:** design the UI in an AI design tool (e.g. Claude Design), have the coding tool apply it, and check it in the UI view. Later flow changes still update only what changed, so the visual design is kept.
+- **The loop** gains that step.

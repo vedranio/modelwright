@@ -36,6 +36,7 @@ Changes to make to modelwright's UI, collected from use. Items 1–12 were built
 ## Help
 
 17. **Help in two tabs.** _Done (commit E)._ "How it works" explains what happens in modelwright and what happens in the AI coding tool, and where they meet. "Keyboard shortcuts" is the old overlay.
+18b. **Explain where visual design happens.** _Done (commit G)._ "How it works" should say how the UI is designed (in an AI design tool such as Claude Design, then applied by the coding tool) and that the UI tab is for previewing, not designing.
 
 ## Follow-ups
 
