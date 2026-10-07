@@ -109,6 +109,10 @@ async function loadDoc<K extends DesignKind>(
     if (err instanceof ProjectClientError && err.issues) {
       return { status: 'invalid', issues: err.issues };
     }
-    return { status: 'error', message: err instanceof Error ? err.message : String(err) };
+    return {
+      status: 'error',
+      message: err instanceof Error ? err.message : String(err),
+      ...(err instanceof ProjectClientError && err.status === 0 && { unreachable: true }),
+    };
   }
 }

@@ -889,3 +889,24 @@ Designing PhotoBackup for the milestone 4 dry run turned up twelve UI changes, l
   - state notes are requirements for that state
   - the primary CTA is rendered as the visually primary button
 - **The bundled CLI was rebuilt,** and `claude plugin validate` still passes with the "no version" warning.
+
+### Commit D: a stopped server (item 12)
+
+- **Detecting it:**
+  - `httpClient.clientError` classifies failed responses. Our server always answers with a JSON body, so a 5xx without one comes from the Vite proxy when the server is down. That, like a request that never connected, is reported as unreachable (status 0) with one message (`UNREACHABLE_MESSAGE`).
+  - A failed save that couldn't reach the server sets the new `offline` status (`saveFailed(s, offline)`).
+- **Saving by itself:** while `offline`, `useEditableDoc` retries every 3 s (`OFFLINE_RETRY_MS`), chained through the status changes each attempt makes. Edits save on their own once only the API server comes back. Retry still saves at once.
+- **Saying so:**
+  - The canvas pill reads "modelwright's server isn't running — start it with `pnpm dev` · retry".
+  - A config save behind the header's name reads "Server not running — retry".
+- **Found while verifying:** with the server down, refocusing the window re-read the files, failed, and replaced the whole canvas with "couldn't be loaded". Now `keepUnchanged` keeps the document on screen when a re-read can't reach the server, because nothing is known to have changed on disk. A first load with the server down still shows the error.
+- **Not restarting the server:** a web page can't start a process. That needs Electron's main process or a launcher that supervises the server.
+- **Known limit, found while verifying:**
+  - When both servers stop (as with `pnpm dev` itself) and come back, Vite's dev client reloads the page as soon as it reconnects. That's usually before the next retry.
+  - The `beforeunload` guard should make a real browser ask before reloading, and cancelling keeps the edits for the retry to save. The browser pane used for verification doesn't show that prompt, so this is unverified.
+  - Vite has no option to skip that reload. The robust fix is keeping unsaved working copies in session storage and restoring them after a reload, which is logged as a follow-up in `docs/ui-feedback.md` rather than built here.
+- **Verified in the browser** (servers stopped, an edit made, the server restarted):
+  - the offline pill
+  - the canvas staying up on refocus
+  - the status returning to Saved
+  - the reload losing the edit

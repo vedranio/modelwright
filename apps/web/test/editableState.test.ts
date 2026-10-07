@@ -157,6 +157,18 @@ describe('editable state', () => {
     expect(resolveDoc('erd', failed, notesErd())).toBe(kept.local);
   });
 
+  it('marks a save that couldn’t reach the server as offline, then saved once it lands', () => {
+    const kept = edited(renameEntity(notesErd(), firstId(notesErd()), 'Kept'));
+    const offline = saveFailed(saveStarted(kept), true);
+    expect(offline).toMatchObject({ dirty: true, status: 'offline', local: kept.local });
+    const retried = saveStarted(offline);
+    expect(retried.status).toBe('saving');
+    expect(saveSucceeded(retried, kept.local as NonNullable<typeof kept.local>)).toMatchObject({
+      dirty: false,
+      status: 'saved',
+    });
+  });
+
   describe('undo history', () => {
     const name = (h: ReturnType<typeof harness>) => h.doc().entities[0]?.name;
 
@@ -268,5 +280,21 @@ describe('editable state', () => {
       const landed = saveSucceeded(hold(saveStarted(h.state())), target);
       expect(landed).toMatchObject({ held: true, status: 'held', dirty: false });
     });
+  });
+});
+
+describe('keepUnchanged', () => {
+  const ok: DocState<'erd'> = { status: 'ok', doc: notesErd() };
+
+  it('keeps the document on screen when a re-read can’t reach the server', () => {
+    const down: DocState<'erd'> = { status: 'error', message: 'down', unreachable: true };
+    expect(keepUnchanged('erd', ok, down)).toBe(ok);
+  });
+
+  it('shows other errors, and the error on a first load', () => {
+    const broken: DocState<'erd'> = { status: 'error', message: 'Disk full' };
+    expect(keepUnchanged('erd', ok, broken)).toBe(broken);
+    const down: DocState<'erd'> = { status: 'error', message: 'down', unreachable: true };
+    expect(keepUnchanged('erd', { status: 'loading' }, down)).toBe(down);
   });
 });

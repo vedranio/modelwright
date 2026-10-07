@@ -15,10 +15,7 @@ export function createHttpClient(baseUrl = '/api'): ProjectClient {
         }),
       });
     } catch {
-      throw new ProjectClientError(
-        'Cannot reach the modelwright server. Is `pnpm dev` running?',
-        0,
-      );
+      throw new ProjectClientError(UNREACHABLE_MESSAGE, 0);
     }
     if (!res.ok) throw await toError(res);
     return res;
@@ -74,11 +71,24 @@ async function toError(res: Response): Promise<ProjectClientError> {
   } catch {
     // Not JSON: fall through to the generic message.
   }
+  return clientError(res.status, res.statusText, body);
+}
+
+/** The message every "the server isn't there" failure carries. */
+export const UNREACHABLE_MESSAGE = 'Cannot reach the modelwright server. Is `pnpm dev` running?';
+
+/**
+ * A failed response as a ProjectClientError. Our server always answers with a JSON body; a 5xx
+ * without one comes from the dev proxy in front of it when the server isn't running, so it's
+ * reported as unreachable (status 0), like a request that never connected.
+ */
+export function clientError(status: number, statusText: string, body: unknown): ProjectClientError {
   if (isDesignError(body)) {
-    return new ProjectClientError(`${body.file}.json is invalid`, res.status, body.issues);
+    return new ProjectClientError(`${body.file}.json is invalid`, status, body.issues);
   }
-  if (isErrorBody(body)) return new ProjectClientError(body.message, res.status);
-  return new ProjectClientError(`Request failed (${res.status} ${res.statusText})`, res.status);
+  if (isErrorBody(body)) return new ProjectClientError(body.message, status);
+  if (status >= 500) return new ProjectClientError(UNREACHABLE_MESSAGE, 0);
+  return new ProjectClientError(`Request failed (${status} ${statusText})`, status);
 }
 
 function isDesignError(body: unknown): body is DesignError {
