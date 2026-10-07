@@ -981,3 +981,4 @@ Details:
 - **The recents hint** reads [↕] choose · [↵] open, with icons sized like the keyboard hints' (`--kbd-icon-size`).
 - **The ↵ on every picker button** (Create project, Open, Initialise) is `keyboard_return`, through a small `ReturnKey`. Esc stays text.
 - **The rest of the app** keeps its text ↵ for now. Moving it to the icon too would be a one-line change in `Kbd`, like ⇧.
+- **Later:** `keyboard_return`'s glyph sits high in its box, so every use of it is dropped by `--return-icon-drop` (2px). `Icon` sets `data-icon` with the icon's name, so the CSS targets it wherever it's used. The drop is a `translate`, not a `transform`, so it combines with a rotation.

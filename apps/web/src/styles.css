@@ -52,7 +52,6 @@ button {
   white-space: nowrap;
 }
 
-/* Inline with the hint's text, so the text keeps the baseline and the line keeps its height. */
 /* sync_alt's arrows turned to point up and down. */
 .icon-upright {
   transform: rotate(90deg);
@@ -70,6 +69,15 @@ button {
   height: var(--kbd-icon-size);
 }
 
+/*
+ * keyboard_return's glyph sits high in its box; drop it so it centres on the text beside it.
+ * `translate` rather than `transform`, so it combines with a rotation.
+ */
+.icon[data-icon='keyboard_return'] {
+  translate: 0 var(--return-icon-drop);
+}
+
+/* Inline with the hint's text, so the text keeps the baseline and the line keeps its height. */
 .kbd .icon {
   width: var(--kbd-icon-size);
   height: var(--kbd-icon-size);

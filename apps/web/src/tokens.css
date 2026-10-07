@@ -114,6 +114,8 @@
   --icon-size: 18px;
   /* A ⇧ drawn as an icon inside a keyboard hint. */
   --kbd-icon-size: 14px;
+  /* How far keyboard_return is dropped to look centred on its text. */
+  --return-icon-drop: 2px;
   --toast-max-w: 480px;
   /* Toasts sit this far above the view's bottom edge, clear of the canvas toolbar below them. */
   --toast-offset: 72px;

@@ -39,6 +39,7 @@ export function Icon({ name, upright = false }: { name: IconName; upright?: bool
   return (
     <span
       className={`icon${upright ? ' icon-upright' : ''}`}
+      data-icon={name}
       aria-hidden="true"
       style={{ maskImage: url, WebkitMaskImage: url }}
     />
