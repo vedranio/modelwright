@@ -6,6 +6,7 @@ export type EditTarget =
   | { kind: 'name'; screenId: string; selectAll?: boolean }
   | { kind: 'notes'; screenId: string }
   | { kind: 'stateName'; screenId: string; stateId: string; selectAll?: boolean }
+  | { kind: 'stateNotes'; screenId: string; stateId: string }
   | { kind: 'sees'; screenId: string; stateId: string; index: number }
   /** A new sees item being typed, not yet in the document; `after` null means at the end. */
   | { kind: 'seesDraft'; screenId: string; stateId: string; after: number | null }

@@ -3,19 +3,23 @@ import type { DesignKind, Issue } from './common';
 /** The schemaVersion this build reads and writes, per file. */
 export const CURRENT_VERSION: Readonly<Record<DesignKind, number>> = {
   erd: 1,
-  flows: 1,
+  flows: 2,
   config: 1,
 };
 
 /** Upgrades a document from version n to version n + 1. */
 export type Migration = (doc: Record<string, unknown>) => Record<string, unknown>;
 
-/** `MIGRATIONS[kind][n]` upgrades a v`n` document to v`n + 1`. Empty at v1; phase 2+ adds entries here. */
+/** `MIGRATIONS[kind][n]` upgrades a v`n` document to v`n + 1`. */
 export type MigrationTable = Readonly<Record<DesignKind, Readonly<Record<number, Migration>>>>;
 
 export const MIGRATIONS: MigrationTable = {
   erd: {},
-  flows: {},
+  flows: {
+    // v2 adds two optional fields to states (`notes`, `primaryCtaId`): every v1 file is a
+    // valid v2 file once its version says so.
+    1: (doc) => doc,
+  },
   config: {},
 };
 

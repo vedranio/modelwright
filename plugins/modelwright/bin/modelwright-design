@@ -19765,10 +19765,14 @@ var Cta = external_exports.strictObject({
 var ScreenState = external_exports.strictObject({
   id: Id,
   name: external_exports.string(),
+  /** Notes on this state, e.g. when it shows. Added in schemaVersion 2. */
+  notes: external_exports.string().optional(),
   /** What the user can see. */
   sees: external_exports.array(external_exports.string()),
   /** What the user can do. */
-  ctas: external_exports.array(Cta)
+  ctas: external_exports.array(Cta),
+  /** The state's main CTA: one of `ctas`, at most one per state. Added in schemaVersion 2. */
+  primaryCtaId: Id.optional()
 });
 var Screen = external_exports.strictObject({
   id: Id,
@@ -19796,7 +19800,7 @@ var Transition = external_exports.strictObject({
   label: external_exports.string().optional()
 });
 var Flows = external_exports.strictObject({
-  schemaVersion: external_exports.literal(1),
+  schemaVersion: external_exports.literal(2),
   screens: external_exports.array(Screen),
   transitions: external_exports.array(Transition),
   layout: Layout
@@ -19807,6 +19811,13 @@ var Flows = external_exports.strictObject({
     checkUniqueIds(ctx, screen.states, ["screens", i, "states"], "state");
     screen.states.forEach((state, j) => {
       checkUniqueIds(ctx, state.ctas, ["screens", i, "states", j, "ctas"], "CTA");
+      if (state.primaryCtaId !== void 0 && !state.ctas.some((c) => c.id === state.primaryCtaId)) {
+        ctx.addIssue({
+          code: "custom",
+          message: `Primary CTA "${state.primaryCtaId}" isn't one of state "${state.id}"'s CTAs`,
+          path: ["screens", i, "states", j, "primaryCtaId"]
+        });
+      }
     });
   });
   const screens = new Map(flows.screens.map((s) => [s.id, s]));
@@ -19878,12 +19889,16 @@ var SCHEMAS = {
 // ../schema/src/migrate.ts
 var CURRENT_VERSION = {
   erd: 1,
-  flows: 1,
+  flows: 2,
   config: 1
 };
 var MIGRATIONS = {
   erd: {},
-  flows: {},
+  flows: {
+    // v2 adds two optional fields to states (`notes`, `primaryCtaId`): every v1 file is a
+    // valid v2 file once its version says so.
+    1: (doc) => doc
+  },
   config: {}
 };
 function migrate(kind, data) {
@@ -20071,9 +20086,31 @@ function parseBuildRecord(data) {
       ]
     };
   }
-  const result = BuildRecord.safeParse(data);
+  const migrated = migrateSnapshot(data);
+  if (!migrated.ok) return migrated;
+  const result = BuildRecord.safeParse(migrated.data);
   if (!result.success) return { ok: false, issues: toIssues(result.error) };
   return { ok: true, record: result.data };
+}
+function migrateSnapshot(data) {
+  const snapshot = data["snapshot"];
+  if (typeof snapshot !== "object" || snapshot === null || Array.isArray(snapshot)) {
+    return { ok: true, data };
+  }
+  const next = { ...snapshot };
+  for (const kind of ["config", "erd", "flows"]) {
+    const doc = next[kind];
+    if (typeof doc !== "object" || doc === null || Array.isArray(doc)) continue;
+    const result = migrate(kind, doc);
+    if (!result.ok) {
+      return {
+        ok: false,
+        issues: result.issues.map((i) => ({ ...i, path: ["snapshot", kind, ...i.path] }))
+      };
+    }
+    next[kind] = result.data;
+  }
+  return { ok: true, data: { ...data, snapshot: next } };
 }
 function parseBuildRecordJson(text) {
   let data;
@@ -20349,6 +20386,7 @@ function flowsSection(flows, erd) {
       if (s.states.length > 1) {
         out.push(`#### ${inlineText(st.name) || "(unnamed)"}${i === 0 ? " (default)" : ""}`, "");
       }
+      if (st.notes?.trim()) out.push(inlineText(st.notes), "");
       out.push("Information:", "");
       if (st.sees.length === 0) out.push("- Nothing yet");
       for (const item of st.sees) out.push(`- ${inlineText(item)}`);
@@ -20358,7 +20396,8 @@ function flowsSection(flows, erd) {
         const leads2 = flows.transitions.filter(
           (t) => t.from.screenId === s.id && t.from.stateId === st.id && t.from.ctaId === cta.id
         );
-        const label = `**${inlineText(cta.label) || "(unnamed)"}**`;
+        const primary = st.primaryCtaId === cta.id ? " (primary)" : "";
+        const label = `**${inlineText(cta.label) || "(unnamed)"}**${primary}`;
         if (leads2.length === 0) {
           out.push(`- ${label} (dead end)`);
           continue;
@@ -20689,6 +20728,12 @@ function stateChanges(after, screen, a, b, leadsBefore, leadsAfter) {
   const out = [];
   const where = q(place(screen, b));
   const at = { screenId: screen.id, stateId: b.id };
+  const notes = optionalChange(a.notes, b.notes, {
+    added: (v) => `Added notes to ${where}: ${q(v)}.`,
+    removed: () => `Removed the notes on ${where}.`,
+    changed: (v, was) => `Changed the notes on ${where} to ${q(v)} (was ${q(was)}).`
+  });
+  if (notes) out.push({ kind: "state-notes-changed", ids: at, text: notes });
   for (const step of alignText(a.sees, b.sees)) {
     if (step.op === "changed") {
       out.push({
@@ -20754,6 +20799,21 @@ function stateChanges(after, screen, a, b, leadsBefore, leadsAfter) {
           text: `Action ${q(y.label)} in ${where} is no longer a dead end: it leads to ${targets.join(" and ")}.`
         });
       }
+    }
+  }
+  if (a.primaryCtaId !== b.primaryCtaId) {
+    const label = (st, id) => id === void 0 ? void 0 : st.ctas.find((c) => c.id === id)?.label ?? id;
+    const text = optionalChange(label(a, a.primaryCtaId), label(b, b.primaryCtaId), {
+      added: (v) => `${q(v)} is now the primary action in ${where}.`,
+      removed: (was) => `${where} no longer has a primary action (was ${q(was)}).`,
+      changed: (v, was) => `${q(v)} is now the primary action in ${where} (was ${q(was)}).`
+    });
+    if (text ?? b.primaryCtaId !== void 0) {
+      out.push({
+        kind: "primary-cta-changed",
+        ids: { ...at, ...b.primaryCtaId !== void 0 && { ctaId: b.primaryCtaId } },
+        text: text ?? `The primary action in ${where} is now another one labelled ${q(label(b, b.primaryCtaId) ?? "")}.`
+      });
     }
   }
   if (reordered(ids(a.ctas), ids(b.ctas))) {

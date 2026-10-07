@@ -859,3 +859,33 @@ Designing PhotoBackup for the milestone 4 dry run turned up twelve UI changes, l
   - Home's state loops run down its right side
   - Confirm cancel's actions go left → right into Home
   - dragging from a left handle onto Splash connects
+
+### Commit C: flows schema v2, primary CTA and state notes (items 6 and 8)
+
+- **`flows.json` schemaVersion 2.** `ScreenState` gains two optional fields:
+  - `notes` (after `name`)
+  - `primaryCtaId` (after `ctas`), which must name one of that state's CTAs, enforced by a superRefine issue at `…states.N.primaryCtaId`
+  - A single field per state makes "at most one primary per state" structural, rather than a flag on each CTA that would need its own rule.
+- **Migration 1 → 2** only changes the version: every v1 file is a valid v2 file. `erd.json` and `config.json` stay at 1.
+- **The fixtures** (notes, busy, notes-edited) are v2. `packages/schema/test/fixtures/v1/flows.json` keeps a v1 copy for the migration test. The busy and notes-edited fixtures gained a state note and a primary CTA, so the goldens cover them.
+- **`build.json`:** `parseBuildRecord` migrates each snapshot document before validating, as the milestone 0 entry required, so a build recorded against v1 flows still reads and diffs. The build record itself stays at schemaVersion 1. Verified with the CLI on a v1 copy of PhotoBackup with a v1 snapshot.
+- **An older modelwright** (main before this merges) refuses a v2 `flows.json` with "written by a newer modelwright". This is expected: the file is migrated in place on its next save from this branch.
+- **Ops:**
+  - `setStateNotes`, and `setPrimaryCta(…, ctaId | null)`, which replaces any previous primary and ignores a CTA that isn't in the state
+  - `deleteCta` removes the mark with its CTA
+  - `duplicateScreens` points the copy's mark at the copied CTA
+- **Card:**
+  - A primary CTA shows the accent "primary" tag (the "default" tag's style) after its label.
+  - Each CTA row's hover controls offer "make primary", or "unset" on the primary.
+  - A state header's hover controls offer "+ notes". Notes show as a muted line under the header and open on click.
+  - A single-state screen has no state header, so its screen notes serve. Notes already on its state show at the top of the body.
+  - State notes aren't on the Tab path.
+  - `estimateScreenSize` counts a notes line per state that has notes.
+- **`spec.md`:** a state's notes come before its "Information:" list, and the primary CTA reads `**Label** (primary) → …`.
+- **The diff** adds:
+  - `state-notes-changed` ("Added notes to “Memos › List”: …")
+  - `primary-cta-changed` ("“Open note” is now the primary action in …")
+- **SKILL.md:**
+  - state notes are requirements for that state
+  - the primary CTA is rendered as the visually primary button
+- **The bundled CLI was rebuilt,** and `claude plugin validate` still passes with the "no version" warning.

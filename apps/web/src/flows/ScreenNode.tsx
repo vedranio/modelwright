@@ -15,6 +15,8 @@ import {
   renameCta,
   renameScreen,
   renameState,
+  setPrimaryCta,
+  setStateNotes,
   moveCta,
   moveSeesItem,
   moveState,
@@ -234,6 +236,39 @@ function StateSection({
     if (name) apply((f) => renameState(f, screen.id, state.id, name));
   };
 
+  const notesTarget: EditTarget = { kind: 'stateNotes', ...ids };
+  const editingNotes = isEditing(editing, notesTarget);
+  const commitNotes = (value: string) =>
+    apply((f) => setStateNotes(f, screen.id, state.id, value.trim()));
+  /** The state's notes: a muted line, or its field while being edited. */
+  const notes = editingNotes ? (
+    <div className="state-notes">
+      <InlineField
+        className="state-notes-input"
+        ariaLabel="State notes"
+        placeholder="Notes on this state"
+        value={state.notes ?? ''}
+        onCommit={(value) => {
+          commitNotes(value);
+          setEditing(null);
+        }}
+        onCancel={() => setEditing(null)}
+      />
+    </div>
+  ) : (
+    state.notes && (
+      <p
+        className="state-notes editable"
+        onClick={(e) => {
+          e.stopPropagation();
+          setEditing(notesTarget);
+        }}
+      >
+        {state.notes}
+      </p>
+    )
+  );
+
   const seesDraftAt = (after: number | null) =>
     isEditing(editing, { kind: 'seesDraft', ...ids, after });
   const ctaDraftAt = (after: string | null) =>
@@ -293,6 +328,16 @@ function StateSection({
           {isDefault && <span className="state-tag">default</span>}
           {!nameTarget && (
             <span className="row-actions">
+              {!state.notes && !editingNotes && (
+                <button
+                  type="button"
+                  className="row-action nodrag"
+                  title="Add notes on this state"
+                  onClick={() => setEditing(notesTarget)}
+                >
+                  + notes
+                </button>
+              )}
               {!isDefault && (
                 <button
                   type="button"
@@ -322,6 +367,8 @@ function StateSection({
         </div>
       )}
 
+      {/* Under the state's header; a single-state screen has none, so its notes lead the body. */}
+      {notes}
       <div className="state-body">
         <div className="list-caption">Information</div>
         <ul className="sees">
@@ -359,6 +406,7 @@ function StateSection({
                 state={state}
                 stateIndex={stateIndex}
                 cta={cta}
+                primary={state.primaryCtaId === cta.id}
                 connected={connected.has(`${state.id}:${cta.id}`)}
                 highlighted={highlight?.ctas.has(`${state.id}:${cta.id}`) ?? false}
               />
@@ -536,9 +584,10 @@ function CtaRow({
   state,
   stateIndex,
   cta,
+  primary,
   connected,
   highlighted,
-}: RowProps & { cta: Cta; connected: boolean; highlighted: boolean }) {
+}: RowProps & { cta: Cta; primary: boolean; connected: boolean; highlighted: boolean }) {
   const { apply, remove, editing, setEditing } = useFlowsEditor();
   const target: EditTarget = { kind: 'cta', screenId: screen.id, stateId: state.id, ctaId: cta.id };
 
@@ -586,7 +635,20 @@ function CtaRow({
           {cta.label || ' '}
         </span>
       )}
+      {primary && !isEditing(editing, target) && <span className="state-tag">primary</span>}
       <span className="row-actions">
+        <button
+          type="button"
+          className="row-action nodrag"
+          title={
+            primary ? 'Stop marking this as the primary CTA' : 'Make this the state’s primary CTA'
+          }
+          onClick={() =>
+            apply((f) => setPrimaryCta(f, screen.id, state.id, primary ? null : cta.id))
+          }
+        >
+          {primary ? 'unset' : 'make primary'}
+        </button>
         <button
           type="button"
           className="row-action row-delete nodrag"

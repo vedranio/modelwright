@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "screens": [
     {
       "id": "catalogue",
@@ -13,6 +13,7 @@
         {
           "id": "browse",
           "name": "Browse",
+          "notes": "Shown when there is at least one item",
           "sees": [
             "categories",
             "product cards"
@@ -26,7 +27,8 @@
               "id": "cart",
               "label": "View cart"
             }
-          ]
+          ],
+          "primaryCtaId": "open"
         },
         {
           "id": "loading",

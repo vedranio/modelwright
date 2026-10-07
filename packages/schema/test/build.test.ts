@@ -101,6 +101,13 @@ describe('BuildRecord', () => {
     );
   });
 
+  it('reads a snapshot recorded with v1 flows, migrating it', () => {
+    const r = record();
+    r.snapshot.flows.schemaVersion = 1;
+    const parsed = ok(parseBuildRecord(r));
+    expect(parsed.snapshot.flows.schemaVersion).toBe(2);
+  });
+
   it('refuses a newer schemaVersion with a clear message', () => {
     const r = record();
     r.schemaVersion = 2;

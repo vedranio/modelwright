@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "screens": [
     {
       "id": "login",
@@ -60,6 +60,7 @@
         {
           "id": "notes-list",
           "name": "List",
+          "notes": "Newest first",
           "sees": [
             "memo titles",
             "updated dates",
@@ -78,7 +79,8 @@
               "id": "notes-share",
               "label": "Share"
             }
-          ]
+          ],
+          "primaryCtaId": "notes-open"
         },
         {
           "id": "notes-loading",

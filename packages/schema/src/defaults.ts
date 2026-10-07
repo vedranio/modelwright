@@ -9,7 +9,7 @@ export function defaultErd(): Erd {
 }
 
 export function defaultFlows(): Flows {
-  return { schemaVersion: 1, screens: [], transitions: [], layout: {} };
+  return { schemaVersion: 2, screens: [], transitions: [], layout: {} };
 }
 
 export function defaultConfig(name: string): Config {

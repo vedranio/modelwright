@@ -22,11 +22,13 @@
 - “Memos” now opens in state “Empty” (was “List”).
 - Reordered the states of “Memos”: “Empty”, “List” and “Loading”.
 - Action “Create your first note” in “Memos › Empty” is now a dead end.
+- Added notes to “Memos › List”: “Newest first”.
 - Changed information “note titles” in “Memos › List” to “memo titles”.
 - Added information “tags” to “Memos › List”.
 - Action “Open note” in “Memos › List” is no longer a dead end: it leads to “Note editor”.
 - Renamed action “New note” in “Memos › List” to “New memo”.
 - Added action “Share” to “Memos › List” (dead end).
+- “Open note” is now the primary action in “Memos › List”.
 - Reordered the actions in “Memos › List”: “Open note”, “New memo” and “Share”.
 - Added state “Loading” to “Memos”.
 - Changed information “title field” in “Note editor” to “heading field”.

@@ -86,8 +86,9 @@ Then list, separately:
   - The first state is the default: what the route shows normally.
   - Use real conditions where practical: no data → an empty state, a pending request → a loading state, a failed request → an error state.
   - **In development builds, every state also answers to `?state=<stateId>`.** For example, `/notes?state=notes-empty` forces that state with plausible placeholder data, whatever the real condition. Use the state's id from `flows.json`, exactly. The override must do nothing in production builds. It lets the user see every state in modelwright's UI preview by editing the URL.
+- **A state's notes** (`notes` on a state in `flows.json`) are requirements for that state. Follow them, or list the ones you can't as gaps.
 - **Information items → content the state shows,** in the order listed.
-- **Actions (CTAs) → buttons or links,** with the label exactly as designed, in the order listed.
+- **Actions (CTAs) → buttons or links,** with the label exactly as designed, in the order listed. A state's **primary CTA** (`primaryCtaId`, marked "(primary)" in `spec.md`) is its main action: render it as the visually primary button, and the others as secondary.
 - **Transitions → navigation or handlers.**
   - A transition with no `stateId` goes to the target screen's default state. A transition with a `stateId` goes to that state.
   - A label names a condition. "success" and "failure" mean the action's outcome decides which transition is taken, so implement them as those conditions.

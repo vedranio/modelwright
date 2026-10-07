@@ -33,6 +33,7 @@ export function estimateScreenSize(screen: Screen): Size {
         (sum, s) =>
           sum +
           (multi ? STATE_HEADER_HEIGHT : 0) +
+          (s.notes ? NOTES_HEIGHT : 0) +
           2 * CAPTION_HEIGHT +
           s.sees.length * SEES_ROW_HEIGHT +
           s.ctas.length * CTA_ROW_HEIGHT +

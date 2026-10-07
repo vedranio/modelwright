@@ -101,3 +101,19 @@ describe('flows.json', () => {
     expect(parseFlows(flows).ok).toBe(true);
   });
 });
+
+describe('flows v2: state notes and primary CTA', () => {
+  it('accepts notes and a primary CTA on a state', () => {
+    const flows = fixture('flows');
+    const state = flows.screens[0].states[0];
+    state.notes = 'Shown on first launch';
+    state.primaryCtaId = state.ctas[0].id;
+    expect(parseFlows(flows).ok).toBe(true);
+  });
+
+  it('rejects a primary CTA that isn’t one of the state’s CTAs', () => {
+    const flows = fixture('flows');
+    flows.screens[0].states[0].primaryCtaId = 'login-retry'; // a CTA of the Error state
+    expectIssue(parseFlows(flows), ['screens', 0, 'states', 0, 'primaryCtaId'], /isn't one of/);
+  });
+});

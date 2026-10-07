@@ -11,6 +11,9 @@ import {
   addState,
   addTransition,
   deleteCta,
+  duplicateScreens,
+  setPrimaryCta,
+  setStateNotes,
   deleteScreens,
   deleteSeesItem,
   deleteState,
@@ -55,7 +58,7 @@ const transition = (f: Flows, id: string) =>
   );
 const transitionIds = (f: Flows) => f.transitions.map((t) => t.id);
 
-const EMPTY: Flows = { schemaVersion: 1, screens: [], transitions: [], layout: {} };
+const EMPTY: Flows = { schemaVersion: 2, screens: [], transitions: [], layout: {} };
 
 describe('idsIn', () => {
   it('collects screen, state, CTA and transition ids', () => {
@@ -449,5 +452,53 @@ describe('addScreenWithTransition', () => {
     const before = notesFlows();
     const result = addScreenWithTransition(before, { x: 0, y: 0 }, { ...from, ctaId: 'gone' });
     expect(result).toEqual({ flows: before, screenId: null, transitionId: null });
+  });
+});
+
+describe('state notes and the primary CTA (schema v2)', () => {
+  const valid = (f: Flows) => expect(Flows.safeParse(f).success).toBe(true);
+  const notesList = (f: Flows) => must(must(f.screens[1]).states[0]);
+
+  it('sets, changes and clears a state’s notes', () => {
+    const before = deepFreeze(notesFlows());
+    const withNotes = setStateNotes(before, 'notes', 'notes-list', 'Newest first');
+    valid(withNotes);
+    expect(notesList(withNotes).notes).toBe('Newest first');
+    expect(setStateNotes(withNotes, 'notes', 'notes-list', 'Newest first')).toBe(withNotes);
+    expect('notes' in notesList(setStateNotes(withNotes, 'notes', 'notes-list', ' '))).toBe(false);
+  });
+
+  it('marks one primary CTA per state, replacing the last, and unsets it', () => {
+    const before = deepFreeze(notesFlows());
+    const one = setPrimaryCta(before, 'notes', 'notes-list', 'notes-new');
+    valid(one);
+    expect(notesList(one).primaryCtaId).toBe('notes-new');
+    const other = setPrimaryCta(one, 'notes', 'notes-list', 'notes-open');
+    expect(notesList(other).primaryCtaId).toBe('notes-open');
+    expect('primaryCtaId' in notesList(setPrimaryCta(other, 'notes', 'notes-list', null))).toBe(
+      false,
+    );
+  });
+
+  it('ignores a CTA that isn’t in the state', () => {
+    const before = deepFreeze(notesFlows());
+    expect(setPrimaryCta(before, 'notes', 'notes-list', 'login-submit')).toBe(before);
+  });
+
+  it('drops the mark when the primary CTA is deleted', () => {
+    const marked = setPrimaryCta(notesFlows(), 'notes', 'notes-list', 'notes-new');
+    const after = deleteCta(marked, 'notes', 'notes-list', 'notes-new');
+    valid(after);
+    expect('primaryCtaId' in notesList(after)).toBe(false);
+  });
+
+  it('carries the mark to a duplicated screen’s copy of the CTA', () => {
+    const marked = setPrimaryCta(notesFlows(), 'notes', 'notes-list', 'notes-new');
+    const { flows: after, ids } = duplicateScreens(marked, ['notes']);
+    valid(after);
+    const copy = must(after.screens.find((s) => s.id === ids[0]));
+    const state = must(copy.states[0]);
+    expect(state.primaryCtaId).toBe(state.ctas[0]?.id);
+    expect(state.primaryCtaId).not.toBe('notes-new');
   });
 });

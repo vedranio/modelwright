@@ -438,6 +438,38 @@ describe('diffDesign: screens and flows', () => {
   });
 });
 
+describe('diffDesign: state notes and primary CTA', () => {
+  it('reports state notes added, changed and removed', () => {
+    expect(
+      only((d) => (state(d, 'notes', 'notes-empty').notes = 'No notes yet'), 'state-notes-changed'),
+    ).toEqual({
+      kind: 'state-notes-changed',
+      ids: { screenId: 'notes', stateId: 'notes-empty' },
+      text: 'Added notes to “Notes › Empty”: “No notes yet”.',
+    });
+  });
+
+  it('reports a new, moved or cleared primary CTA', () => {
+    const marked = only(
+      (d) => (state(d, 'notes', 'notes-list').primaryCtaId = 'notes-new'),
+      'primary-cta-changed',
+    );
+    expect(marked).toEqual({
+      kind: 'primary-cta-changed',
+      ids: { screenId: 'notes', stateId: 'notes-list', ctaId: 'notes-new' },
+      text: '“New note” is now the primary action in “Notes › List”.',
+    });
+
+    const before = notes();
+    state(before, 'notes', 'notes-list').primaryCtaId = 'notes-new';
+    const after = structuredClone(before);
+    delete state(after, 'notes', 'notes-list').primaryCtaId;
+    expect(diffDesign(before, after).screens.map((c) => c.text)).toEqual([
+      '“Notes › List” no longer has a primary action (was “New note”).',
+    ]);
+  });
+});
+
 describe('diffDesign: config', () => {
   it('reports a renamed project and a changed preview URL', () => {
     const changes = all((d) => {

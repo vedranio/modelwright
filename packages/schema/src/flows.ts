@@ -10,10 +10,14 @@ export type Cta = z.infer<typeof Cta>;
 export const ScreenState = z.strictObject({
   id: Id,
   name: z.string(),
+  /** Notes on this state, e.g. when it shows. Added in schemaVersion 2. */
+  notes: z.string().optional(),
   /** What the user can see. */
   sees: z.array(z.string()),
   /** What the user can do. */
   ctas: z.array(Cta),
+  /** The state's main CTA: one of `ctas`, at most one per state. Added in schemaVersion 2. */
+  primaryCtaId: Id.optional(),
 });
 export type ScreenState = z.infer<typeof ScreenState>;
 
@@ -53,7 +57,7 @@ export type Transition = z.infer<typeof Transition>;
 /** `.design/flows.json` — screens with their states inside, and the transitions between them. */
 export const Flows = z
   .strictObject({
-    schemaVersion: z.literal(1),
+    schemaVersion: z.literal(2),
     screens: z.array(Screen),
     transitions: z.array(Transition),
     layout: Layout,
@@ -65,6 +69,16 @@ export const Flows = z
       checkUniqueIds(ctx, screen.states, ['screens', i, 'states'], 'state');
       screen.states.forEach((state, j) => {
         checkUniqueIds(ctx, state.ctas, ['screens', i, 'states', j, 'ctas'], 'CTA');
+        if (
+          state.primaryCtaId !== undefined &&
+          !state.ctas.some((c) => c.id === state.primaryCtaId)
+        ) {
+          ctx.addIssue({
+            code: 'custom',
+            message: `Primary CTA "${state.primaryCtaId}" isn't one of state "${state.id}"'s CTAs`,
+            path: ['screens', i, 'states', j, 'primaryCtaId'],
+          });
+        }
       });
     });
 

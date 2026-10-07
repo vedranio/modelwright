@@ -199,7 +199,7 @@ describe('identifiers and text', () => {
 
   it('keeps Mermaid keywords and punctuation out of flowchart identifiers', async () => {
     const flows: Flows = {
-      schemaVersion: 1,
+      schemaVersion: 2,
       screens: [
         {
           id: 'end',

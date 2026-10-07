@@ -3,6 +3,7 @@ import { Id, type Issue } from './common';
 import { Config } from './config';
 import { Erd } from './erd';
 import { Flows } from './flows';
+import { migrate } from './migrate';
 import { toIssues } from './parse';
 import { canonicalise, orderLayout } from './stringify';
 
@@ -97,9 +98,39 @@ export function parseBuildRecord(data: unknown): BuildRecordResult {
       ],
     };
   }
-  const result = BuildRecord.safeParse(data);
+  const migrated = migrateSnapshot(data as Record<string, unknown>);
+  if (!migrated.ok) return migrated;
+  const result = BuildRecord.safeParse(migrated.data);
   if (!result.success) return { ok: false, issues: toIssues(result.error) };
   return { ok: true, record: result.data };
+}
+
+/**
+ * Brings each design document in the snapshot up to the current schemaVersion, so a build
+ * recorded by an older modelwright still reads. Anything that isn't a document is left for
+ * the schema to report.
+ */
+function migrateSnapshot(
+  data: Record<string, unknown>,
+): { ok: true; data: unknown } | { ok: false; issues: Issue[] } {
+  const snapshot = data['snapshot'];
+  if (typeof snapshot !== 'object' || snapshot === null || Array.isArray(snapshot)) {
+    return { ok: true, data };
+  }
+  const next: Record<string, unknown> = { ...(snapshot as Record<string, unknown>) };
+  for (const kind of ['config', 'erd', 'flows'] as const) {
+    const doc = next[kind];
+    if (typeof doc !== 'object' || doc === null || Array.isArray(doc)) continue;
+    const result = migrate(kind, doc);
+    if (!result.ok) {
+      return {
+        ok: false,
+        issues: result.issues.map((i) => ({ ...i, path: ['snapshot', kind, ...i.path] })),
+      };
+    }
+    next[kind] = result.data;
+  }
+  return { ok: true, data: { ...data, snapshot: next } };
 }
 
 /** Decodes and validates `build.json` text. A JSON syntax error is reported at the root path. */

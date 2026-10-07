@@ -61,6 +61,7 @@ export type ChangeKind =
   | 'state-added'
   | 'state-removed'
   | 'state-renamed'
+  | 'state-notes-changed'
   | 'information-added'
   | 'information-removed'
   | 'information-changed'
@@ -68,6 +69,7 @@ export type ChangeKind =
   | 'cta-removed'
   | 'cta-renamed'
   | 'ctas-reordered'
+  | 'primary-cta-changed'
   | 'cta-now-dead-end'
   | 'cta-no-longer-dead-end'
   | 'transition-added'
@@ -459,6 +461,13 @@ function stateChanges(
   const where = q(place(screen, b));
   const at = { screenId: screen.id, stateId: b.id };
 
+  const notes = optionalChange(a.notes, b.notes, {
+    added: (v) => `Added notes to ${where}: ${q(v)}.`,
+    removed: () => `Removed the notes on ${where}.`,
+    changed: (v, was) => `Changed the notes on ${where} to ${q(v)} (was ${q(was)}).`,
+  });
+  if (notes) out.push({ kind: 'state-notes-changed', ids: at, text: notes });
+
   for (const step of alignText(a.sees, b.sees)) {
     if (step.op === 'changed') {
       out.push({
@@ -525,6 +534,25 @@ function stateChanges(
           text: `Action ${q(y.label)} in ${where} is no longer a dead end: it leads to ${targets.join(' and ')}.`,
         });
       }
+    }
+  }
+  if (a.primaryCtaId !== b.primaryCtaId) {
+    const label = (st: ScreenState, id: string | undefined) =>
+      id === undefined ? undefined : (st.ctas.find((c) => c.id === id)?.label ?? id);
+    const text = optionalChange(label(a, a.primaryCtaId), label(b, b.primaryCtaId), {
+      added: (v) => `${q(v)} is now the primary action in ${where}.`,
+      removed: (was) => `${where} no longer has a primary action (was ${q(was)}).`,
+      changed: (v, was) => `${q(v)} is now the primary action in ${where} (was ${q(was)}).`,
+    });
+    // Two CTAs can share a label: the ids changed, so it's a change either way.
+    if (text ?? b.primaryCtaId !== undefined) {
+      out.push({
+        kind: 'primary-cta-changed',
+        ids: { ...at, ...(b.primaryCtaId !== undefined && { ctaId: b.primaryCtaId }) },
+        text:
+          text ??
+          `The primary action in ${where} is now another one labelled ${q(label(b, b.primaryCtaId) ?? '')}.`,
+      });
     }
   }
   if (reordered(ids(a.ctas), ids(b.ctas))) {

@@ -245,6 +245,24 @@
   height: var(--text-sm-lh);
 }
 
+/* A state's notes, under its header. */
+.state-notes {
+  margin: 0;
+  padding: var(--space-1) var(--space-3) 0;
+  color: var(--color-text-muted);
+  overflow-wrap: anywhere;
+}
+
+.state-notes-input {
+  width: 100%;
+}
+
+/* A primary CTA's tag sits after its label. */
+.cta-row .state-tag {
+  margin-left: var(--space-2);
+  flex: none;
+}
+
 /* Hover controls at a header's or row's right, taking no space, so cards don't change size. */
 .screen-affordances {
   position: absolute;

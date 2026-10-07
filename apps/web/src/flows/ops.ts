@@ -131,6 +131,33 @@ export function renameState(flows: Flows, screenId: string, stateId: string, nam
   return mapState(flows, screenId, stateId, (st) => (st.name === name ? st : { ...st, name }));
 }
 
+/** Sets a state's notes; empty or blank ones remove the key. */
+export function setStateNotes(
+  flows: Flows,
+  screenId: string,
+  stateId: string,
+  notes: string,
+): Flows {
+  return mapState(flows, screenId, stateId, (st) => withOptional(st, 'notes', notes));
+}
+
+/**
+ * Makes a CTA its state's primary one, replacing any other: a state has at most one. `null`
+ * unsets it. A CTA that isn't in the state is ignored.
+ */
+export function setPrimaryCta(
+  flows: Flows,
+  screenId: string,
+  stateId: string,
+  ctaId: string | null,
+): Flows {
+  return mapState(flows, screenId, stateId, (st) => {
+    if (ctaId === null) return withOptional(st, 'primaryCtaId', '');
+    if (st.primaryCtaId === ctaId || !st.ctas.some((c) => c.id === ctaId)) return st;
+    return { ...st, primaryCtaId: ctaId };
+  });
+}
+
 /**
  * Removes a state. Transitions starting from its CTAs are deleted; transitions into it are
  * retargeted to the screen's default state by dropping their `stateId`. A screen's last state
@@ -259,11 +286,12 @@ export function renameCta(
 
 /** Removes a CTA and every transition starting from it. */
 export function deleteCta(flows: Flows, screenId: string, stateId: string, ctaId: string): Flows {
-  const next = mapState(flows, screenId, stateId, (st) =>
-    st.ctas.some((c) => c.id === ctaId)
-      ? { ...st, ctas: st.ctas.filter((c) => c.id !== ctaId) }
-      : st,
-  );
+  const next = mapState(flows, screenId, stateId, (st) => {
+    if (!st.ctas.some((c) => c.id === ctaId)) return st;
+    const kept = { ...st, ctas: st.ctas.filter((c) => c.id !== ctaId) };
+    // A primary CTA takes its mark with it.
+    return st.primaryCtaId === ctaId ? withOptional(kept, 'primaryCtaId', '') : kept;
+  });
   if (next === flows) return flows;
   return {
     ...next,
@@ -432,14 +460,20 @@ export function duplicateScreens(
       states: s.states.map((st) => {
         const stateId = fresh('st');
         stateCopy.set(key(s.id, st.id), stateId);
+        const ctas = st.ctas.map((c) => {
+          const ctaId = fresh('cta');
+          ctaCopy.set(key(s.id, st.id, c.id), ctaId);
+          return { ...c, id: ctaId };
+        });
+        const primary =
+          st.primaryCtaId === undefined
+            ? undefined
+            : ctaCopy.get(key(s.id, st.id, st.primaryCtaId));
         return {
           ...st,
           id: stateId,
-          ctas: st.ctas.map((c) => {
-            const ctaId = fresh('cta');
-            ctaCopy.set(key(s.id, st.id, c.id), ctaId);
-            return { ...c, id: ctaId };
-          }),
+          ctas,
+          ...(primary !== undefined && { primaryCtaId: primary }),
         };
       }),
     };
