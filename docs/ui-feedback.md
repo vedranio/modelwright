@@ -38,6 +38,10 @@ Changes to make to modelwright's UI, collected from use. Items 1–12 were built
 17. **Help in two tabs.** _Done (commit E)._ "How it works" explains what happens in modelwright and what happens in the AI coding tool, and where they meet. "Keyboard shortcuts" is the old overlay.
 18b. **Explain where visual design happens.** _Done (commit G)._ "How it works" should say how the UI is designed (in an AI design tool such as Claude Design, then applied by the coding tool) and that the UI tab is for previewing, not designing.
 
+## Project picker
+
+19. **Create a project, not just open one.** _Done (commit H)._ The picker's left panel puts creating a project first. The right panel splits into recent projects (up to five) on top and a button to open an existing project below.
+
 ## Follow-ups
 
 13. **Keep unsaved edits across a page reload.** When `pnpm dev` stops and comes back, Vite's dev client reloads the page as soon as it reconnects, often before the automatic retry has saved, and unsaved edits are lost unless the browser's "leave page?" prompt is cancelled. Keeping each dirty working copy in session storage and restoring it after a reload would make this safe. Found while verifying item 12.

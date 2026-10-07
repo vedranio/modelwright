@@ -951,3 +951,26 @@ Designing PhotoBackup for the milestone 4 dry run turned up twelve UI changes, l
 - **The coding tool's list** notes that the first build is deliberately plain.
 - **A "Designing how it looks" section:** design the UI in an AI design tool (e.g. Claude Design), have the coding tool apply it, and check it in the UI view. Later flow changes still update only what changed, so the visual design is kept.
 - **The loop** gains that step.
+
+### Commit H: create a project from the picker (item 19)
+
+Settled with you first:
+- **modelwright creates the project folder.** This is a logged exception to "modelwright writes only inside `.design/`". Creating a project makes one new, empty folder, `<location>/<name>/`, and refuses if it already exists, so nothing is ever written into an existing folder outside `.design/`.
+- **The location is remembered.** It starts at `~/Code`.
+- **An "Initialise a git repository" checkbox,** off by default.
+- **"Open an existing project"** is a button that reveals the path field.
+
+Details:
+- **`POST /api/projects/create`** takes `{ parent, name, git? }`, behind the guard:
+  - `parent` may start with `~` (expanded with the server's home) and must be an existing folder (`resolveParentDir`).
+  - The folder name is the name trimmed. `/`, `\`, `.`, `..` and control characters are refused (`projectFolderName`).
+  - The folder is made with a non-recursive `mkdir`, then `initialise` writes `.design/`, the spec is regenerated, and the project is added to recents.
+- **Git:**
+  - When `git` is true, git is checked with `git --version` before anything is created, so a missing git creates nothing.
+  - After the design files, `git init --quiet` runs in the new folder (10 s timeout). If that fails, the project stays and the error says so.
+  - Nothing is committed.
+- **`ProjectClient.createProject(parent, name, git)`.**
+- **The picker:**
+  - **Left:** "Create a project", with Name, Location, a "Creates `<path>`" preview, the git checkbox and Create project. The location is saved as `modelwright.new-project-location` (the default isn't stored).
+  - **Right:** up to five recent projects, then "Open an existing project". The button expands into the path field and Open (Esc collapses it). The "Initialise modelwright in this folder" panel for a folder without `.design/` shows there too.
+- **Verified in the browser:** created "Picker Test" with git ticked, which made `.design/` (4 files) and `.git/` and opened the project. Then the test entry was removed from recents.

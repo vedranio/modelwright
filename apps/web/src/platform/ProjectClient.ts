@@ -17,6 +17,11 @@ export type { BuildRead, DesignDoc, DesignKind, PreviewCheck, ProjectSummary };
 export interface ProjectClient {
   openProject(path: string): Promise<ProjectSummary>;
   initProject(path: string, name?: string): Promise<ProjectSummary>;
+  /**
+   * Creates a new project: the folder `<parent>/<name>/` (which mustn't exist), its `.design/`,
+   * and a git repository when `git` is true. `parent` may start with `~` for the user's home.
+   */
+  createProject(parent: string, name: string, git: boolean): Promise<ProjectSummary>;
   listRecent(): Promise<ProjectSummary[]>;
   removeRecent(path: string): Promise<void>;
   readDesign<K extends DesignKind>(path: string, file: K): Promise<DesignDoc<K>>;

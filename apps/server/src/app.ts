@@ -20,8 +20,15 @@ import {
 } from '@modelwright/project/node';
 import { originGuard } from './guard';
 import { checkPreview, PREVIEW_TIMEOUT_MS } from './previewCheck';
-import { HttpError, designDirState, designFile, resolveProjectDir, tildify } from './paths';
-import { initialise, isInitialised, summarise } from './projects';
+import {
+  HttpError,
+  designDirState,
+  designFile,
+  resolveParentDir,
+  resolveProjectDir,
+  tildify,
+} from './paths';
+import { createProject, initialise, isInitialised, summarise } from './projects';
 import { Recents } from './recents';
 import { DesignWatcher } from './watcher';
 
@@ -49,6 +56,7 @@ const DEFAULT_TOOL_ORIGIN = `http://localhost:${WEB_PORT}`;
 
 const PathBody = z.object({ path: z.string() });
 const InitBody = z.object({ path: z.string(), name: z.string().optional() });
+const CreateBody = z.object({ parent: z.string(), name: z.string(), git: z.boolean().optional() });
 const PreviewBody = z.object({ url: z.string() });
 
 export function createApp({
@@ -87,6 +95,20 @@ export function createApp({
     const body = await readBody(c, InitBody);
     const dir = await resolveProjectDir(body.path);
     await initialise(dir, body.name, (kind, text) => watcher.noteWrite(dir, kind, text));
+    await refreshSpec(dir);
+    const summary = await summarise(dir, userHome);
+    const { lastOpenedAt } = await recents.add({ path: summary.path, name: summary.name });
+    return c.json({ ...summary, lastOpenedAt }, 201);
+  });
+
+  // A new project: its folder, its .design/ and optionally a git repository.
+  app.post('/projects/create', async (c) => {
+    const body = await readBody(c, CreateBody);
+    const parent = await resolveParentDir(body.parent, userHome);
+    const dir = await createProject(parent, body.name, {
+      git: body.git ?? false,
+      onWrite: (dir, kind, text) => watcher.noteWrite(dir, kind, text),
+    });
     await refreshSpec(dir);
     const summary = await summarise(dir, userHome);
     const { lastOpenedAt } = await recents.add({ path: summary.path, name: summary.name });

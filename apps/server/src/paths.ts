@@ -30,6 +30,20 @@ export async function resolveProjectDir(raw: unknown): Promise<string> {
   return dir;
 }
 
+/**
+ * A folder for a new project to go in, as typed: an absolute path, or one starting with `~`
+ * for the user's home. It must be an existing folder. Returned resolved.
+ */
+export async function resolveParentDir(raw: unknown, home: string): Promise<string> {
+  if (typeof raw !== 'string' || raw.trim() === '') {
+    throw new HttpError(400, 'Choose where the project goes');
+  }
+  const typed = raw.trim();
+  const expanded =
+    typed === '~' ? home : typed.startsWith('~/') ? path.join(home, typed.slice(2)) : typed;
+  return resolveProjectDir(expanded);
+}
+
 /** `path` with `home` replaced by `~`, for display. Paths outside home are returned unchanged. */
 export function tildify(p: string, home: string): string {
   const base = path.resolve(home);

@@ -560,7 +560,7 @@ button {
 .picker-open {
   display: flex;
   gap: var(--space-2);
-  margin-top: var(--space-5);
+  margin-top: var(--space-3);
 }
 
 .picker-open .input {
@@ -608,15 +608,86 @@ button {
   margin-top: var(--space-4);
 }
 
+/* The right side: recent projects on top, opening an existing folder below. */
+.picker-side {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  background: var(--color-surface-sunken);
+  border-left: var(--border-w) solid var(--color-border);
+}
+
 .picker-recents {
+  flex: 1;
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-  min-width: 0;
   min-height: 0;
-  padding: var(--space-6);
-  background: var(--color-surface-sunken);
-  border-left: var(--border-w) solid var(--color-border);
+  padding: var(--space-6) var(--space-6) var(--space-5);
+}
+
+.picker-open-section {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-5) var(--space-6) var(--space-6);
+  border-top: var(--border-w) solid var(--color-border);
+}
+
+.picker-open-section .picker-copy {
+  font-size: var(--text-sm);
+}
+
+.picker-open-toggle {
+  width: 100%;
+  justify-content: center;
+}
+
+/* Creating a project, on the left. */
+.picker-create {
+  display: flex;
+  flex-direction: column;
+  margin-top: var(--space-5);
+}
+
+.picker-create .field-label {
+  margin-bottom: var(--space-1);
+}
+
+.picker-create .field-label ~ .field-label {
+  margin-top: var(--space-3);
+}
+
+.picker-target {
+  margin-top: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  overflow-wrap: anywhere;
+}
+
+.picker-target code {
+  color: var(--color-text);
+}
+
+.checkbox {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+
+.checkbox input {
+  margin: 0;
+  accent-color: var(--color-accent);
+}
+
+.picker-create-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: var(--space-4);
 }
 
 .recents-head {

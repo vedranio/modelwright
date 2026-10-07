@@ -30,6 +30,9 @@ export function createHttpClient(baseUrl = '/api'): ProjectClient {
     async initProject(path, name) {
       return (await send('POST', '/projects/init', { path, name })).json();
     },
+    async createProject(parent, name, git) {
+      return (await send('POST', '/projects/create', { parent, name, git })).json();
+    },
     async listRecent() {
       return (await send('GET', '/projects/recent')).json();
     },
