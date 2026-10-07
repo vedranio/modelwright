@@ -974,3 +974,10 @@ Details:
   - **Left:** "Create a project", with Name, Location, a "Creates `<path>`" preview, the git checkbox and Create project. The location is saved as `modelwright.new-project-location` (the default isn't stored).
   - **Right:** up to five recent projects, then "Open an existing project". The button expands into the path field and Open (Esc collapses it). The "Initialise modelwright in this folder" panel for a folder without `.design/` shows there too.
 - **Verified in the browser:** created "Picker Test" with git ticked, which made `.design/` (4 files) and `.git/` and opened the project. Then the test entry was removed from recents.
+
+### Commit I: Material icons in the picker's key hints (item 20)
+
+- **New icons:** `Icon` gains `sync_alt` and `keyboard_return`, and an `upright` option that turns an icon a quarter turn (`.icon-upright`). That's how `sync_alt`'s ⇄ becomes up/down arrows.
+- **The recents hint** reads [↕] choose · [↵] open, with icons sized like the keyboard hints' (`--kbd-icon-size`).
+- **The ↵ on every picker button** (Create project, Open, Initialise) is `keyboard_return`, through a small `ReturnKey`. Esc stays text.
+- **The rest of the app** keeps its text ↵ for now. Moving it to the icon too would be a one-line change in `Kbd`, like ⇧.

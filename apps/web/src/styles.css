@@ -53,6 +53,23 @@ button {
 }
 
 /* Inline with the hint's text, so the text keeps the baseline and the line keeps its height. */
+/* sync_alt's arrows turned to point up and down. */
+.icon-upright {
+  transform: rotate(90deg);
+}
+
+/* Key hints beside a heading ("↑↓ choose · ↵ open"), with icons for the keys. */
+.picker-keys {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.picker-keys .icon {
+  width: var(--kbd-icon-size);
+  height: var(--kbd-icon-size);
+}
+
 .kbd .icon {
   width: var(--kbd-icon-size);
   height: var(--kbd-icon-size);

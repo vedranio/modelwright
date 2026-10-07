@@ -11,6 +11,7 @@ import { ProjectClientError, useProjectClient, type ProjectSummary } from './pla
 import { relativeTime } from './relativeTime';
 import { useKeydown } from './shortcuts';
 import { loadPref, savePref } from './storage';
+import { Icon } from './Icon';
 import { FieldError, Kbd, Logo } from './ui';
 
 /** How many recent projects the picker lists. */
@@ -249,7 +250,7 @@ export function ProjectPicker({ onOpen, initialError = null }: Props) {
               <div className="picker-create-actions">
                 <button type="submit" className="btn btn-lg btn-primary" disabled={busy}>
                   Create project
-                  <Kbd>↵</Kbd>
+                  <ReturnKey />
                 </button>
               </div>
             </form>
@@ -262,7 +263,11 @@ export function ProjectPicker({ onOpen, initialError = null }: Props) {
           <div className="picker-recents" aria-label="Recent projects">
             <div className="recents-head">
               <h2 className="label">Recent projects</h2>
-              {navigable && <span className="hint">↑↓ choose · ↵ open</span>}
+              {navigable && (
+                <span className="hint picker-keys">
+                  <Icon name="sync_alt" upright /> choose · <Icon name="keyboard_return" /> open
+                </span>
+              )}
             </div>
 
             {shown !== null && shown.length === 0 && (
@@ -375,7 +380,7 @@ export function ProjectPicker({ onOpen, initialError = null }: Props) {
                   ) : (
                     <button type="submit" className="btn btn-lg btn-primary" disabled={busy}>
                       Open
-                      <Kbd>↵</Kbd>
+                      <ReturnKey />
                     </button>
                   )}
                 </form>
@@ -413,7 +418,7 @@ export function ProjectPicker({ onOpen, initialError = null }: Props) {
                       </button>
                       <button type="submit" className="btn btn-primary" disabled={busy}>
                         Initialise
-                        <Kbd>↵</Kbd>
+                        <ReturnKey />
                       </button>
                     </div>
                   </form>
@@ -424,6 +429,15 @@ export function ProjectPicker({ onOpen, initialError = null }: Props) {
         </section>
       </div>
     </div>
+  );
+}
+
+/** The ↵ hint on the picker's buttons, drawn with Material's keyboard_return icon. */
+function ReturnKey() {
+  return (
+    <Kbd>
+      <Icon name="keyboard_return" />
+    </Kbd>
   );
 }
 

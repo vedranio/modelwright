@@ -41,6 +41,7 @@ Changes to make to modelwright's UI, collected from use. Items 1–12 were built
 ## Project picker
 
 19. **Create a project, not just open one.** _Done (commit H)._ The picker's left panel puts creating a project first. The right panel splits into recent projects (up to five) on top and a button to open an existing project below.
+20. **Material icons for the picker's key hints.** _Done (commit I)._ The recents hint uses Google's `sync_alt` arrows turned to point up and down for "choose", and `keyboard_return` for "open"; every ↵ on the picker's buttons is `keyboard_return` too.
 
 ## Follow-ups
 
