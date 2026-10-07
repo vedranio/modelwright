@@ -92,7 +92,8 @@
 }
 
 .editable {
-  cursor: text;
+  /* Text on a card is something you click to edit: a pointing hand, like the card itself. */
+  cursor: pointer;
   border-radius: var(--radius-sm);
 }
 
@@ -199,4 +200,29 @@
 
 .edge-delete:hover {
   color: var(--color-error);
+}
+
+/*
+ * Cursors: the standard arrow on empty canvas, and a pointing hand only on things you can
+ * select or edit (cards, their text, connectors). React Flow's own styles give the pane a hand
+ * (because drag-to-select is on) and cards a grab hand; both are overridden here. Text fields
+ * keep the text cursor once open, and handles keep the crosshair that means "drag to connect".
+ */
+.canvas .react-flow__pane,
+.canvas .react-flow__pane.selection,
+.canvas .react-flow__pane.draggable {
+  cursor: default;
+}
+
+.canvas .react-flow__pane.dragging {
+  cursor: grabbing;
+}
+
+.canvas .react-flow__node,
+.canvas .react-flow__node.draggable {
+  cursor: pointer;
+}
+
+.canvas .react-flow__node.draggable.dragging {
+  cursor: grabbing;
 }

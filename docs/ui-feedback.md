@@ -26,6 +26,16 @@ Changes to make to modelwright's UI, collected from use. Items 1–12 were built
 12. **Detect a stopped server, and have Retry restart it.** _Done (commit D): detected and explained, saving retries by itself; restarting needs Electron._ When ERD or Flows can't be saved because the modelwright server isn't running, the app should say so, and Retry should restart the server.
     - In the web build, the page can't start a process, because the server is the only thing that can. Detecting it and saying "modelwright's server isn't running — start it with `pnpm dev`" is possible now. Restarting from Retry needs a process supervisor: Electron's main process, or a small launcher that keeps the server alive.
 
+## Flows and ERD
+
+14. **Arrow cursor on empty canvas.** _Done (commit E)._ The default pointer on empty canvas is the standard arrow. Only selectable or editable things (cards, their text, connectors) show a pointing hand.
+15. **Hover highlights a connector and both ends, on both canvases.** _Done (commit E)._ Hovering a connector highlights it and the two items it connects. Flows already lit the source CTA and target state; the ERD now lights both entities.
+16. **A stronger selected connector.** _Done (commit E)._ A selected connector is thicker as well as accent-coloured.
+
+## Help
+
+17. **Help in two tabs.** _Done (commit E)._ "How it works" explains what happens in modelwright and what happens in the AI coding tool, and where they meet. "Keyboard shortcuts" is the old overlay.
+
 ## Follow-ups
 
 13. **Keep unsaved edits across a page reload.** When `pnpm dev` stops and comes back, Vite's dev client reloads the page as soon as it reconnects, often before the automatic retry has saved, and unsaved edits are lost unless the browser's "leave page?" prompt is cancelled. Keeping each dirty working copy in session storage and restoring it after a reload would make this safe. Found while verifying item 12.

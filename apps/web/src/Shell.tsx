@@ -13,7 +13,7 @@ import { UiView } from './views/UiView';
 import { useProjectClient, type DesignKind, type ProjectSummary } from './platform';
 import { loadPref, savePref } from './storage';
 import { Icon } from './Icon';
-import { ShortcutsOverlay } from './ShortcutsOverlay';
+import { HelpOverlay, type HelpTab } from './HelpOverlay';
 import { ThemeMenu } from './ThemeMenu';
 import { useShortcut } from './shortcuts';
 import { shortcutHint } from './shortcutRegistry';
@@ -97,7 +97,8 @@ export function Shell({ project, onClose }: Props) {
     [build.read, erd.doc, flows.doc, config.doc, designLoading, now],
   );
   const [toastRegion, toasts] = useToasts();
-  const [showShortcuts, setShowShortcuts] = useState(false);
+  /** The help overlay's tab while it's open. */
+  const [help, setHelp] = useState<HelpTab | null>(null);
 
   // A toast about an edit goes once its document is edited again (its Undo would undo
   // something else), and on any view switch.
@@ -176,7 +177,7 @@ export function Shell({ project, onClose }: Props) {
   useShortcut('view-ui', viewKey('ui'));
   useShortcut('shortcuts', (e) => {
     e.preventDefault();
-    setShowShortcuts(true);
+    setHelp('shortcuts');
   });
 
   return (
@@ -225,9 +226,9 @@ export function Shell({ project, onClose }: Props) {
             <button
               type="button"
               className="btn-icon"
-              onClick={() => setShowShortcuts(true)}
-              aria-label="Keyboard shortcuts"
-              title={`Keyboard shortcuts (${shortcutHint('shortcuts')})`}
+              onClick={() => setHelp('guide')}
+              aria-label="Help"
+              title={`Help: how modelwright works, and keyboard shortcuts (${shortcutHint('shortcuts')} opens the shortcuts)`}
             >
               <Icon name="question_mark" />
             </button>
@@ -283,7 +284,7 @@ export function Shell({ project, onClose }: Props) {
           {toastRegion}
         </main>
         {dialog}
-        {showShortcuts && <ShortcutsOverlay onClose={() => setShowShortcuts(false)} />}
+        {help && <HelpOverlay tab={help} onClose={() => setHelp(null)} />}
       </div>
     </ToastProvider>
   );

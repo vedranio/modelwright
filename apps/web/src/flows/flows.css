@@ -209,15 +209,17 @@
 }
 
 .canvas .react-flow__edge:hover .transition-line {
-  stroke: var(--color-text-muted);
+  stroke: var(--color-accent);
 }
 
 .canvas .react-flow__edge:hover .transition-arrow {
-  fill: var(--color-text-muted);
+  fill: var(--color-accent);
 }
 
+/* Selected is stronger than hovered: the same accent, and a thicker line. */
 .canvas .react-flow__edge.selected .transition-line {
   stroke: var(--color-accent);
+  stroke-width: var(--edge-selected-w);
 }
 
 .canvas .react-flow__edge.selected .transition-arrow {

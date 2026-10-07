@@ -1382,6 +1382,49 @@ button {
   color: var(--color-text-muted);
 }
 
+/* Help: how modelwright works (HelpOverlay.tsx) */
+
+.help-guide {
+  overflow: auto;
+  font-size: var(--text-sm);
+  line-height: var(--text-sm-lh);
+  color: var(--color-text);
+}
+
+.help-guide p,
+.help-guide ul,
+.help-guide ol {
+  margin: 0 0 var(--space-3);
+}
+
+.help-guide ul {
+  padding-left: var(--space-4);
+}
+
+/* Room for the step numbers. */
+.help-guide ol {
+  padding-left: var(--space-5);
+}
+
+.help-guide li {
+  margin-bottom: var(--space-1);
+}
+
+.help-guide .shortcuts-group-title {
+  padding-top: var(--space-3);
+}
+
+.help-lead {
+  font-size: var(--text-md);
+  line-height: var(--text-md-lh);
+}
+
+.help-sides {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-6);
+}
+
 /* Conflict banner: a design file changed on disk under unsaved edits */
 
 .conflict-banner {

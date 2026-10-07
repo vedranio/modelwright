@@ -74,6 +74,8 @@ function ErdCanvas({
 }) {
   const [editing, setEditing] = useState<EditTarget | null>(null);
   const [dragging, setDragging] = useState<Record<string, XYPosition>>({});
+  /** The relationship under the pointer, highlighted with the entities it joins. */
+  const [hoveredEdge, setHoveredEdge] = useState<string | null>(null);
   const selection = useSelection();
   const measurements = useMeasurements();
   const instance = useRef<ReactFlowInstance<EntityNodeType, CrowsFootEdgeType> | null>(null);
@@ -107,6 +109,16 @@ function ErdCanvas({
   );
 
   const flow = useMemo(() => toFlow(erd), [erd]);
+  // A hovered or selected relationship lights up the two entities it joins.
+  const highlighted = useMemo(() => {
+    const lit = new Set<string>();
+    for (const r of erd.relationships) {
+      if (r.id !== hoveredEdge && !selection.selectedEdges.has(r.id)) continue;
+      lit.add(r.from);
+      lit.add(r.to);
+    }
+    return lit;
+  }, [erd, hoveredEdge, selection.selectedEdges]);
   const nodes = useMemo(
     () =>
       flow.nodes.map((n) => {
@@ -116,9 +128,10 @@ function ErdCanvas({
           position: dragging[n.id] ?? n.position,
           selected: selection.selectedNodes.has(n.id),
           ...(measured && { measured }),
+          ...(highlighted.has(n.id) && { data: { ...n.data, highlighted: true } }),
         };
       }),
-    [flow, dragging, selection.selectedNodes, measurements.sizes],
+    [flow, dragging, selection.selectedNodes, measurements.sizes, highlighted],
   );
   const edges = useMemo(() => {
     // The popover shows when one relationship, and nothing else, is selected. Only count what
@@ -308,6 +321,8 @@ function ErdCanvas({
             setDragging({});
           }}
           onConnectEnd={onConnectEnd}
+          onEdgeMouseEnter={(_event, edge) => setHoveredEdge(edge.id)}
+          onEdgeMouseLeave={() => setHoveredEdge(null)}
           // Only dropping onto an entity counts (onConnectEnd); never connect handle to handle.
           isValidConnection={() => false}
           onBeforeDelete={({ nodes: goneNodes, edges: goneEdges }) => {

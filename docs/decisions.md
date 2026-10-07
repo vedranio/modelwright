@@ -910,3 +910,22 @@ Designing PhotoBackup for the milestone 4 dry run turned up twelve UI changes, l
   - the canvas staying up on refocus
   - the status returning to Saved
   - the reload losing the edit
+
+### Commit E: cursors, connector emphasis and help (items 14–17)
+
+- **Cursors** (`canvas/canvas.css`):
+  - React Flow's own styles gave the pane a pointing hand (because drag-to-select is on) and cards a grab hand. Both are overridden: empty canvas shows the arrow, and cards a pointing hand.
+  - Editable text shows a pointing hand rather than the I-beam, since one click opens it. Open fields keep the text cursor.
+  - Handles keep the crosshair, which means "drag to connect".
+  - Panning and dragging still show the grabbing hand.
+- **Connector emphasis, on both canvases:**
+  - Hover turns the line (and ERD markers) accent. Selection is accent plus a thicker line (`--edge-selected-w`, 2px).
+  - On the ERD, a hovered or selected relationship gives its two entities an accent outline (`.entity.highlighted`, kept apart from the selection ring), matching what Flows already did for a transition's CTA and target state.
+- **Help** (`HelpOverlay.tsx`, formerly `ShortcutsOverlay.tsx`) has two tabs in the header's segmented style:
+  - **How it works:** a lead line on the boundary ("You design the app here. Your AI coding tool builds it. They meet in your project's `.design/` folder."), then what happens in each, the loop, and the build command with Copy.
+  - **Keyboard shortcuts:** unchanged.
+  - The header's ? button opens How it works. The `?` key still opens the shortcuts, as its label in the registry says.
+- **Verified in the browser** on the PhotoBackup scratch copy:
+  - the computed cursors
+  - ERD hover and selection lighting Config and Source, with a 2px selected line
+  - both help tabs
