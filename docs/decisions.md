@@ -982,3 +982,26 @@ Details:
 - **The ↵ on every picker button** (Create project, Open, Initialise) is `keyboard_return`, through a small `ReturnKey`. Esc stays text.
 - **The rest of the app** keeps its text ↵ for now. Moving it to the icon too would be a one-line change in `Kbd`, like ⇧.
 - **Later:** `keyboard_return`'s glyph sits high in its box, so every use of it is dropped by `--return-icon-drop` (2px). `Icon` sets `data-icon` with the icon's name, so the CSS targets it wherever it's used. The drop is a `translate`, not a `transform`, so it combines with a rotation.
+
+### Commit J: a demo project (item 21)
+
+Settled with you first: the Todo design below; the demo copied into modelwright's own folder; offered once to every install that hasn't had it, including existing ones.
+
+- **The demo, Todo,** is as small as a sensible model gets:
+  - **ERD:** List (`name`) contains zero or more Tasks (`title`, `due date` (optional), `done`), and each Task belongs to exactly one List.
+  - **Flows:**
+    - Lists (Default and Empty)
+    - New list
+    - Tasks (Default and Empty)
+    - Task editor
+  - Every action leads somewhere, every state has a primary action, and every screen names the entities it uses. "Create" and "Save" are labelled "success".
+  - It's flows schemaVersion 2 (state notes and primary CTAs) and has no preview URL, since nothing is built.
+- **The template is design files only,** in `apps/server/demo/todo/.design/`. It's the one design that ships in this repo, and like the test fixtures it's `.design/` JSON, not project code, so it's consistent with the two-repo rule. It's excluded from Prettier because it's canonical serialiser output, as a test checks. Another test checks that it makes sense: no dead ends, every state with a primary action, every screen reachable, and its entity cross-references valid.
+- **Offering it** (`apps/server/src/demo.ts`, `offerDemo`):
+  - Once per install, before the first recents listing, the server copies the template to `~/.modelwright/demo/todo/` (reusing an existing copy, so edits survive), writes its `spec.md`, and adds it to the end of the recents without an opened time (`Recents.addLast`). So it never pushes your own projects down.
+  - A `demo-offered` marker in modelwright's home means it's never offered again: dismissing it with × is permanent, and it can drop off like any other recent project.
+  - Failures are logged, never fatal.
+  - `createApp({ demoTemplate })` turns it on. Only the real server (`index.ts`) passes the template, so the other tests have no demo.
+- **`ProjectSummary.demo`** marks the demo in recents listings.
+- **The picker** titles the list "Demo project" while the demo is its only entry, and "Recent projects" otherwise. The demo row carries a "demo" tag.
+- **Your install** was offered the demo when the dev server reloaded: it sits under photobackup. Opening and editing it changes only `~/.modelwright/demo/todo`.

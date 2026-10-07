@@ -29,6 +29,7 @@ import {
   tildify,
 } from './paths';
 import { createProject, initialise, isInitialised, summarise } from './projects';
+import { demoDir, offerDemo } from './demo';
 import { Recents } from './recents';
 import { DesignWatcher } from './watcher';
 
@@ -49,6 +50,8 @@ export interface AppOptions {
   watcher?: DesignWatcher;
   /** How often an idle event stream sends a comment, so proxies keep it open. */
   heartbeatMs?: number;
+  /** The demo project's template, offered once per install; none (tests) offers no demo. */
+  demoTemplate?: string;
 }
 
 /** The web app's origin when a request doesn't say (curl, tests). */
@@ -69,8 +72,12 @@ export function createApp({
   previewTimeoutMs = PREVIEW_TIMEOUT_MS,
   watcher = new DesignWatcher(),
   heartbeatMs = 25_000,
+  demoTemplate,
 }: AppOptions) {
   const recents = new Recents(homeDir, now);
+  // Offered before the first listing, once per process; offerDemo itself remembers per install.
+  const demoReady = demoTemplate ? offerDemo(homeDir, recents, demoTemplate) : Promise.resolve();
+  const demoPath = demoDir(homeDir);
   const app = new Hono().basePath('/api');
 
   app.use('*', originGuard({ allowedHosts, allowedOrigins }));
@@ -116,6 +123,7 @@ export function createApp({
   });
 
   app.get('/projects/recent', async (c) => {
+    await demoReady;
     const list = await recents.list();
     const summaries: ProjectSummary[] = await Promise.all(
       list.map(async (entry) => ({
@@ -123,6 +131,7 @@ export function createApp({
         displayPath: tildify(entry.path, userHome),
         name: entry.name,
         initialised: await isInitialised(entry.path),
+        ...(entry.path === demoPath && { demo: true }),
         ...(entry.lastOpenedAt !== undefined && { lastOpenedAt: entry.lastOpenedAt }),
       })),
     );

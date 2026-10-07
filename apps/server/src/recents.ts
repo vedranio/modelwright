@@ -42,6 +42,16 @@ export class Recents {
     return stamped;
   }
 
+  /**
+   * Adds a project at the end of the list, without an opened time, unless it's already listed.
+   * For the demo, so it never pushes the user's own projects down.
+   */
+  addLast(entry: { path: string; name: string }): Promise<void> {
+    return this.update((list) =>
+      list.some((e) => e.path === entry.path) ? list : [...list, entry].slice(0, RECENTS_LIMIT),
+    );
+  }
+
   remove(projectPath: string): Promise<void> {
     return this.update((list) => list.filter((e) => e.path !== projectPath));
   }

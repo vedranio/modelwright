@@ -18,6 +18,8 @@ export interface ProjectSummary {
   initialised: boolean;
   /** ISO timestamp of the last successful open. Absent for recents written before it was recorded. */
   lastOpenedAt?: string;
+  /** Set on the demo project modelwright ships, in recents listings. */
+  demo?: boolean;
 }
 
 /** Body of every non-validation error response (validation errors use `DesignError`). */

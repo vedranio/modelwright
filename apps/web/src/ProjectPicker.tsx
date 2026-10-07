@@ -144,6 +144,9 @@ export function ProjectPicker({ onOpen, initialError = null }: Props) {
   }
 
   const shown = recents?.slice(0, RECENT_LIMIT) ?? null;
+  // Until there's a project of the user's own, the list holds just the demo.
+  const onlyDemo = shown !== null && shown.length > 0 && shown.every((r) => r.demo);
+  const listTitle = onlyDemo ? 'Demo project' : 'Recent projects';
   const count = shown?.length ?? 0;
 
   function moveHighlight(delta: number) {
@@ -260,9 +263,9 @@ export function ProjectPicker({ onOpen, initialError = null }: Props) {
         </section>
 
         <section className="picker-side">
-          <div className="picker-recents" aria-label="Recent projects">
+          <div className="picker-recents" aria-label={listTitle}>
             <div className="recents-head">
-              <h2 className="label">Recent projects</h2>
+              <h2 className="label">{listTitle}</h2>
               {navigable && (
                 <span className="hint picker-keys">
                   <Icon name="sync_alt" upright /> choose · <Icon name="keyboard_return" /> open
@@ -284,7 +287,7 @@ export function ProjectPicker({ onOpen, initialError = null }: Props) {
                 ref={listRef}
                 className="recents"
                 role="listbox"
-                aria-label="Recent projects"
+                aria-label={listTitle}
                 aria-activedescendant={highlight !== null ? `recent-${highlight}` : undefined}
                 tabIndex={0}
                 onFocus={() => setHighlight((i) => i ?? 0)}
@@ -303,6 +306,7 @@ export function ProjectPicker({ onOpen, initialError = null }: Props) {
                     <span className="recent-text">
                       <span className="recent-name">
                         {r.name}
+                        {r.demo && <span className="tag">demo</span>}
                         {!r.initialised && <span className="tag">not initialised</span>}
                       </span>
                       <span className="recent-path">{r.displayPath}</span>
