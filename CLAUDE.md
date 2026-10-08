@@ -4,7 +4,7 @@ A local design tool that produces a structured spec — an entity relationship d
 
 ## Current phase
 
-**Phase 6 — Pipeline.** See `docs/phase-6-brief.md`. Phases 1–5 are complete and merged. This phase adds the `modelwright` Claude Code plugin (published from this repo as a marketplace) with the `build-from-design` skill and the bundled `modelwright-design` CLI, the semantic design diff, `.design/build.json`, and "changes since last build" in the tool. The plugin lives in this repo; apps built with it never do.
+**Phase 7 — Desktop.** See `docs/phase-7-brief.md`. Phases 1–6 are complete and merged. This phase wraps modelwright as a macOS Electron app: the server's handlers move into a transport-free core shared by the Hono server and Electron's main process, an `ipcClient` joins `httpClient` behind `ProjectClient`, and the app gains native folder dialogs, an application menu, device emulation in the preview, and a packaged `.dmg`. The web build stays as the development and test harness.
 
 Phases, in order:
 
@@ -14,6 +14,7 @@ Phases, in order:
 4. Preview — iframe, device toggle, `config.json` URL
 5. Polish — undo/redo, shortcuts, Mermaid/Markdown export, dark mode
 6. Pipeline — the `/build-from-design` skill, first real project
+7. Desktop — Electron wrap: shared core, IPC client, native dialogs and menu, preview emulation, packaged app
 
 ## The two-repo rule
 
