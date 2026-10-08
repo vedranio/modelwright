@@ -186,6 +186,33 @@
   pointer-events: none;
 }
 
+/* A selected transition's grip, on its arrow's tip: drag it to reassign the transition. */
+.transition-grip {
+  position: absolute;
+  /* On-screen size: TransitionEdge scales it against the zoom. */
+  width: var(--space-3);
+  height: var(--space-3);
+  border-radius: var(--radius-full);
+  background: var(--color-surface);
+  border: calc(var(--border-w) * 2) solid var(--color-accent);
+  box-shadow: var(--shadow-sm);
+  cursor: grab;
+  pointer-events: all;
+}
+
+.canvas-host.reconnecting,
+.canvas-host.reconnecting * {
+  cursor: grabbing;
+}
+
+/* The line follows the pointer while a transition's arrow end is dragged. */
+.transition-line.reconnecting {
+  fill: none;
+  stroke: var(--color-accent);
+  stroke-width: var(--edge-selected-w);
+  stroke-dasharray: 4 4;
+}
+
 /* The left-side handle shows only on a hovered or selected card, to keep cards uncluttered. */
 .react-flow__handle.cta-handle.left {
   opacity: 0;

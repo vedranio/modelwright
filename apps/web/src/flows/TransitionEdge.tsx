@@ -2,6 +2,7 @@ import {
   BaseEdge,
   EdgeLabelRenderer,
   useInternalNode,
+  useStore,
   useStoreApi,
   type Edge,
   type EdgeProps,
@@ -9,8 +10,10 @@ import {
 } from '@xyflow/react';
 import { EdgePopoverAnchor } from '../canvas/EdgePopoverAnchor';
 import { orthogonalPath, type Rect } from '../canvas/edgeGeometry';
+import type { TransitionFrom, TransitionTo } from '@modelwright/schema';
+import { useReconnect } from './reconnect';
 import { routeTransitionSides, type Fan } from './route';
-import { TransitionPopover } from './TransitionPopover';
+import { TransitionPopover, type TargetScreen } from './TransitionPopover';
 
 export type TransitionEdgeType = Edge<
   {
@@ -21,9 +24,10 @@ export type TransitionEdgeType = Edge<
     track: number;
     /** e.g. "Login › Default › Sign in", for the popover. */
     fromText: string;
-    toScreenName: string;
-    toStates: readonly { id: string; name: string }[];
-    toStateId?: string;
+    from: TransitionFrom;
+    to: TransitionTo;
+    /** Every screen, for the popover's To list. */
+    screens: readonly TargetScreen[];
     /** Whether this is the only thing selected, so its editing popover shows. */
     editing: boolean;
   },
@@ -37,11 +41,17 @@ const INTERACTION_WIDTH = 24;
 const ARROW_LENGTH = 8;
 const ARROW_HALF_WIDTH = 4;
 
+/** Half the reassign grip's on-screen size (`.transition-grip`), in pixels. */
+const GRIP_RADIUS = 6;
+
 /**
  * A transition: a directed arrow from a CTA's row to a screen or state header, in orthogonal
  * steps with rounded corners. It leaves and arrives on whichever sides of the two cards make
  * the shortest path (`routeTransitionSides`); the handles only fix the heights. The label
  * sits above the longest horizontal run, beside the line rather than on it.
+ *
+ * Selected, the arrow's tip has a grip: dragging it to another screen or state reassigns the
+ * transition (FlowsView's reconnect). While it's dragged, a dashed line follows the pointer.
  */
 export function TransitionEdge({
   id,
@@ -53,6 +63,10 @@ export function TransitionEdge({
   selected,
 }: EdgeProps<TransitionEdgeType>) {
   const store = useStoreApi();
+  const reconnect = useReconnect();
+  // The grip keeps one on-screen size at any zoom, so it's always big enough to grab.
+  const zoom = useStore((s) => s.transform[2]);
+  const dragged = reconnect.reconnecting?.transitionId === id ? reconnect.reconnecting.at : null;
   const sourceNode = useInternalNode(source);
   const targetNode = useInternalNode(target);
   const sourceRect = sourceNode && rectOf(sourceNode);
@@ -74,6 +88,19 @@ export function TransitionEdge({
   const inward = to === 'left' ? 1 : -1;
   const lineEnd = { x: tip.x - inward * ARROW_LENGTH, y: tip.y };
   const path = orthogonalPath([...points.slice(0, -1), lineEnd]);
+
+  // Behind the arrowhead, clear of the card: cards are drawn above edges and would take the press.
+  const grip = { x: lineEnd.x - (inward * GRIP_RADIUS) / zoom, y: tip.y };
+
+  const start = points[0];
+  if (dragged && start) {
+    return (
+      <path
+        className="transition-line reconnecting"
+        d={`M ${start.x} ${start.y} L ${dragged.x} ${dragged.y}`}
+      />
+    );
+  }
 
   return (
     <>
@@ -104,12 +131,24 @@ export function TransitionEdge({
           <TransitionPopover
             transitionId={id}
             fromText={data.fromText}
-            toScreenName={data.toScreenName}
-            toStates={data.toStates}
-            toStateId={data.toStateId}
+            from={data.from}
+            to={data.to}
+            screens={data.screens}
             label={data.label ?? ''}
           />
         </EdgePopoverAnchor>
+      )}
+      {selected && (
+        <EdgeLabelRenderer>
+          <div
+            className="transition-grip nodrag nopan"
+            title="Drag to another screen or state"
+            onPointerDown={(e) => reconnect.start(id, e)}
+            style={{
+              transform: `translate(${grip.x}px, ${grip.y}px) translate(-50%, -50%) scale(${1 / zoom})`,
+            }}
+          />
+        </EdgeLabelRenderer>
       )}
       {data?.label && (
         <EdgeLabelRenderer>

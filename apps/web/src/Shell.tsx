@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { DESIGN_KINDS } from '@modelwright/schema';
 import { BuildIndicator } from './buildRecord/BuildIndicator';
+import { revertToBuild } from './buildRecord/revert';
 import { buildStatus } from './buildRecord/status';
 import { useBuildRecord } from './buildRecord/useBuildRecord';
 import { useConfirm } from './ConfirmDialog';
@@ -145,6 +146,27 @@ export function Shell({ project, onClose }: Props) {
     await reload();
   }
 
+  /**
+   * Puts the design back as the last build recorded it, once confirmed. Each document's
+   * revert is one edit, so ERD and Flows can each undo theirs.
+   */
+  async function revertToLastBuild() {
+    if (status.kind !== 'changed' || build.read?.status !== 'ok') return;
+    if (!erd.doc || !flows.doc || !config.doc) return;
+    const { snapshot } = build.read.record;
+    const { count } = status;
+    const ok = await confirm({
+      title: 'Revert all changes?',
+      message: `This puts the design back as it was at the last build, undoing the ${count === 1 ? 'change' : `${count} changes`} since. Cards stay where they are. ERD and Flows can each undo it (${shortcutHint('undo')}).`,
+      confirmLabel: 'Revert',
+    });
+    if (!ok) return;
+    const next = revertToBuild({ erd: erd.doc, flows: flows.doc, config: config.doc }, snapshot);
+    erd.apply(() => next.erd, { saveNow: true });
+    flows.apply(() => next.flows, { saveNow: true });
+    config.apply(() => next.config, { saveNow: true });
+  }
+
   /** Saves before closing; if that fails, asks before throwing the edits away. */
   async function close() {
     const [erdSaved, flowsSaved, configSaved] = await Promise.all([
@@ -198,7 +220,7 @@ export function Shell({ project, onClose }: Props) {
             <span className={`project-path${editingName ? ' spaced' : ''}`} title={project.path}>
               {project.displayPath}
             </span>
-            <BuildIndicator status={status} />
+            <BuildIndicator status={status} onRevert={() => void revertToLastBuild()} />
           </div>
 
           <div className="segmented" role="tablist" aria-label="View">

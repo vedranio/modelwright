@@ -1005,3 +1005,17 @@ Settled with you first: the Todo design below; the demo copied into modelwright'
 - **`ProjectSummary.demo`** marks the demo in recents listings.
 - **The picker** titles the list "Demo project" while the demo is its only entry, and "Recent projects" otherwise. The demo row carries a "demo" tag.
 - **Your install** was offered the demo when the dev server reloaded: it sits under photobackup. Opening and editing it changes only `~/.modelwright/demo/todo`.
+
+### Commit K: reassign a connection, and revert to the last build (items 22 and 23)
+
+Asked for after the PhotoBackup update run. Item 22 also fixes that run's finding: retargeting a transition used to mean deleting and redrawing it, so the build saw a new transition with a new id.
+
+- **Reassigning keeps the transition's id,** so the build diff reports one change ("now leads to …"), and its label and source stay. The new `retargetTransition` op refuses unknown targets and the state the CTA sits in (`leadsToOwnState`, the same rule as drawing one).
+- **The To list** offers every screen, grouped, with its default state and, on multi-state screens, each state. The CTA's own state is listed but disabled.
+- **Dragging:** a selected transition shows a grip on its arrow end. Dragging it uses the same drop targets and highlights as drawing a connection (`dropTarget`, the `connecting` class), with a dashed line following the pointer. Empty canvas or Escape cancels, so a stray drag never creates a screen.
+  - **Why our own grip, not React Flow's reconnect anchors:** those sit on the handle positions, but our routes pick a side per path (commit B), so the anchor would often be on the wrong side of the card. The grip sits on the drawn tip, just outside the card (cards are drawn above edge labels and would take the press), and keeps one on-screen size at any zoom.
+- **Revert all** sits beside "The next build will apply:", so it stays visible when a long list scrolls. It asks first.
+  - Everything the diff compares comes back from the build snapshot: the ERD and flows semantics, the project name and the preview URL.
+  - **Cards stay where they are,** because moving a card isn't a change. Only cards that come back take their recorded spot. Config keeps what the diff ignores (devices, dev command).
+  - Each document's revert is one edit, so ERD and Flows can each undo it, and a document already as built isn't touched.
+  - The revert goes through the normal editors and autosave, so modelwright still writes only `.design/` and never `build.json`.

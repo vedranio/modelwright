@@ -367,6 +367,33 @@ export function updateTransition(
   return changed ? { ...flows, transitions } : flows;
 }
 
+/**
+ * Points a transition at another screen, or at one of its states when `to.stateId` is set,
+ * keeping its id, source and label. Unchanged if the target doesn't exist, or is the state the
+ * transition starts from (see `leadsToOwnState`).
+ */
+export function retargetTransition(flows: Flows, transitionId: string, to: TransitionTo): Flows {
+  const t = flows.transitions.find((x) => x.id === transitionId);
+  if (!t || !targetExists(flows, to) || leadsToOwnState(flows, t.from, to)) return flows;
+  if (t.to.screenId === to.screenId && t.to.stateId === to.stateId) return flows;
+  const next = to.stateId === undefined ? { screenId: to.screenId } : { ...to };
+  return {
+    ...flows,
+    transitions: flows.transitions.map((x) => (x.id === transitionId ? { ...x, to: next } : x)),
+  };
+}
+
+/**
+ * Whether `to` is the state `from`'s CTA sits in: a transition can't lead there. With no
+ * `stateId`, `to` is the screen's default (first) state.
+ */
+export function leadsToOwnState(flows: Flows, from: TransitionFrom, to: TransitionTo): boolean {
+  if (to.screenId !== from.screenId) return false;
+  const target =
+    to.stateId ?? flows.screens.find((s) => s.id === to.screenId)?.states[0]?.id ?? null;
+  return target === from.stateId;
+}
+
 export function deleteTransitions(flows: Flows, transitionIds: Iterable<string>): Flows {
   const gone = new Set(transitionIds);
   if (!flows.transitions.some((t) => gone.has(t.id))) return flows;

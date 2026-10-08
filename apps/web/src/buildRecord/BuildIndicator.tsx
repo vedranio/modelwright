@@ -16,10 +16,18 @@ const DOT: Partial<Record<BuildStatus['kind'], string>> = {
 
 /**
  * The header's build status: "Not built yet", "Built 3 hours ago" or "4 changes since last
- * build". Clicking it opens what the next build will apply and the command that applies it.
- * modelwright never builds anything itself.
+ * build". Clicking it opens what the next build will apply and the command that applies it,
+ * and, with changes, a way to revert them all (`onRevert`). modelwright never builds anything
+ * itself.
  */
-export function BuildIndicator({ status }: { status: BuildStatus }) {
+export function BuildIndicator({
+  status,
+  onRevert,
+}: {
+  status: BuildStatus;
+  /** Puts the design back as the last build recorded it. */
+  onRevert: () => void;
+}) {
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
 
@@ -61,7 +69,14 @@ export function BuildIndicator({ status }: { status: BuildStatus }) {
       </button>
       {open && (
         <div className="build-popover" role="dialog" aria-label="Changes since last build">
-          <BuildDetails status={status} builtAt={builtAt} />
+          <BuildDetails
+            status={status}
+            builtAt={builtAt}
+            onRevert={() => {
+              setOpen(false);
+              onRevert();
+            }}
+          />
           <p className="build-popover-run">
             Run this in the project repo to build or update the app:
           </p>
@@ -72,7 +87,15 @@ export function BuildIndicator({ status }: { status: BuildStatus }) {
   );
 }
 
-function BuildDetails({ status, builtAt }: { status: BuildStatus; builtAt: Date | null }) {
+function BuildDetails({
+  status,
+  builtAt,
+  onRevert,
+}: {
+  status: BuildStatus;
+  builtAt: Date | null;
+  onRevert: () => void;
+}) {
   const when = builtAt && (
     <p className="build-popover-when">Last build: {builtAt.toLocaleString()}</p>
   );
@@ -118,7 +141,17 @@ function BuildDetails({ status, builtAt }: { status: BuildStatus; builtAt: Date 
     case 'changed':
       return (
         <>
-          <p className="build-popover-lead">The next build will apply:</p>
+          <div className="build-popover-head">
+            <p className="build-popover-lead">The next build will apply:</p>
+            <button
+              type="button"
+              className="btn btn-secondary btn-tight"
+              title="Put the design back as it was at the last build"
+              onClick={onRevert}
+            >
+              Revert all
+            </button>
+          </div>
           <div className="build-popover-diff">
             {DIFF_GROUPS.map(({ key, title }) =>
               status.diff[key].length === 0 ? null : (

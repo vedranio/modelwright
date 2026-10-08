@@ -32,6 +32,11 @@ Changes to make to modelwright's UI, collected from use. Items 1–12 were built
 15. **Hover highlights a connector and both ends, on both canvases.** _Done (commit E)._ Hovering a connector highlights it and the two items it connects. Flows already lit the source CTA and target state; the ERD now lights both entities.
 16. **A stronger selected connector.** _Done (commit E)._ A selected connector is thicker as well as accent-coloured.
 18. **Keep a connector's details card in view.** _Done (commit F)._ Selecting a connector sometimes put its details card out of view. It must show where it can be seen.
+22. **Reassign a connection.** _Done (commit K)._ A connection can be pointed somewhere else, either by dragging its arrow end to another screen or state, or by choosing any screen or state from the To list in its details card. Until now the To list only offered states of the same screen, so moving a connection meant deleting it and drawing a new one, which the build diff reported as a removal plus an addition. Found in the PhotoBackup dry run.
+
+## Build
+
+23. **Revert all changes since the last build.** _Done (commit K)._ The changes-since-last-build menu has one action that puts the design back as it was at the last build.
 
 ## Help
 

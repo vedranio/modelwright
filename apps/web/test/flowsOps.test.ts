@@ -19,11 +19,13 @@ import {
   deleteState,
   deleteTransitions,
   idsIn,
+  leadsToOwnState,
   makeDefaultState,
   moveScreens,
   renameCta,
   renameScreen,
   renameState,
+  retargetTransition,
   setScreenNotes,
   updateSeesItem,
   updateTransition,
@@ -393,6 +395,45 @@ describe('transitions', () => {
     expect(updateTransition(f, 't1', { stateId: null })).toBe(f);
     // A state on another screen is ignored.
     expect(updateTransition(f, 't1', { stateId: 'login-error' })).toBe(f);
+  });
+
+  it('retargets a transition to any screen or state, keeping its id, source and label', () => {
+    const f = valid(updateTransition(frozen(), 't2', { label: 'new' }));
+    const toLogin = valid(retargetTransition(f, 't2', { screenId: 'login' }));
+    expect(transition(toLogin, 't2')).toEqual({
+      ...transition(f, 't2'),
+      to: { screenId: 'login' },
+    });
+    const toState = valid(
+      retargetTransition(toLogin, 't2', { screenId: 'login', stateId: 'login-error' }),
+    );
+    expect(transition(toState, 't2').to).toEqual({ screenId: 'login', stateId: 'login-error' });
+    // Within the same screen, to another state.
+    expect(
+      transition(
+        valid(retargetTransition(f, 't2', { screenId: 'notes', stateId: 'notes-empty' })),
+        't2',
+      ).to,
+    ).toEqual({ screenId: 'notes', stateId: 'notes-empty' });
+  });
+
+  it('leaves a transition alone when the target is unknown, unchanged or its own state', () => {
+    const f = frozen();
+    expect(retargetTransition(f, 't2', { screenId: 'nope' })).toBe(f);
+    expect(retargetTransition(f, 't2', { screenId: 'login', stateId: 'notes-empty' })).toBe(f);
+    expect(retargetTransition(f, 't2', { screenId: 'editor' })).toBe(f);
+    expect(retargetTransition(f, 'nope', { screenId: 'login' })).toBe(f);
+    // t2 starts in Notes › List, the Notes default state, so neither form of it is allowed.
+    expect(retargetTransition(f, 't2', { screenId: 'notes' })).toBe(f);
+    expect(retargetTransition(f, 't2', { screenId: 'notes', stateId: 'notes-list' })).toBe(f);
+  });
+
+  it('knows a transition can’t lead into the state its CTA sits in', () => {
+    const f = frozen();
+    const from = { screenId: 'notes', stateId: 'notes-empty', ctaId: 'notes-empty-new' };
+    expect(leadsToOwnState(f, from, { screenId: 'notes', stateId: 'notes-empty' })).toBe(true);
+    expect(leadsToOwnState(f, from, { screenId: 'notes' })).toBe(false);
+    expect(leadsToOwnState(f, from, { screenId: 'editor' })).toBe(false);
   });
 
   it('deletes transitions', () => {

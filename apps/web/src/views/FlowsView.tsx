@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState, type MouseEvent } from 'react';
+import { useCallback, useLayoutEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
 import type { NodeChange, OnConnectEnd, ReactFlowInstance, XYPosition } from '@xyflow/react';
 import type { Flows, TransitionFrom } from '@modelwright/schema';
 import { Canvas } from '../canvas/Canvas';
@@ -17,6 +17,7 @@ import { deletionSummary } from '../flows/deletion';
 import { connectedCtas, fanPlaces, screensById, transitionEndpoints } from '../flows/endpoints';
 import { SCREEN_WIDTH, estimateScreenSize } from '../flows/metrics';
 import { ctaForHandle, dropTarget } from '../flows/connect';
+import { ReconnectContext, type Reconnect, type Reconnecting } from '../flows/reconnect';
 import { FlowsEditorContext, type EditTarget, type FlowsEditor } from '../flows/editor';
 import {
   addScreen,
@@ -26,6 +27,7 @@ import {
   deleteTransitions,
   duplicateScreens,
   moveScreens,
+  retargetTransition,
 } from '../flows/ops';
 import { ScreenNode, type Highlight, type ScreenNodeType } from '../flows/ScreenNode';
 import { TransitionEdge, type TransitionEdgeType } from '../flows/TransitionEdge';
@@ -86,6 +88,8 @@ function FlowsCanvas({
   const [connecting, setConnecting] = useState<TransitionFrom | null>(null);
   /** The transition under the pointer, highlighted with its two ends. */
   const [hoveredEdge, setHoveredEdge] = useState<string | null>(null);
+  /** The transition whose arrow end is being dragged, while one is. */
+  const [reconnecting, setReconnecting] = useState<Reconnecting | null>(null);
   const selection = useSelection();
   const measurements = useMeasurements();
   const instance = useRef<ReactFlowInstance<ScreenNodeType, TransitionEdgeType> | null>(null);
@@ -123,8 +127,10 @@ function FlowsCanvas({
   const highlights = useMemo(() => {
     const lit = new Set(selection.selectedEdges);
     if (hoveredEdge) lit.add(hoveredEdge);
+    // A transition being reassigned no longer points at its old target.
+    if (reconnecting) lit.delete(reconnecting.transitionId);
     return transitionHighlights(flows, lit);
-  }, [flows, hoveredEdge, selection.selectedEdges]);
+  }, [flows, hoveredEdge, selection.selectedEdges, reconnecting]);
   const nodes = useMemo(
     () =>
       flow.nodes.map((n) => {
@@ -197,6 +203,68 @@ function FlowsCanvas({
     // the card instead.
     if (id) setTimeout(() => selection.select([], [id as string]));
   };
+
+  /**
+   * Dragging a selected transition's arrow end (its grip) to a screen or state reassigns it,
+   * with the same drop targets as drawing one (`dropTarget`). Dropped on empty canvas, or on
+   * the state its CTA sits in, or with Escape, nothing changes.
+   */
+  const latestFlows = useRef(flows);
+  useLayoutEffect(() => {
+    latestFlows.current = flows;
+  });
+  const { select } = selection;
+  const startReconnect = useCallback<Reconnect['start']>(
+    (transitionId, event) => {
+      const transition = latestFlows.current.transitions.find((t) => t.id === transitionId);
+      const view = instance.current;
+      if (!transition || !view || event.button !== 0) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const follow = (e: { clientX: number; clientY: number }) =>
+        setReconnecting({
+          transitionId,
+          at: view.screenToFlowPosition({ x: e.clientX, y: e.clientY }),
+        });
+      const end = () => {
+        window.removeEventListener('pointermove', follow);
+        window.removeEventListener('pointerup', drop);
+        window.removeEventListener('keydown', cancel, true);
+        setReconnecting(null);
+        setConnecting(null);
+      };
+      const drop = (e: PointerEvent) => {
+        end();
+        const under = nodeUnderPoint(e.clientX, e.clientY);
+        if (!under) return;
+        const at = {
+          screenId: under.node.dataset.id ?? null,
+          stateId: under.element.closest<HTMLElement>('[data-state]')?.dataset.state ?? null,
+        };
+        apply((doc) => {
+          const to = dropTarget(doc, transition.from, at);
+          return to ? retargetTransition(doc, transitionId, to) : doc;
+        });
+        // After the click that ends the drag, which would otherwise select the card.
+        setTimeout(() => select([], [transitionId]));
+      };
+      const cancel = (e: KeyboardEvent) => {
+        if (e.key !== 'Escape') return;
+        e.stopPropagation();
+        end();
+      };
+      setConnecting(transition.from);
+      follow(event);
+      window.addEventListener('pointermove', follow);
+      window.addEventListener('pointerup', drop);
+      window.addEventListener('keydown', cancel, true);
+    },
+    [apply, select],
+  );
+  const reconnect = useMemo<Reconnect>(
+    () => ({ reconnecting, start: startReconnect }),
+    [reconnecting, startReconnect],
+  );
 
   const onNodesChange = (changes: NodeChange<ScreenNodeType>[]) => {
     selection.onNodesChange(changes);
@@ -323,95 +391,98 @@ function FlowsCanvas({
 
   return (
     <FlowsEditorContext.Provider value={editor}>
-      <div
-        ref={container}
-        className={`canvas-host${connecting ? ' connecting' : ''}`}
-        onDoubleClick={onDoubleClick}
-      >
-        <Canvas<ScreenNodeType, TransitionEdgeType>
-          viewportKey={`flows:${projectPath}`}
-          nodes={nodes}
-          edges={edges}
-          nodeTypes={NODE_TYPES}
-          edgeTypes={EDGE_TYPES}
-          onInit={(i) => {
-            instance.current = i;
-          }}
-          onNodesChange={onNodesChange}
-          onEdgesChange={selection.onEdgesChange}
-          onNodeDragStop={(_e, _node, dragged) => {
-            apply(
-              (doc) => moveScreens(doc, Object.fromEntries(dragged.map((n) => [n.id, n.position]))),
-              { saveNow: true },
-            );
-            setDragging({});
-          }}
-          onConnectStart={(_event, { nodeId, handleId }) =>
-            setConnecting(nodeId && handleId ? ctaForHandle(flows, nodeId, handleId) : null)
-          }
-          onEdgeMouseEnter={(_event, edge) => setHoveredEdge(edge.id)}
-          onEdgeMouseLeave={() => setHoveredEdge(null)}
-          onConnectEnd={onConnectEnd}
-          // Only dropping onto a card counts (onConnectEnd); never connect handle to handle.
-          isValidConnection={() => false}
-          onBeforeDelete={({ nodes: goneNodes, edges: goneEdges }) => {
-            // Flows deletes never ask (decisions.md); the toast offers Undo.
-            const screenIds = new Set(goneNodes.map((n) => n.id));
-            const transitionIds = new Set(goneEdges.map((e) => e.id));
-            remove(
-              (doc) => deleteTransitions(deleteScreens(doc, screenIds), transitionIds),
-              (doc) => deletionSummary(doc, screenIds, transitionIds),
-            );
-            selection.clear();
-            // The document change removes them; React Flow mustn't remove them a second time.
-            return Promise.resolve(false);
-          }}
-          toolbarActions={
-            <>
-              <button
-                type="button"
-                className="btn btn-quiet btn-tight toolbar-add"
-                onClick={addNext}
-              >
-                <span className="toolbar-add-plus" aria-hidden="true">
-                  +
-                </span>
-                Add screen
-                <Kbd>{shortcutHint('add-screen')}</Kbd>
-              </button>
-              <span className="divider" aria-hidden="true" />
-              <UndoRedoButtons
-                undo={history.undo}
-                redo={history.redo}
-                canUndo={edit.canUndo}
-                canRedo={edit.canRedo}
+      <ReconnectContext.Provider value={reconnect}>
+        <div
+          ref={container}
+          className={`canvas-host${connecting ? ' connecting' : ''}${reconnecting ? ' reconnecting' : ''}`}
+          onDoubleClick={onDoubleClick}
+        >
+          <Canvas<ScreenNodeType, TransitionEdgeType>
+            viewportKey={`flows:${projectPath}`}
+            nodes={nodes}
+            edges={edges}
+            nodeTypes={NODE_TYPES}
+            edgeTypes={EDGE_TYPES}
+            onInit={(i) => {
+              instance.current = i;
+            }}
+            onNodesChange={onNodesChange}
+            onEdgesChange={selection.onEdgesChange}
+            onNodeDragStop={(_e, _node, dragged) => {
+              apply(
+                (doc) =>
+                  moveScreens(doc, Object.fromEntries(dragged.map((n) => [n.id, n.position]))),
+                { saveNow: true },
+              );
+              setDragging({});
+            }}
+            onConnectStart={(_event, { nodeId, handleId }) =>
+              setConnecting(nodeId && handleId ? ctaForHandle(flows, nodeId, handleId) : null)
+            }
+            onEdgeMouseEnter={(_event, edge) => setHoveredEdge(edge.id)}
+            onEdgeMouseLeave={() => setHoveredEdge(null)}
+            onConnectEnd={onConnectEnd}
+            // Only dropping onto a card counts (onConnectEnd); never connect handle to handle.
+            isValidConnection={() => false}
+            onBeforeDelete={({ nodes: goneNodes, edges: goneEdges }) => {
+              // Flows deletes never ask (decisions.md); the toast offers Undo.
+              const screenIds = new Set(goneNodes.map((n) => n.id));
+              const transitionIds = new Set(goneEdges.map((e) => e.id));
+              remove(
+                (doc) => deleteTransitions(deleteScreens(doc, screenIds), transitionIds),
+                (doc) => deletionSummary(doc, screenIds, transitionIds),
+              );
+              selection.clear();
+              // The document change removes them; React Flow mustn't remove them a second time.
+              return Promise.resolve(false);
+            }}
+            toolbarActions={
+              <>
+                <button
+                  type="button"
+                  className="btn btn-quiet btn-tight toolbar-add"
+                  onClick={addNext}
+                >
+                  <span className="toolbar-add-plus" aria-hidden="true">
+                    +
+                  </span>
+                  Add screen
+                  <Kbd>{shortcutHint('add-screen')}</Kbd>
+                </button>
+                <span className="divider" aria-hidden="true" />
+                <UndoRedoButtons
+                  undo={history.undo}
+                  redo={history.redo}
+                  canUndo={edit.canUndo}
+                  canRedo={edit.canRedo}
+                />
+              </>
+            }
+            status={
+              <SaveStatusPill
+                status={edit.status}
+                issues={edit.issues}
+                onRetry={() => void edit.flush()}
               />
-            </>
-          }
-          status={
-            <SaveStatusPill
-              status={edit.status}
-              issues={edit.issues}
-              onRetry={() => void edit.flush()}
-            />
-          }
-          overlay={
-            flows.screens.length === 0 && (
-              <EmptyCard
-                title="No screens yet"
-                actions={
-                  <button type="button" className="btn btn-primary" onClick={addNext}>
-                    Add screen
-                    <Kbd>{shortcutHint('add-screen')}</Kbd>
-                  </button>
-                }
-              >
-                Screens are the places a user can be. Add one, then connect it to others.
-              </EmptyCard>
-            )
-          }
-        />
-      </div>
+            }
+            overlay={
+              flows.screens.length === 0 && (
+                <EmptyCard
+                  title="No screens yet"
+                  actions={
+                    <button type="button" className="btn btn-primary" onClick={addNext}>
+                      Add screen
+                      <Kbd>{shortcutHint('add-screen')}</Kbd>
+                    </button>
+                  }
+                >
+                  Screens are the places a user can be. Add one, then connect it to others.
+                </EmptyCard>
+              )
+            }
+          />
+        </div>
+      </ReconnectContext.Provider>
     </FlowsEditorContext.Provider>
   );
 }
@@ -451,6 +522,12 @@ function toFlow(flows: Flows): { nodes: ScreenNodeType[]; edges: TransitionEdgeT
   });
   const screens = screensById(flows);
   const fans = fanPlaces(flows);
+  // Where any transition could lead, for the popover's To list.
+  const targets = flows.screens.map((sc) => ({
+    id: sc.id,
+    name: sc.name,
+    states: sc.states.map((st) => ({ id: st.id, name: st.name })),
+  }));
   // Each screen's outgoing transitions get their own track, so loops round it stay apart.
   const tracks = new Map<string, number>();
   const nextTrack = new Map<string, number>();
@@ -475,9 +552,9 @@ function toFlow(flows: Flows): { nodes: ScreenNodeType[]; edges: TransitionEdgeT
           fan: fans.get(t.id) ?? { index: 0, count: 1 },
           track: tracks.get(t.id) ?? 0,
           fromText: [fromScreen.name, fromState?.name, cta?.label].join(' › '),
-          toScreenName: toScreen.name,
-          toStates: toScreen.states.map((st) => ({ id: st.id, name: st.name })),
-          ...(t.to.stateId !== undefined && { toStateId: t.to.stateId }),
+          from: t.from,
+          to: t.to,
+          screens: targets,
           editing: false,
           ...(t.label !== undefined && { label: t.label }),
         },
