@@ -1,4 +1,5 @@
 dist
+out
 pnpm-lock.yaml
 # Briefs and docs are authored outside this repo's tooling; never reformat them.
 docs

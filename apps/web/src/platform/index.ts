@@ -1,4 +1,6 @@
+import type { DesktopApi } from '@modelwright/core/ipc';
 import { createHttpClient } from './httpClient';
+import { createIpcClient } from './ipcClient';
 import type { ProjectClient } from './ProjectClient';
 
 export {
@@ -13,7 +15,13 @@ export {
 } from './ProjectClient';
 export { ProjectClientProvider, useProjectClient } from './context';
 
-/** The client for this build. Electron will return an IPC client here instead. */
+/** The desktop app's preload API, when running inside it. */
+export function desktopApi(): DesktopApi | undefined {
+  return (globalThis as { modelwright?: DesktopApi }).modelwright;
+}
+
+/** The client for this build: IPC inside the desktop app, HTTP to apps/server otherwise. */
 export function createDefaultClient(): ProjectClient {
-  return createHttpClient();
+  const api = desktopApi();
+  return api ? createIpcClient(api) : createHttpClient();
 }

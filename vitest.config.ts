@@ -10,6 +10,7 @@ export default defineConfig({
       'packages/client-contract',
       'packages/cli',
       'apps/server',
+      'apps/desktop',
       'apps/web',
     ],
   },

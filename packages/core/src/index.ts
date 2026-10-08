@@ -12,3 +12,4 @@ export { checkPreview, PREVIEW_TIMEOUT_MS, PREVIEW_MAX_REDIRECTS } from './previ
 export { allows, embeddingVerdict, type EmbeddingVerdict } from './frameHeaders';
 export { resolveParentDir, resolveProjectDir, tildify } from './paths';
 export { Recents, RECENTS_LIMIT, type RecentEntry } from './recents';
+export * from './ipc';

@@ -18,6 +18,7 @@
   "dependencies": {
     "@fontsource/ibm-plex-mono": "^5.3.0",
     "@material-symbols/svg-400": "^0.47.6",
+    "@modelwright/core": "workspace:*",
     "@modelwright/project": "workspace:*",
     "@modelwright/schema": "workspace:*",
     "@modelwright/spec": "workspace:*",

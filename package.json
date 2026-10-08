@@ -13,7 +13,9 @@
     "typecheck": "pnpm -r typecheck",
     "lint": "eslint . && prettier --check .",
     "build:plugin": "pnpm --filter @modelwright/cli build:plugin",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "dev:desktop": "pnpm --filter @modelwright/desktop dev",
+    "e2e:desktop": "pnpm --filter @modelwright/desktop e2e"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

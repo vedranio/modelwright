@@ -1,0 +1,28 @@
+{
+  "name": "@modelwright/desktop",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "modelwright for macOS: Electron hosting the core over IPC, with apps/web as its renderer.",
+  "main": "out/main/index.js",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "typecheck": "tsc -p tsconfig.json",
+    "e2e": "electron-vite build && playwright test"
+  },
+  "dependencies": {
+    "@modelwright/core": "workspace:*",
+    "@modelwright/project": "workspace:*",
+    "@modelwright/schema": "workspace:*",
+    "@modelwright/spec": "workspace:*",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0",
+    "@vitejs/plugin-react": "5.2.0",
+    "electron": "44.5.1",
+    "electron-vite": "5.0.0",
+    "vite": "7.3.7"
+  }
+}

@@ -1098,3 +1098,26 @@ Settled in the phase 7 interview. The brief's "Decisions this brief makes" stand
 - **`checkPreview` takes `framing`.** With `false` (the desktop app), frame-blocking headers aren't read.
 - **The `ProjectClient` contract suite** lives in `packages/client-contract`, a test-only package typechecked with both DOM and Node types. It holds the same cases for every client: opening, recents, init, create, read/write with 404/400/409/422 statuses and issues, the build record, the preview check, and watching (external changes reported, own writes not, nothing after unsubscribe). It runs against `httpClient` with requests sent straight into the app, through a small `EventSource` shim over its SSE stream.
 - **`createHttpClient(baseUrl, transport)`** takes its `fetch` and `EventSource`, the browser's by default.
+
+## 2026-10-08 — Phase 7 milestone 1: the desktop shell
+
+- **electron-vite 5 with Vite 7, in `apps/desktop` only** (settled with you). electron-vite's stable release supports Vite up to 7, and only its 6.0 beta supports Vite 8. The desktop app builds apps/web's source with Vite 7 and `@vitejs/plugin-react` 5, and the web build stays on Vite 8. Move to electron-vite 6 once it's stable.
+- **Versions:** Electron 44.5.1 and Playwright 1.63.0, the newest that pass pnpm's release-age policy. pnpm had quietly added an exemption to `pnpm-workspace.yaml` for Electron 44.7.0 (a day old). That's undone. `allowBuilds` gains `electron`, so its install script can fetch the binary.
+- **Bundling:** main and preload are built with `externalizeDeps: false`, so the workspace packages (TypeScript source) and zod are bundled. Main's only imports are `electron` and Node built-ins. The preload is one CommonJS file (sandboxed preloads must be CJS) that requires only `electron`.
+- **The window:**
+  - `contextIsolation`, `sandbox`, no `nodeIntegration`, no `webviewTag`.
+  - `will-navigate` to anything but modelwright's own origin is cancelled, and new windows are denied. Web links go to the default browser.
+  - `will-attach-webview` is refused, and every permission request is denied.
+  - Watches are released when the renderer navigates or is destroyed.
+- **Served from `app://modelwright`** (privileged as standard and secure) in the built app, from `out/renderer` only, with a CSP: `script-src 'self'`; `style-src 'self' 'unsafe-inline'` (React Flow positions nodes with inline styles); no frames, objects or form actions. In development the renderer comes from electron-vite's dev server on 4302, with HMR and no CSP.
+- **The theme script before first paint** moved from an inline `<script>` to `public/theme-init.js`, so the CSP needs no `unsafe-inline` for scripts. It's the same code in both builds.
+- **IPC:**
+  - `@modelwright/core/ipc` (types and constants only) names the channels (`mw:<method>`), `IpcResult`, and the `DesktopApi` the preload exposes as `window.modelwright`: `invoke(method, …args)` for a whitelist of methods, plus `watchDesign(path, onChange) → stop`.
+  - `IPC_ARGS` in the contract holds each method's argument tuple as zod.
+  - `createIpcHandlers(core, { isTrusted, toolOrigin })` (`apps/desktop/src/main/ipc.ts`) checks the sending frame's origin, validates the arguments, calls the core, and returns values, never throws. Unexpected errors are `internal` (500).
+  - Watches have ids, belong to the renderer that made them, and a stop that comes before the watch has started still unwatches.
+- **`ipcClient`** maps serialised errors to `ProjectClientError` with the same HTTP-style statuses, so the UI can't tell the clients apart. `createDefaultClient()` picks it when `window.modelwright` exists. The web app's lint now forbids importing `@modelwright/core` itself (it's Node) or either client implementation.
+- **The preload's logic is `createDesktopApi(channel)`,** so the contract suite drives the real preload and main handlers over a fake channel that structured-clones like IPC. The contract passes against both clients.
+- **Tests:**
+  - Vitest: malformed arguments for every method are rejected with no core call, untrusted senders are refused, previews are checked with `framing: false`, watch ownership holds, and the preload forwards only known methods.
+  - Playwright Electron (`pnpm e2e:desktop`, against `out/`): no `require` or `process` in the renderer and only `invoke`/`watchDesign` on the API; malformed calls are rejected; a project opens, an entity rename reaches `erd.json`, and every view shows; an external edit to `erd.json` updates the canvas. Each run gets a temp `MODELWRIGHT_HOME`.
