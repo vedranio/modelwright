@@ -9,6 +9,8 @@ export interface PreviewCheckOptions {
   /** The whole check, redirects included, gives up after this long. */
   timeoutMs?: number;
   maxRedirects?: number;
+  /** Whether frame-blocking headers count (an iframe), or not (a top-level page). Default true. */
+  framing?: boolean;
 }
 
 export const PREVIEW_TIMEOUT_MS = 3000;
@@ -16,7 +18,7 @@ export const PREVIEW_MAX_REDIRECTS = 5;
 
 /**
  * Requests a preview URL the way the iframe will, and says whether the iframe can show it. A
- * browser can't tell why a cross-origin iframe is blank, so the server finds out. Any HTTP
+ * browser can't tell why a cross-origin iframe is blank, so the host process finds out. Any HTTP
  * status counts as `ok`: the dev server is running and the iframe shows its error page.
  *
  * Only the headers are read. The body is cancelled unread and nothing from it is returned.
@@ -29,6 +31,7 @@ export async function checkPreview(
     toolPorts,
     timeoutMs = PREVIEW_TIMEOUT_MS,
     maxRedirects = PREVIEW_MAX_REDIRECTS,
+    framing = true,
   }: PreviewCheckOptions,
 ): Promise<PreviewCheck> {
   const first = parseHttpUrl(raw);
@@ -46,6 +49,7 @@ export async function checkPreview(
 
       const location = isRedirect(res.status) ? res.headers.get('location') : null;
       if (location === null) {
+        if (!framing) return { status: 'ok' };
         const verdict = embeddingVerdict(res.headers, toolOrigin, url.href);
         return verdict.refused
           ? { status: 'refuses-embedding', detail: verdict.detail }

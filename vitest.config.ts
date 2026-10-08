@@ -6,6 +6,8 @@ export default defineConfig({
       'packages/schema',
       'packages/spec',
       'packages/project',
+      'packages/core',
+      'packages/client-contract',
       'packages/cli',
       'apps/server',
       'apps/web',

@@ -2,12 +2,21 @@ import type { ApiErrorBody, DesignError } from '@modelwright/schema';
 import { isDesignKind } from '@modelwright/schema';
 import { ProjectClientError, type DesignChange, type ProjectClient } from './ProjectClient';
 
-/** The phase 1 ProjectClient: talks to apps/server through the Vite `/api` proxy. */
-export function createHttpClient(baseUrl = '/api'): ProjectClient {
+/** What the client sends requests with; the browser's own by default, a test's in tests. */
+export interface HttpTransport {
+  fetch: typeof fetch;
+  EventSource: typeof EventSource;
+}
+
+/** The web build's ProjectClient: talks to apps/server through the Vite `/api` proxy. */
+export function createHttpClient(
+  baseUrl = '/api',
+  transport: HttpTransport = { fetch: (...args) => fetch(...args), EventSource },
+): ProjectClient {
   async function send(method: string, path: string, body?: unknown): Promise<Response> {
     let res: Response;
     try {
-      res = await fetch(`${baseUrl}${path}`, {
+      res = await transport.fetch(`${baseUrl}${path}`, {
         method,
         ...(body !== undefined && {
           headers: { 'content-type': 'application/json' },
@@ -53,7 +62,7 @@ export function createHttpClient(baseUrl = '/api'): ProjectClient {
     },
     watchDesign(path, onChange) {
       // Server-sent events; EventSource reconnects by itself if the server restarts.
-      const events = new EventSource(`${baseUrl}/design/events${query(path)}`);
+      const events = new transport.EventSource(`${baseUrl}/design/events${query(path)}`);
       events.addEventListener('change', (event) => {
         try {
           const change: unknown = JSON.parse((event as MessageEvent<string>).data);

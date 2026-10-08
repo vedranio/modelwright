@@ -13,7 +13,8 @@ import {
   type ProjectSummary,
 } from '@modelwright/schema';
 import { readTextOrNull, writeAtomic } from '@modelwright/project/node';
-import { HttpError, designDir, designDirState, designFile, statOrNull, tildify } from './paths';
+import { CoreError } from './errors';
+import { designDir, designDirState, designFile, statOrNull, tildify } from './paths';
 
 /** Whether `.design/` is a real directory holding all three files. */
 export async function isInitialised(projectDir: string): Promise<boolean> {
@@ -42,7 +43,7 @@ export async function summarise(projectDir: string, userHome: string): Promise<P
 
 /**
  * Creates whichever of the three design files are missing, never overwriting one.
- * Refuses with 409 when all three already exist.
+ * Refuses with a conflict when all three already exist.
  */
 export async function initialise(
   projectDir: string,
@@ -52,7 +53,7 @@ export async function initialise(
 ): Promise<void> {
   const state = await designDirState(projectDir);
   if (state === 'invalid') {
-    throw new HttpError(409, `${designDir(projectDir)} exists but is not a folder`);
+    throw new CoreError('conflict', `${designDir(projectDir)} exists but is not a folder`);
   }
   if (state === 'missing') await fs.mkdir(designDir(projectDir));
 
@@ -61,7 +62,7 @@ export async function initialise(
     if (!(await statOrNull(designFile(projectDir, kind)))) missing.push(kind);
   }
   if (missing.length === 0) {
-    throw new HttpError(409, `modelwright is already initialised in ${projectDir}`);
+    throw new CoreError('conflict', `modelwright is already initialised in ${projectDir}`);
   }
 
   const displayName = name?.trim() || folderName(projectDir);
@@ -96,10 +97,10 @@ const GIT_TIMEOUT_MS = 10_000;
  */
 export function projectFolderName(name: string): string {
   const folder = name.trim();
-  if (folder === '') throw new HttpError(400, 'Give the project a name');
+  if (folder === '') throw new CoreError('invalid-argument', 'Give the project a name');
   const control = [...folder].some((ch) => ch.charCodeAt(0) < 0x20);
   if (folder === '.' || folder === '..' || /[/\\]/.test(folder) || control) {
-    throw new HttpError(400, 'The name can’t contain / or \\, or be . or ..');
+    throw new CoreError('invalid-argument', 'The name can’t contain / or \\, or be . or ..');
   }
   return folder;
 }
@@ -121,9 +122,10 @@ export async function createProject(
 ): Promise<string> {
   const folder = projectFolderName(name);
   const dir = path.join(parent, folder);
-  if (path.dirname(dir) !== parent) throw new HttpError(400, 'The name must be one folder name');
+  if (path.dirname(dir) !== parent)
+    throw new CoreError('invalid-argument', 'The name must be one folder name');
   if (await statOrNull(dir)) {
-    throw new HttpError(409, `There's already a folder called ${folder} there`);
+    throw new CoreError('conflict', `There's already a folder called ${folder} there`);
   }
   if (options.git) await requireGit();
   // Not recursive: the parent was checked to exist, and an existing folder is never reused.
@@ -134,7 +136,7 @@ export async function createProject(
       await promisify(execFile)('git', ['init', '--quiet'], { cwd: dir, timeout: GIT_TIMEOUT_MS });
     } catch (err) {
       const detail = err instanceof Error ? err.message : String(err);
-      throw new HttpError(409, `Created ${folder}, but git init failed: ${detail}`);
+      throw new CoreError('conflict', `Created ${folder}, but git init failed: ${detail}`);
     }
   }
   return dir;
@@ -145,6 +147,9 @@ async function requireGit(): Promise<void> {
   try {
     await promisify(execFile)('git', ['--version'], { timeout: GIT_TIMEOUT_MS });
   } catch {
-    throw new HttpError(400, 'git isn’t installed, so a repository can’t be initialised');
+    throw new CoreError(
+      'invalid-argument',
+      'git isn’t installed, so a repository can’t be initialised',
+    );
   }
 }

@@ -199,6 +199,9 @@ importers:
       '@hono/node-server':
         specifier: ^2.1.3
         version: 2.1.3(hono@4.13.12)
+      '@modelwright/core':
+        specifier: workspace:*
+        version: link:../../packages/core
       '@modelwright/project':
         specifier: workspace:*
         version: link:../../packages/project
@@ -283,6 +286,42 @@ importers:
       tsx:
         specifier: ^4.23.15
         version: 4.23.15
+
+  packages/client-contract:
+    devDependencies:
+      '@modelwright/core':
+        specifier: workspace:*
+        version: link:../core
+      '@modelwright/project':
+        specifier: workspace:*
+        version: link:../project
+      '@modelwright/schema':
+        specifier: workspace:*
+        version: link:../schema
+      '@modelwright/spec':
+        specifier: workspace:*
+        version: link:../spec
+      hono:
+        specifier: ^4.13.12
+        version: 4.13.12
+      zod:
+        specifier: ^4.6.5
+        version: 4.6.5
+
+  packages/core:
+    dependencies:
+      '@modelwright/project':
+        specifier: workspace:*
+        version: link:../project
+      '@modelwright/schema':
+        specifier: workspace:*
+        version: link:../schema
+      '@modelwright/spec':
+        specifier: workspace:*
+        version: link:../spec
+      zod:
+        specifier: ^4.6.5
+        version: 4.6.5
 
   packages/project:
     dependencies:

@@ -1065,3 +1065,36 @@ The rest of the UI feedback from the dry run is logged above (commits A–K).
   - Flows with states, primary actions and labelled transitions
   - the UI preview framing a running app at mobile width
   - the light theme
+
+## 2026-10-08 — Phase 7 planning decisions
+
+Settled in the phase 7 interview. The brief's "Decisions this brief makes" stand: Electron with electron-vite; the web build stays as the development and test harness on 4300/4301; one core, two transports; macOS on Apple silicon only; manual updates; one window, one project; starting the project's dev server stays out of scope. These settle or change the rest:
+
+- **Where the Electron docs differ from the brief (the docs win):**
+  - The docs advise against `<webview>` and point to `iframe` or `WebContentsView`.
+  - A `WebContentsView` shows the preview as a top-level page, where `X-Frame-Options` and `frame-ancestors` don't apply. So the desktop app strips no headers. The brief's "preview header filtering" test becomes "the desktop preview check never reports `refuses-embedding`" (`checkPreview(url, { framing: false })`).
+- **The preview is a `WebContentsView`** in its own session partition (`persist:preview`). Mobile emulates the viewport and device scale factor (`enableDeviceEmulation`), a mobile user agent (`setUserAgent`) and touch (CDP through `webContents.debugger`). Desktop clears all three. The view is a native layer above the page, so main keeps its bounds in step with the preview area. While a menu, dialog, toast or the help overlay covers it, a snapshot stands in for it.
+- **Title bar: `hiddenInset`.** The header is the drag region and its controls are `no-drag`. A desktop-only token clears the traffic lights.
+- **Signing: ad-hoc, not notarised.** It runs on this Mac after a one-time "Open anyway".
+- **The core is a new `packages/core`.** `packages/project` stays the small rules-and-fs layer the CLI uses.
+- **Packaging uses electron-builder,** as electron-vite's docs and templates do. All workspace code is bundled into the main process, so the `.app` ships no `node_modules`.
+- **Electron's profile lives in `~/.modelwright/desktop`** (`app.setPath('userData')`). That keeps "writes nothing outside `.design/` and `~/.modelwright`" literally true.
+- **One instance.** A second launch, or a folder dropped on the Dock icon, opens in the existing window.
+- **⌘1–3 are desktop-only extra combos** for the views. Plain 1–3 keep working everywhere.
+- **The desktop renderer's dev server uses port 4302.** The packaged app opens no ports.
+- **Quitting with unsaved edits** behaves as Close project does in the web build.
+- **`brand/` was already committed,** contrary to the brief, so there was nothing to add.
+
+## 2026-10-08 — Phase 7 milestone 0: the core
+
+- **`packages/core`** holds every project operation, from `createCore({ homeDir, userHome, now, toolPorts, previewTimeoutMs, watcher, demoTemplate })`.
+  - The operations are `openProject`, `initProject`, `createProject`, `listRecent`, `removeRecent`, `readDesign`, `writeDesign`, `readBuildRecord`, `checkPreview` and `watchDesign`, plus `resolveProjectDir`.
+  - Projects, recents, the watcher, the preview check, frame-header matching, paths and the demo moved there from `apps/server/src` unchanged, apart from their error type.
+- **Errors are `CoreError`s** with a `code`: `invalid-argument`, `not-found`, `conflict` or `invalid-design`. An invalid design carries the file's `DesignError`.
+  - `@modelwright/core/contract` is the pure part both transports and the web clients share: the codes, `STATUS_FOR_CODE` (400/404/409/422), `SerialisedError` and the zod argument schemas.
+- **The Hono app is an adapter.** It keeps the guard, body parsing (415 and malformed JSON stay HTTP errors), SSE, and the mapping from `CoreError` to status. Its tests pass unchanged. `watcher.ts`, `demo.ts` and `frameHeaders.ts` remain in `apps/server/src` as one-line re-exports, because the tests import them by those paths.
+  - A PUT still checks the folder before reading the body, so a missing project is a 404 whatever the body.
+- **The demo template moved to `packages/core/demo/todo`.** `DEMO_TEMPLATE` looks for it beside the source, or in `demo/` beside a bundle. The server's tsup build copies it there.
+- **`checkPreview` takes `framing`.** With `false` (the desktop app), frame-blocking headers aren't read.
+- **The `ProjectClient` contract suite** lives in `packages/client-contract`, a test-only package typechecked with both DOM and Node types. It holds the same cases for every client: opening, recents, init, create, read/write with 404/400/409/422 statuses and issues, the build record, the preview check, and watching (external changes reported, own writes not, nothing after unsubscribe). It runs against `httpClient` with requests sent straight into the app, through a small `EventSource` shim over its SSE stream.
+- **`createHttpClient(baseUrl, transport)`** takes its `fetch` and `EventSource`, the browser's by default.

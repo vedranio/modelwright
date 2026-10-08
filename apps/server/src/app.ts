@@ -1,37 +1,21 @@
-import os from 'node:os';
 import { Hono, type Context } from 'hono';
-import { streamSSE } from 'hono/streaming';
-import { z } from 'zod';
+import { streamSSE, type SSEStreamingApi } from 'hono/streaming';
+import type { z } from 'zod';
 import {
-  isDesignKind,
-  parseDesign,
-  parseDesignJson,
-  stringifyDesign,
-  type Config,
-  type DesignKind,
-  type ProjectSummary,
-} from '@modelwright/schema';
+  CoreError,
+  CreateArgs,
+  DesignKindArg,
+  DesignWatcher,
+  InitArgs,
+  PathArgs,
+  PREVIEW_TIMEOUT_MS,
+  PreviewArgs,
+  STATUS_FOR_CODE,
+  createCore,
+} from '@modelwright/core';
+import type { DesignKind } from '@modelwright/schema';
 import { DEFAULT_ALLOWED_HOSTS, DEFAULT_ALLOWED_ORIGINS, SERVER_PORT, WEB_PORT } from './config';
-import {
-  readBuildRecord,
-  readTextOrNull,
-  regenerateSpec,
-  writeAtomic,
-} from '@modelwright/project/node';
 import { originGuard } from './guard';
-import { checkPreview, PREVIEW_TIMEOUT_MS } from './previewCheck';
-import {
-  HttpError,
-  designDirState,
-  designFile,
-  resolveParentDir,
-  resolveProjectDir,
-  tildify,
-} from './paths';
-import { createProject, initialise, isInitialised, summarise } from './projects';
-import { demoDir, offerDemo } from './demo';
-import { Recents } from './recents';
-import { DesignWatcher } from './watcher';
 
 export interface AppOptions {
   /** modelwright's own state directory (recents). */
@@ -57,33 +41,51 @@ export interface AppOptions {
 /** The web app's origin when a request doesn't say (curl, tests). */
 const DEFAULT_TOOL_ORIGIN = `http://localhost:${WEB_PORT}`;
 
-const PathBody = z.object({ path: z.string() });
-const InitBody = z.object({ path: z.string(), name: z.string().optional() });
-const CreateBody = z.object({ parent: z.string(), name: z.string(), git: z.boolean().optional() });
-const PreviewBody = z.object({ url: z.string() });
+/** A failure of the HTTP layer itself (the request body), before the core is called. */
+class HttpError extends Error {
+  constructor(
+    readonly status: 400 | 415,
+    message: string,
+  ) {
+    super(message);
+  }
+}
 
+/**
+ * The HTTP transport over the core: routes, the origin/host guard and server-sent events. It
+ * maps requests onto core calls and `CoreError`s onto status codes, and holds no project logic.
+ */
 export function createApp({
   homeDir,
-  userHome = os.homedir(),
+  userHome,
   now,
   allowedHosts = DEFAULT_ALLOWED_HOSTS,
   allowedOrigins = DEFAULT_ALLOWED_ORIGINS,
   toolPorts = [WEB_PORT, SERVER_PORT],
   previewTimeoutMs = PREVIEW_TIMEOUT_MS,
-  watcher = new DesignWatcher(),
+  watcher,
   heartbeatMs = 25_000,
   demoTemplate,
 }: AppOptions) {
-  const recents = new Recents(homeDir, now);
-  // Offered before the first listing, once per process; offerDemo itself remembers per install.
-  const demoReady = demoTemplate ? offerDemo(homeDir, recents, demoTemplate) : Promise.resolve();
-  const demoPath = demoDir(homeDir);
+  const core = createCore({
+    homeDir,
+    ...(userHome !== undefined && { userHome }),
+    ...(now !== undefined && { now }),
+    ...(watcher !== undefined && { watcher }),
+    ...(demoTemplate !== undefined && { demoTemplate }),
+    toolPorts,
+    previewTimeoutMs,
+  });
   const app = new Hono().basePath('/api');
 
   app.use('*', originGuard({ allowedHosts, allowedOrigins }));
 
   app.onError((err, c) => {
     if (err instanceof HttpError) return c.json({ message: err.message }, err.status);
+    if (err instanceof CoreError) {
+      if (err.design) return c.json(err.design, 422);
+      return c.json({ message: err.message }, STATUS_FOR_CODE[err.code]);
+    }
     console.error(err);
     return c.json({ message: err.message || 'Internal error' }, 500);
   });
@@ -91,147 +93,82 @@ export function createApp({
   app.get('/health', (c) => c.json({ ok: true }));
 
   app.post('/projects/open', async (c) => {
-    const body = await readBody(c, PathBody);
-    const dir = await resolveProjectDir(body.path);
-    const summary = await summarise(dir, userHome);
-    const { lastOpenedAt } = await recents.add({ path: summary.path, name: summary.name });
-    return c.json({ ...summary, lastOpenedAt });
+    const body = await readBody(c, PathArgs);
+    return c.json(await core.openProject(body.path));
   });
 
   app.post('/projects/init', async (c) => {
-    const body = await readBody(c, InitBody);
-    const dir = await resolveProjectDir(body.path);
-    await initialise(dir, body.name, (kind, text) => watcher.noteWrite(dir, kind, text));
-    await refreshSpec(dir);
-    const summary = await summarise(dir, userHome);
-    const { lastOpenedAt } = await recents.add({ path: summary.path, name: summary.name });
-    return c.json({ ...summary, lastOpenedAt }, 201);
+    const body = await readBody(c, InitArgs);
+    return c.json(await core.initProject(body.path, body.name), 201);
   });
 
-  // A new project: its folder, its .design/ and optionally a git repository.
   app.post('/projects/create', async (c) => {
-    const body = await readBody(c, CreateBody);
-    const parent = await resolveParentDir(body.parent, userHome);
-    const dir = await createProject(parent, body.name, {
-      git: body.git ?? false,
-      onWrite: (dir, kind, text) => watcher.noteWrite(dir, kind, text),
-    });
-    await refreshSpec(dir);
-    const summary = await summarise(dir, userHome);
-    const { lastOpenedAt } = await recents.add({ path: summary.path, name: summary.name });
-    return c.json({ ...summary, lastOpenedAt }, 201);
+    const body = await readBody(c, CreateArgs);
+    return c.json(await core.createProject(body.parent, body.name, body.git ?? false), 201);
   });
 
-  app.get('/projects/recent', async (c) => {
-    await demoReady;
-    const list = await recents.list();
-    const summaries: ProjectSummary[] = await Promise.all(
-      list.map(async (entry) => ({
-        path: entry.path,
-        displayPath: tildify(entry.path, userHome),
-        name: entry.name,
-        initialised: await isInitialised(entry.path),
-        ...(entry.path === demoPath && { demo: true }),
-        ...(entry.lastOpenedAt !== undefined && { lastOpenedAt: entry.lastOpenedAt }),
-      })),
-    );
-    return c.json(summaries);
-  });
+  app.get('/projects/recent', async (c) => c.json(await core.listRecent()));
 
   app.delete('/projects/recent', async (c) => {
-    const body = await readBody(c, PathBody);
-    await recents.remove(body.path);
+    const body = await readBody(c, PathArgs);
+    await core.removeRecent(body.path);
     return c.body(null, 204);
   });
 
   // Server-sent events: `change` with `{ "kind": "erd" }` whenever a design file (or `build.json`,
   // as `"build"`) changes outside modelwright. Behind the same guard as everything else.
   app.get('/design/events', async (c) => {
-    const dir = await resolveProjectDir(c.req.query('path'));
-    if ((await designDirState(dir)) !== 'dir') {
-      throw new HttpError(409, `modelwright is not initialised in ${dir}`);
-    }
-    return streamSSE(c, async (stream) => {
-      const unsubscribe = await watcher.subscribe(dir, (kind) => {
-        void stream.writeSSE({ event: 'change', data: JSON.stringify({ kind }) });
-      });
-      const heartbeat = setInterval(() => void stream.write(': keep-alive\n\n'), heartbeatMs);
-      await stream.writeSSE({ event: 'ready', data: '' });
-      await new Promise<void>((resolve) => stream.onAbort(resolve));
-      clearInterval(heartbeat);
-      unsubscribe();
+    let stream: SSEStreamingApi | undefined;
+    const unsubscribe = await core.watchDesign(c.req.query('path') ?? '', (kind) => {
+      void stream?.writeSSE({ event: 'change', data: JSON.stringify({ kind }) });
     });
+    return streamSSE(
+      c,
+      async (s) => {
+        stream = s;
+        const heartbeat = setInterval(() => void s.write(': keep-alive\n\n'), heartbeatMs);
+        await s.writeSSE({ event: 'ready', data: '' });
+        await new Promise<void>((resolve) => s.onAbort(resolve));
+        clearInterval(heartbeat);
+        unsubscribe();
+      },
+      async () => unsubscribe(),
+    );
   });
 
-  // The build record, read-only: the CLI writes it after a verified build, never the server.
   // Registered before `/design/:file`, which would otherwise take "build" as a file kind.
   app.get('/design/build', async (c) => {
-    const dir = await resolveProjectDir(c.req.query('path'));
-    return c.json(await readBuildRecord(dir));
+    return c.json(await core.readBuildRecord(c.req.query('path') ?? ''));
   });
 
   app.get('/design/:file', async (c) => {
     const kind = designKind(c.req.param('file'));
-    const dir = await resolveProjectDir(c.req.query('path'));
-    const text = await readTextOrNull(designFile(dir, kind));
-    if (text === null) throw new HttpError(404, `.design/${kind}.json not found in ${dir}`);
-
-    const result = parseDesignJson(kind, text);
-    if (!result.ok) return c.json(result.error, 422);
-    return c.json(result.doc);
+    return c.json(await core.readDesign(c.req.query('path') ?? '', kind));
   });
 
   app.put('/design/:file', async (c) => {
     const kind = designKind(c.req.param('file'));
-    const dir = await resolveProjectDir(c.req.query('path'));
-    const data = await readJson(c);
-
-    const result = parseDesign(kind, data);
-    if (!result.ok) return c.json(result.error, 422);
-
-    if ((await designDirState(dir)) !== 'dir') {
-      throw new HttpError(409, `modelwright is not initialised in ${dir}`);
-    }
-    const text = stringifyDesign(kind, result.doc);
-    watcher.noteWrite(dir, kind, text);
-    await writeAtomic(designFile(dir, kind), text);
-    await refreshSpec(dir);
-    if (kind === 'config') {
-      // Keep the picker in step with the header's inline rename.
-      await recents.rename(dir, (result.doc as Config).name);
-    }
+    // The folder is checked before the body is read, so a missing project is a 404 whatever the body.
+    const path = await core.resolveProjectDir(c.req.query('path'));
+    await core.writeDesign(path, kind, await readJson(c));
     return c.body(null, 204);
   });
 
-  // Classifies a preview URL for the UI view. Reads no files; returns no response bodies.
   app.post('/preview/check', async (c) => {
-    const body = await readBody(c, PreviewBody);
+    const body = await readBody(c, PreviewArgs);
     const toolOrigin = c.req.header('origin') ?? DEFAULT_TOOL_ORIGIN;
-    return c.json(
-      await checkPreview(body.url, { toolOrigin, toolPorts, timeoutMs: previewTimeoutMs }),
-    );
+    return c.json(await core.checkPreview(body.url, { toolOrigin }));
   });
 
   return app;
 }
 
-/**
- * Regenerates `.design/spec.md` after a successful write. The design file is already saved, so
- * a failure here is logged rather than failing the request.
- */
-async function refreshSpec(dir: string): Promise<void> {
-  try {
-    await regenerateSpec(dir);
-  } catch (err) {
-    console.error(`Couldn't write ${dir}/.design/spec.md`, err);
-  }
-}
-
 function designKind(raw: string): DesignKind {
-  if (!isDesignKind(raw)) {
+  const result = DesignKindArg.safeParse(raw);
+  if (!result.success) {
     throw new HttpError(400, `Unknown design file "${raw}"; expected erd, flows or config`);
   }
-  return raw;
+  return result.data;
 }
 
 async function readJson(c: Context): Promise<unknown> {

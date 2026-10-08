@@ -1,0 +1,19 @@
+{
+  "name": "@modelwright/core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./contract": "./src/contract.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@modelwright/project": "workspace:*",
+    "@modelwright/schema": "workspace:*",
+    "@modelwright/spec": "workspace:*",
+    "zod": "^4.6.5"
+  }
+}

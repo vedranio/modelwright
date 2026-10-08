@@ -14,4 +14,4 @@ packages/spec/test/golden/
 plugins/modelwright/bin/
 
 # The demo project template: canonical design files, compared to serialiser output.
-apps/server/demo/
+packages/core/demo/
