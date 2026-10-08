@@ -1019,3 +1019,49 @@ Asked for after the PhotoBackup update run. Item 22 also fixes that run's findin
   - **Cards stay where they are,** because moving a card isn't a change. Only cards that come back take their recorded spot. Config keeps what the diff ignores (devices, dev command).
   - Each document's revert is one edit, so ERD and Flows can each undo it, and a document already as built isn't touched.
   - The revert goes through the normal editors and autosave, so modelwright still writes only `.design/` and never `build.json`.
+
+## 2026-10-08 — Milestone 4: dry-run findings
+
+The dry run used your own PhotoBackup app (`~/Code/photobackup`, Electron) instead of the notes fixture, by your choice. It started from an empty folder, so it also covered creating a project and designing from scratch.
+
+**First build: passed review.**
+- The skill validated the design, asked for the stack, stopped at the plan, listed its assumptions, and asked about real gaps instead of patching the design. You fixed most of them in modelwright, and it re-read the design.
+- The build recorded `.design/build.json` with a complete map whose paths all existed. All 8 states rendered through `?state=`, the transitions navigated as designed, and PhotoBackup's own tests, typecheck and lint passed.
+- Neither run wrote `erd.json` or `flows.json`.
+
+**Update run: plan reviewed, not applied.** After your design changes the indicator showed 9 changes, with the rename as a rename and moved cards adding nothing. The skill's plan touched only those changes, used a rename migration, and listed the removals for approval. You chose to stop there and test updates on real projects later. PhotoBackup's design has since gone back to the first build ("Up to date").
+
+**Findings, and what changed:**
+1. **Some actions without a transition aren't dead ends.** "Select items to back up" is an in-place control. The skill rightly asked instead of following its "render dead ends disabled" rule. `SKILL.md` now distinguishes in-place controls (build them working, list as an assumption) from dead ends (navigation not yet drawn: disabled with a TODO), and asks when it can't tell.
+2. **Seven questions in one message was too many.** `SKILL.md` now asks the blocking gaps one at a time, each with a recommended answer, and points out when a gap is best fixed in the design.
+3. **A desktop app can't be framed.** The skill worked out that the preview should be the Electron renderer's browser dev server (`npm run dev:web`). `SKILL.md` now says so for desktop stacks, with stubs for native APIs so every screen renders.
+4. **Retargeting a transition meant deleting and redrawing it,** so the diff saw a removal plus an addition. Fixed in commit K: the To list offers every screen and state, and the arrow end can be dragged.
+5. **Small:** `record-build` said "1 screens". It now uses singulars.
+
+The rest of the UI feedback from the dry run is logged above (commits A–K).
+
+## 2026-10-08 — Milestone 5: done means, walked
+
+- **`pnpm test`, `pnpm typecheck`, `pnpm lint`:** pass (697 tests). `claude plugin validate` passes on the marketplace root and the plugin, with the expected "No version specified" warning.
+- **Installs from the marketplace at user scope:** done from this checkout as a folder marketplace for the dry run, and used in an unrelated repo (PhotoBackup). The GitHub path was also checked, in a throwaway `CLAUDE_CONFIG_DIR` so your settings weren't touched: `vedranio/modelwright#phase-6` added and installed at user scope, versioned by its commit, with `bin/modelwright-design` in place.
+- **The CLI on `PATH` in that session:** the skill ran `modelwright-design` as a bare command throughout the PhotoBackup runs.
+- **The commands as specified:** walked on a copy of the notes fixture.
+  - `validate` and `status` with no build, then `spec` and `record-build --map`, then `status` "Up to date".
+  - After a rename and a card move, `status` reported 1 change and `diff` reported the rename as a rename.
+  - `set-preview` wrote the URL and dev command.
+- **First build:** see milestone 4. The brief's "notes design" became PhotoBackup. Every screen and state could be seen in the UI preview, and every transition navigated as designed.
+- **Plan first, assumptions listed, waited for approval:** yes, in both runs.
+- **`build.json` validates and the indicator said "Built …":** yes.
+- **The indicator showed the design changes, renames as renames, moves adding nothing:** yes, 9 changes. Since commit K, a retarget is one change, not two.
+- **The update changed only what changed, asked before removals, kept hand edits:** the plan did all three. The update itself wasn't run, by your choice, so applying it and keeping hand edits are untested end to end.
+- **Neither run modified `erd.json` or `flows.json`:** yes.
+- **A stray `"type"` key:** `validate` fails with `entities › 0 › attributes › 0 › type: Unknown key "type"` and exits 1. `spec` and `record-build` refuse to write, and the design files are unchanged.
+  - That the skill then stops follows from its first step and its `modelwright-design`-only tool permission. It wasn't run headless, because the desktop app's bundled `claude` isn't signed in on its own.
+- **`docs/using-modelwright.md`:** written, and linked from a new root `README.md`.
+- **Phases 1–5 spot checks** on a scratch copy of the Todo demo:
+  - the picker and opening a project
+  - the ERD with its crow's-foot relationship
+  - adding an entity, which autosaved and regenerated `spec.md` with Mermaid diagrams, then undoing it in two steps
+  - Flows with states, primary actions and labelled transitions
+  - the UI preview framing a running app at mobile width
+  - the light theme
