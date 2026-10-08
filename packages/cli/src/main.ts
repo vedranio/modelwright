@@ -296,7 +296,7 @@ async function recordBuild(
     states: Object.values(map?.states ?? {}).reduce((n, s) => n + Object.keys(s).length, 0),
   };
   out(
-    `Recorded the build of ${when(record.builtAt)} in .design/${BUILD_FILE}. Mapped ${counts.entities} entities, ${counts.screens} screens and ${counts.states} states.\n`,
+    `Recorded the build of ${when(record.builtAt)} in .design/${BUILD_FILE}. Mapped ${count(counts.entities, 'entity', 'entities')}, ${count(counts.screens, 'screen', 'screens')} and ${count(counts.states, 'state', 'states')}.\n`,
     { ok: true, builtAt: record.builtAt, mapped: counts },
   );
   return OK;
@@ -496,4 +496,9 @@ function when(iso: string): string {
 
 function isUsage(err: unknown): boolean {
   return err instanceof Error && 'code' in err && String(err.code).startsWith('ERR_PARSE_ARGS');
+}
+
+/** "1 screen", "2 screens". */
+function count(n: number, one: string, many: string): string {
+  return `${n} ${n === 1 ? one : many}`;
 }

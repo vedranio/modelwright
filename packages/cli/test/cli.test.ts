@@ -268,7 +268,7 @@ describe('record-build', () => {
     });
     const r = await run(['record-build', '--map', map]);
     expect(r.code).toBe(0);
-    expect(r.stdout).toContain('Mapped 1 entities, 1 screens and 1 states.');
+    expect(r.stdout).toContain('Mapped 1 entity, 1 screen and 1 state.');
     const parsed = parseBuildRecordJson(await readDesign('build.json'));
     if (!parsed.ok) throw new Error(JSON.stringify(parsed.issues));
     expect(parsed.record.builtAt).toBe(NOW.toISOString());

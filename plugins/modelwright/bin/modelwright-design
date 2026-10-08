@@ -1224,14 +1224,14 @@ function codePointLength(str) {
   const units = str.length;
   if (!highSurrogate.test(str))
     return units;
-  let count = units;
+  let count2 = units;
   for (let i = 0; i < units - 1; i++) {
     if ((str.charCodeAt(i) & 64512) === 55296 && (str.charCodeAt(i + 1) & 64512) === 56320) {
-      count--;
+      count2--;
       i++;
     }
   }
-  return count;
+  return count2;
 }
 function getLengthableOrigin(input2) {
   if (Array.isArray(input2))
@@ -5586,8 +5586,8 @@ function az_default() {
 }
 
 // ../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/be.js
-function getBelarusianPlural(count, one, few, many) {
-  const absCount = Math.abs(count);
+function getBelarusianPlural(count2, one, few, many) {
+  const absCount = Math.abs(count2);
   const lastDigit = absCount % 10;
   const lastTwoDigits = absCount % 100;
   if (lastTwoDigits >= 11 && lastTwoDigits <= 19) {
@@ -8234,8 +8234,8 @@ function hu_default() {
 }
 
 // ../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/hy.js
-function getArmenianPlural(count, one, many) {
-  return Math.abs(count) === 1 ? one : many;
+function getArmenianPlural(count2, one, many) {
+  return Math.abs(count2) === 1 ? one : many;
 }
 function withDefiniteArticle(word) {
   if (!word)
@@ -10973,8 +10973,8 @@ function ro_default() {
 }
 
 // ../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/ru.js
-function getRussianPlural(count, one, few, many) {
-  const absCount = Math.abs(count);
+function getRussianPlural(count2, one, few, many) {
+  const absCount = Math.abs(count2);
   const lastDigit = absCount % 10;
   const lastTwoDigits = absCount % 100;
   if (lastTwoDigits >= 11 && lastTwoDigits <= 19) {
@@ -21355,8 +21355,8 @@ async function validate2(dir, out) {
     if (f.status === "ok") return `${f.file}: valid`;
     if (f.status === "none") return `${f.file}: none yet`;
     if (f.status === "missing") return `${f.file}: missing`;
-    const count = f.issues.length;
-    return `${f.file}: ${count} ${count === 1 ? "problem" : "problems"}
+    const count2 = f.issues.length;
+    return `${f.file}: ${count2} ${count2 === 1 ? "problem" : "problems"}
 ${f.issues.map((i) => `  ${issueLine(i)}`).join("\n")}`;
   });
   out(`${lines.join("\n")}
@@ -21384,15 +21384,15 @@ async function diff(dir, from, out) {
     return OK;
   }
   const result = diffDesign(base.snapshot, current);
-  const count = changeCount(result);
+  const count2 = changeCount(result);
   const since = base.builtAt ? ` since the build of ${when(base.builtAt)}` : ` since ${path3.basename(from ?? "")}`;
-  out(`${count} ${count === 1 ? "change" : "changes"}${since}.
+  out(`${count2} ${count2 === 1 ? "change" : "changes"}${since}.
 
 ${renderDiff(result)}`, {
     ok: true,
     firstBuild: false,
     builtAt: base.builtAt,
-    changes: count,
+    changes: count2,
     diff: result
   });
   return OK;
@@ -21404,17 +21404,17 @@ async function status(dir, out) {
     out("No build yet\n", { ok: true, status: "no-build" });
     return OK;
   }
-  const count = changeCount(diffDesign(base.snapshot, current));
+  const count2 = changeCount(diffDesign(base.snapshot, current));
   const built = when(base.builtAt ?? "");
   out(
-    count === 0 ? `Up to date with the build of ${built}
-` : `${count} ${count === 1 ? "change" : "changes"} since the build of ${built}
+    count2 === 0 ? `Up to date with the build of ${built}
+` : `${count2} ${count2 === 1 ? "change" : "changes"} since the build of ${built}
 `,
     {
       ok: true,
-      status: count === 0 ? "up-to-date" : "changed",
+      status: count2 === 0 ? "up-to-date" : "changed",
       builtAt: base.builtAt,
-      changes: count
+      changes: count2
     }
   );
   return OK;
@@ -21453,7 +21453,7 @@ async function recordBuild(dir, mapFile, now, out) {
     states: Object.values(map2?.states ?? {}).reduce((n, s) => n + Object.keys(s).length, 0)
   };
   out(
-    `Recorded the build of ${when(record2.builtAt)} in .design/${BUILD_FILE}. Mapped ${counts.entities} entities, ${counts.screens} screens and ${counts.states} states.
+    `Recorded the build of ${when(record2.builtAt)} in .design/${BUILD_FILE}. Mapped ${count(counts.entities, "entity", "entities")}, ${count(counts.screens, "screen", "screens")} and ${count(counts.states, "state", "states")}.
 `,
     { ok: true, builtAt: record2.builtAt, mapped: counts }
   );
@@ -21612,6 +21612,9 @@ function when(iso) {
 }
 function isUsage(err) {
   return err instanceof Error && "code" in err && String(err.code).startsWith("ERR_PARSE_ARGS");
+}
+function count(n, one, many) {
+  return `${n} ${n === 1 ? one : many}`;
 }
 
 // src/bin.ts

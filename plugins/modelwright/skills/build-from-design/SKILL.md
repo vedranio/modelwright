@@ -45,6 +45,7 @@ Run `modelwright-design status`:
 - The app runs inside modelwright's preview iframe:
   - Its dev server must allow being framed by `http://localhost:4300` and `http://127.0.0.1:4300`, so it must send no `X-Frame-Options` header and no `frame-ancestors` that excludes them. Most dev servers allow framing by default.
   - It must not use ports 4300 or 4301, which are modelwright's own.
+  - A desktop app (Electron, Tauri and the like) can't be framed itself. Give it a browser dev server for its renderer, e.g. `npm run dev:web`, and point the preview there. Where the renderer calls native APIs, give the browser build stubs with plausible data so every screen still renders.
 
 Once the stack is settled, record in the project's `CLAUDE.md` (create it if needed):
 
@@ -73,6 +74,8 @@ Then list, separately:
 - **Removals.** List every piece of code an update would delete or drop: routes, components, fields, tables, columns. Removals are destructive. Remove only what the user approves.
 - **Gaps.** Anything the design leaves ambiguous, contradictory or missing that the build needs. Ask about it here rather than guessing silently.
 
+After the plan, ask about the gaps that block the build **one at a time**, each with the answer you recommend, and wait for each reply before the next. The user may answer several at once. Gaps that don't block the build can wait for the report. Many gaps are best fixed in the design: say so when that's the case, and re-read `.design/` once the user says it's changed.
+
 ## 5. Mapping rules
 
 - **Entities → the data model.** One model per entity, with the entity's name. **Attributes → fields** with inferred types. Give each model an id key unless the design implies another.
@@ -93,7 +96,12 @@ Then list, separately:
   - A transition with no `stateId` goes to the target screen's default state. A transition with a `stateId` goes to that state.
   - A label names a condition. "success" and "failure" mean the action's outcome decides which transition is taken, so implement them as those conditions.
   - Several transitions from one action are branches; make each reachable.
-- **Dead-end actions** (no transition) are rendered disabled, with a `TODO` comment that names the action and its id. List each one in the report.
+- **Actions with no transition** are one of two things:
+  - **An in-place control,** which acts without leaving the state: a toggle, checkbox, selection, sort, inline edit or the like. Build it working, and list it as an assumption.
+  - **A dead end:** navigation the design hasn't drawn yet. Render it disabled, with a `TODO` comment that names the action and its id, and list each one in the report.
+
+  If the name and notes don't make clear which, ask in step 4.
+
 - **A screen's `entities`** are the data its route reads or writes.
 - **Styling is plain, consistent and accessible:** semantic HTML, readable type, visible focus, labelled inputs and enough contrast. Don't design it. Hi-fi visual design is a separate step, outside this skill.
 
