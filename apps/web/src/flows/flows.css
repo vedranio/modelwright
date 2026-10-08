@@ -176,6 +176,54 @@
   background: var(--color-text-muted);
 }
 
+/* Where a transition leaving from a card's left side starts: drawn like a connected handle. */
+.transition-origin {
+  position: absolute;
+  width: var(--space-2);
+  height: var(--space-2);
+  border-radius: var(--radius-full);
+  background: var(--color-text-muted);
+  pointer-events: none;
+}
+
+/* A selected transition's grip, on its arrow's tip: drag it to reassign the transition. */
+.transition-grip {
+  position: absolute;
+  /* On-screen size: TransitionEdge scales it against the zoom. */
+  width: var(--space-3);
+  height: var(--space-3);
+  border-radius: var(--radius-full);
+  background: var(--color-surface);
+  border: calc(var(--border-w) * 2) solid var(--color-accent);
+  box-shadow: var(--shadow-sm);
+  cursor: grab;
+  pointer-events: all;
+}
+
+.canvas-host.reconnecting,
+.canvas-host.reconnecting * {
+  cursor: grabbing;
+}
+
+/* The line follows the pointer while a transition's arrow end is dragged. */
+.transition-line.reconnecting {
+  fill: none;
+  stroke: var(--color-accent);
+  stroke-width: var(--edge-selected-w);
+  stroke-dasharray: 4 4;
+}
+
+/* The left-side handle shows only on a hovered or selected card, to keep cards uncluttered. */
+.react-flow__handle.cta-handle.left {
+  opacity: 0;
+  transition: opacity var(--duration-fast) var(--ease-out);
+}
+
+.react-flow__node:hover .react-flow__handle.cta-handle.left,
+.react-flow__node.selected .react-flow__handle.cta-handle.left {
+  opacity: 1;
+}
+
 /* Transition edges */
 
 .canvas .transition-line {
@@ -188,15 +236,17 @@
 }
 
 .canvas .react-flow__edge:hover .transition-line {
-  stroke: var(--color-text-muted);
+  stroke: var(--color-accent);
 }
 
 .canvas .react-flow__edge:hover .transition-arrow {
-  fill: var(--color-text-muted);
+  fill: var(--color-accent);
 }
 
+/* Selected is stronger than hovered: the same accent, and a thicker line. */
 .canvas .react-flow__edge.selected .transition-line {
   stroke: var(--color-accent);
+  stroke-width: var(--edge-selected-w);
 }
 
 .canvas .react-flow__edge.selected .transition-arrow {
@@ -222,6 +272,24 @@
 .sees-item .inline-input,
 .cta-row .inline-input {
   height: var(--text-sm-lh);
+}
+
+/* A state's notes, under its header. */
+.state-notes {
+  margin: 0;
+  padding: var(--space-1) var(--space-3) 0;
+  color: var(--color-text-muted);
+  overflow-wrap: anywhere;
+}
+
+.state-notes-input {
+  width: 100%;
+}
+
+/* A primary CTA's tag sits after its label. */
+.cta-row .state-tag {
+  margin-left: var(--space-2);
+  flex: none;
 }
 
 /* Hover controls at a header's or row's right, taking no space, so cards don't change size. */
@@ -332,12 +400,53 @@
   text-overflow: ellipsis;
 }
 
-/* While dragging a connection, show which header a drop would target. */
-.canvas-host.connecting .state-head:hover,
-.canvas-host.connecting .screen-head:hover {
+/*
+ * While dragging a connection, outline where a drop would land: the whole card when it has one
+ * state, otherwise the state under the pointer, or the default (first) state over the header.
+ * Nothing is outlined where a drop does nothing (the dragged CTA's own state, `no-drop`).
+ */
+.canvas-host.connecting .screen.single:not(.no-drop):hover,
+.canvas-host.connecting .screen.multi .screen-state:not(.no-drop):hover,
+.canvas-host.connecting
+  .screen.multi:has(> .screen-head:hover)
+  > .screen-state:first-of-type:not(.no-drop) {
+  box-shadow: inset 0 0 0 calc(var(--border-w) * 2) var(--color-accent);
+}
+
+.canvas-host.connecting .screen.single:not(.no-drop):hover {
+  box-shadow:
+    0 0 0 calc(var(--border-w) * 2) var(--color-accent),
+    var(--shadow-md);
+}
+
+/* A hovered or selected transition lights up its source CTA and its target state. */
+.screen-state.highlighted {
   box-shadow: inset 0 0 0 var(--border-w) var(--color-accent);
+}
+
+.screen-state.highlighted .state-head {
+  color: var(--color-accent);
+}
+
+.cta-row.highlighted {
+  background: var(--color-accent-subtle);
+  color: var(--color-accent);
 }
 
 .react-flow__handle.cta-handle {
   cursor: crosshair;
+}
+
+/* A larger, invisible hit area around the small dot, so it's easy to grab when zoomed out. */
+.react-flow__handle.cta-handle::before {
+  content: '';
+  position: absolute;
+  inset: calc(var(--space-1) * -1.5);
+  border-radius: var(--radius-full);
+}
+
+/* A transition's label selects it, like its line. */
+.edge-label.transition-label {
+  pointer-events: auto;
+  cursor: pointer;
 }

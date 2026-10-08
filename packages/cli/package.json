@@ -1,0 +1,19 @@
+{
+  "name": "@modelwright/cli",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build:plugin": "tsx scripts/build.ts",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@modelwright/project": "workspace:*",
+    "@modelwright/schema": "workspace:*",
+    "@modelwright/spec": "workspace:*"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2",
+    "tsx": "^4.23.15"
+  }
+}

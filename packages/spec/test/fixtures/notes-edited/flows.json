@@ -1,0 +1,219 @@
+{
+  "schemaVersion": 2,
+  "screens": [
+    {
+      "id": "login",
+      "name": "Login",
+      "states": [
+        {
+          "id": "login-default",
+          "name": "Default",
+          "sees": [
+            "email field",
+            "password field"
+          ],
+          "ctas": [
+            {
+              "id": "login-submit",
+              "label": "Sign in"
+            }
+          ]
+        },
+        {
+          "id": "login-error",
+          "name": "Failed",
+          "sees": [
+            "email field",
+            "error message"
+          ],
+          "ctas": [
+            {
+              "id": "login-retry",
+              "label": "Try again"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "notes",
+      "name": "Memos",
+      "notes": "Home after sign in",
+      "entities": [
+        "note",
+        "tag"
+      ],
+      "states": [
+        {
+          "id": "notes-empty",
+          "name": "Empty",
+          "sees": [
+            "empty message"
+          ],
+          "ctas": [
+            {
+              "id": "notes-empty-new",
+              "label": "Create your first note"
+            }
+          ]
+        },
+        {
+          "id": "notes-list",
+          "name": "List",
+          "notes": "Newest first",
+          "sees": [
+            "memo titles",
+            "updated dates",
+            "tags"
+          ],
+          "ctas": [
+            {
+              "id": "notes-open",
+              "label": "Open note"
+            },
+            {
+              "id": "notes-new",
+              "label": "New memo"
+            },
+            {
+              "id": "notes-share",
+              "label": "Share"
+            }
+          ],
+          "primaryCtaId": "notes-open"
+        },
+        {
+          "id": "notes-loading",
+          "name": "Loading",
+          "sees": [
+            "spinner"
+          ],
+          "ctas": []
+        }
+      ]
+    },
+    {
+      "id": "editor",
+      "name": "Note editor",
+      "entities": [
+        "note"
+      ],
+      "states": [
+        {
+          "id": "editor-default",
+          "name": "Default",
+          "sees": [
+            "heading field",
+            "body field",
+            "tag picker"
+          ],
+          "ctas": [
+            {
+              "id": "editor-back",
+              "label": "Back"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "tags",
+      "name": "Tags",
+      "entities": [
+        "tag"
+      ],
+      "states": [
+        {
+          "id": "tags-default",
+          "name": "Default",
+          "sees": [
+            "tag names"
+          ],
+          "ctas": [
+            {
+              "id": "tags-back",
+              "label": "Back"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "transitions": [
+    {
+      "id": "t1",
+      "from": {
+        "screenId": "login",
+        "stateId": "login-default",
+        "ctaId": "login-submit"
+      },
+      "to": {
+        "screenId": "notes"
+      },
+      "label": "success"
+    },
+    {
+      "id": "t2",
+      "from": {
+        "screenId": "notes",
+        "stateId": "notes-list",
+        "ctaId": "notes-new"
+      },
+      "to": {
+        "screenId": "editor"
+      }
+    },
+    {
+      "id": "t4",
+      "from": {
+        "screenId": "editor",
+        "stateId": "editor-default",
+        "ctaId": "editor-back"
+      },
+      "to": {
+        "screenId": "notes",
+        "stateId": "notes-empty"
+      }
+    },
+    {
+      "id": "t5",
+      "from": {
+        "screenId": "notes",
+        "stateId": "notes-list",
+        "ctaId": "notes-open"
+      },
+      "to": {
+        "screenId": "editor"
+      }
+    },
+    {
+      "id": "t6",
+      "from": {
+        "screenId": "tags",
+        "stateId": "tags-default",
+        "ctaId": "tags-back"
+      },
+      "to": {
+        "screenId": "notes"
+      }
+    }
+  ],
+  "layout": {
+    "login": {
+      "x": 0,
+      "y": 40
+    },
+    "notes": {
+      "x": 360,
+      "y": 0
+    },
+    "editor": {
+      "x": 720,
+      "y": 0
+    },
+    "tags": {
+      "x": 360,
+      "y": 400
+    }
+  }
+}

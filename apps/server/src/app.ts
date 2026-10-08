@@ -12,13 +12,25 @@ import {
   type ProjectSummary,
 } from '@modelwright/schema';
 import { DEFAULT_ALLOWED_HOSTS, DEFAULT_ALLOWED_ORIGINS, SERVER_PORT, WEB_PORT } from './config';
-import { readTextOrNull, writeAtomic } from './fsio';
+import {
+  readBuildRecord,
+  readTextOrNull,
+  regenerateSpec,
+  writeAtomic,
+} from '@modelwright/project/node';
 import { originGuard } from './guard';
 import { checkPreview, PREVIEW_TIMEOUT_MS } from './previewCheck';
-import { HttpError, designDirState, designFile, resolveProjectDir, tildify } from './paths';
-import { initialise, isInitialised, summarise } from './projects';
+import {
+  HttpError,
+  designDirState,
+  designFile,
+  resolveParentDir,
+  resolveProjectDir,
+  tildify,
+} from './paths';
+import { createProject, initialise, isInitialised, summarise } from './projects';
+import { demoDir, offerDemo } from './demo';
 import { Recents } from './recents';
-import { regenerateSpec } from './spec';
 import { DesignWatcher } from './watcher';
 
 export interface AppOptions {
@@ -38,6 +50,8 @@ export interface AppOptions {
   watcher?: DesignWatcher;
   /** How often an idle event stream sends a comment, so proxies keep it open. */
   heartbeatMs?: number;
+  /** The demo project's template, offered once per install; none (tests) offers no demo. */
+  demoTemplate?: string;
 }
 
 /** The web app's origin when a request doesn't say (curl, tests). */
@@ -45,6 +59,7 @@ const DEFAULT_TOOL_ORIGIN = `http://localhost:${WEB_PORT}`;
 
 const PathBody = z.object({ path: z.string() });
 const InitBody = z.object({ path: z.string(), name: z.string().optional() });
+const CreateBody = z.object({ parent: z.string(), name: z.string(), git: z.boolean().optional() });
 const PreviewBody = z.object({ url: z.string() });
 
 export function createApp({
@@ -57,8 +72,12 @@ export function createApp({
   previewTimeoutMs = PREVIEW_TIMEOUT_MS,
   watcher = new DesignWatcher(),
   heartbeatMs = 25_000,
+  demoTemplate,
 }: AppOptions) {
   const recents = new Recents(homeDir, now);
+  // Offered before the first listing, once per process; offerDemo itself remembers per install.
+  const demoReady = demoTemplate ? offerDemo(homeDir, recents, demoTemplate) : Promise.resolve();
+  const demoPath = demoDir(homeDir);
   const app = new Hono().basePath('/api');
 
   app.use('*', originGuard({ allowedHosts, allowedOrigins }));
@@ -89,7 +108,22 @@ export function createApp({
     return c.json({ ...summary, lastOpenedAt }, 201);
   });
 
+  // A new project: its folder, its .design/ and optionally a git repository.
+  app.post('/projects/create', async (c) => {
+    const body = await readBody(c, CreateBody);
+    const parent = await resolveParentDir(body.parent, userHome);
+    const dir = await createProject(parent, body.name, {
+      git: body.git ?? false,
+      onWrite: (dir, kind, text) => watcher.noteWrite(dir, kind, text),
+    });
+    await refreshSpec(dir);
+    const summary = await summarise(dir, userHome);
+    const { lastOpenedAt } = await recents.add({ path: summary.path, name: summary.name });
+    return c.json({ ...summary, lastOpenedAt }, 201);
+  });
+
   app.get('/projects/recent', async (c) => {
+    await demoReady;
     const list = await recents.list();
     const summaries: ProjectSummary[] = await Promise.all(
       list.map(async (entry) => ({
@@ -97,6 +131,7 @@ export function createApp({
         displayPath: tildify(entry.path, userHome),
         name: entry.name,
         initialised: await isInitialised(entry.path),
+        ...(entry.path === demoPath && { demo: true }),
         ...(entry.lastOpenedAt !== undefined && { lastOpenedAt: entry.lastOpenedAt }),
       })),
     );
@@ -109,8 +144,8 @@ export function createApp({
     return c.body(null, 204);
   });
 
-  // Server-sent events: `change` with `{ "kind": "erd" }` whenever a design file changes outside
-  // modelwright. Behind the same guard as everything else.
+  // Server-sent events: `change` with `{ "kind": "erd" }` whenever a design file (or `build.json`,
+  // as `"build"`) changes outside modelwright. Behind the same guard as everything else.
   app.get('/design/events', async (c) => {
     const dir = await resolveProjectDir(c.req.query('path'));
     if ((await designDirState(dir)) !== 'dir') {
@@ -126,6 +161,13 @@ export function createApp({
       clearInterval(heartbeat);
       unsubscribe();
     });
+  });
+
+  // The build record, read-only: the CLI writes it after a verified build, never the server.
+  // Registered before `/design/:file`, which would otherwise take "build" as a file kind.
+  app.get('/design/build', async (c) => {
+    const dir = await resolveProjectDir(c.req.query('path'));
+    return c.json(await readBuildRecord(dir));
   });
 
   app.get('/design/:file', async (c) => {

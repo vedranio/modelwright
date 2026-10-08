@@ -6,20 +6,26 @@ import {
   NEW_STATE_NAME,
   addCta,
   addScreen,
+  addScreenWithTransition,
   addSeesItem,
   addState,
   addTransition,
   deleteCta,
+  duplicateScreens,
+  setPrimaryCta,
+  setStateNotes,
   deleteScreens,
   deleteSeesItem,
   deleteState,
   deleteTransitions,
   idsIn,
+  leadsToOwnState,
   makeDefaultState,
   moveScreens,
   renameCta,
   renameScreen,
   renameState,
+  retargetTransition,
   setScreenNotes,
   updateSeesItem,
   updateTransition,
@@ -54,7 +60,7 @@ const transition = (f: Flows, id: string) =>
   );
 const transitionIds = (f: Flows) => f.transitions.map((t) => t.id);
 
-const EMPTY: Flows = { schemaVersion: 1, screens: [], transitions: [], layout: {} };
+const EMPTY: Flows = { schemaVersion: 2, screens: [], transitions: [], layout: {} };
 
 describe('idsIn', () => {
   it('collects screen, state, CTA and transition ids', () => {
@@ -391,6 +397,45 @@ describe('transitions', () => {
     expect(updateTransition(f, 't1', { stateId: 'login-error' })).toBe(f);
   });
 
+  it('retargets a transition to any screen or state, keeping its id, source and label', () => {
+    const f = valid(updateTransition(frozen(), 't2', { label: 'new' }));
+    const toLogin = valid(retargetTransition(f, 't2', { screenId: 'login' }));
+    expect(transition(toLogin, 't2')).toEqual({
+      ...transition(f, 't2'),
+      to: { screenId: 'login' },
+    });
+    const toState = valid(
+      retargetTransition(toLogin, 't2', { screenId: 'login', stateId: 'login-error' }),
+    );
+    expect(transition(toState, 't2').to).toEqual({ screenId: 'login', stateId: 'login-error' });
+    // Within the same screen, to another state.
+    expect(
+      transition(
+        valid(retargetTransition(f, 't2', { screenId: 'notes', stateId: 'notes-empty' })),
+        't2',
+      ).to,
+    ).toEqual({ screenId: 'notes', stateId: 'notes-empty' });
+  });
+
+  it('leaves a transition alone when the target is unknown, unchanged or its own state', () => {
+    const f = frozen();
+    expect(retargetTransition(f, 't2', { screenId: 'nope' })).toBe(f);
+    expect(retargetTransition(f, 't2', { screenId: 'login', stateId: 'notes-empty' })).toBe(f);
+    expect(retargetTransition(f, 't2', { screenId: 'editor' })).toBe(f);
+    expect(retargetTransition(f, 'nope', { screenId: 'login' })).toBe(f);
+    // t2 starts in Notes › List, the Notes default state, so neither form of it is allowed.
+    expect(retargetTransition(f, 't2', { screenId: 'notes' })).toBe(f);
+    expect(retargetTransition(f, 't2', { screenId: 'notes', stateId: 'notes-list' })).toBe(f);
+  });
+
+  it('knows a transition can’t lead into the state its CTA sits in', () => {
+    const f = frozen();
+    const from = { screenId: 'notes', stateId: 'notes-empty', ctaId: 'notes-empty-new' };
+    expect(leadsToOwnState(f, from, { screenId: 'notes', stateId: 'notes-empty' })).toBe(true);
+    expect(leadsToOwnState(f, from, { screenId: 'notes' })).toBe(false);
+    expect(leadsToOwnState(f, from, { screenId: 'editor' })).toBe(false);
+  });
+
   it('deletes transitions', () => {
     const f = frozen();
     expect(transitionIds(valid(deleteTransitions(f, ['t1', 't3'])))).toEqual(['t2', 't4']);
@@ -425,5 +470,76 @@ describe('entities cross-reference', () => {
       const result = valid(op(frozen()));
       expect(screen(result, 'notes').entities).toEqual(['note']);
     }
+  });
+});
+
+describe('addScreenWithTransition', () => {
+  const from = { screenId: 'notes', stateId: 'notes-list', ctaId: 'notes-open' };
+
+  it('adds a screen and a transition to it from the CTA, in one edit', () => {
+    const before = notesFlows();
+    const { flows, screenId, transitionId } = addScreenWithTransition(
+      before,
+      { x: 900.4, y: 40 },
+      from,
+    );
+    expect(Flows.safeParse(flows).success).toBe(true);
+    expect(flows.screens.at(-1)?.id).toBe(screenId);
+    expect(flows.layout[screenId ?? '']).toEqual({ x: 900, y: 40 });
+    expect(flows.transitions.at(-1)).toEqual({ id: transitionId, from, to: { screenId } });
+  });
+
+  it('changes nothing for a CTA that doesn’t exist', () => {
+    const before = notesFlows();
+    const result = addScreenWithTransition(before, { x: 0, y: 0 }, { ...from, ctaId: 'gone' });
+    expect(result).toEqual({ flows: before, screenId: null, transitionId: null });
+  });
+});
+
+describe('state notes and the primary CTA (schema v2)', () => {
+  const valid = (f: Flows) => expect(Flows.safeParse(f).success).toBe(true);
+  const notesList = (f: Flows) => must(must(f.screens[1]).states[0]);
+
+  it('sets, changes and clears a state’s notes', () => {
+    const before = deepFreeze(notesFlows());
+    const withNotes = setStateNotes(before, 'notes', 'notes-list', 'Newest first');
+    valid(withNotes);
+    expect(notesList(withNotes).notes).toBe('Newest first');
+    expect(setStateNotes(withNotes, 'notes', 'notes-list', 'Newest first')).toBe(withNotes);
+    expect('notes' in notesList(setStateNotes(withNotes, 'notes', 'notes-list', ' '))).toBe(false);
+  });
+
+  it('marks one primary CTA per state, replacing the last, and unsets it', () => {
+    const before = deepFreeze(notesFlows());
+    const one = setPrimaryCta(before, 'notes', 'notes-list', 'notes-new');
+    valid(one);
+    expect(notesList(one).primaryCtaId).toBe('notes-new');
+    const other = setPrimaryCta(one, 'notes', 'notes-list', 'notes-open');
+    expect(notesList(other).primaryCtaId).toBe('notes-open');
+    expect('primaryCtaId' in notesList(setPrimaryCta(other, 'notes', 'notes-list', null))).toBe(
+      false,
+    );
+  });
+
+  it('ignores a CTA that isn’t in the state', () => {
+    const before = deepFreeze(notesFlows());
+    expect(setPrimaryCta(before, 'notes', 'notes-list', 'login-submit')).toBe(before);
+  });
+
+  it('drops the mark when the primary CTA is deleted', () => {
+    const marked = setPrimaryCta(notesFlows(), 'notes', 'notes-list', 'notes-new');
+    const after = deleteCta(marked, 'notes', 'notes-list', 'notes-new');
+    valid(after);
+    expect('primaryCtaId' in notesList(after)).toBe(false);
+  });
+
+  it('carries the mark to a duplicated screen’s copy of the CTA', () => {
+    const marked = setPrimaryCta(notesFlows(), 'notes', 'notes-list', 'notes-new');
+    const { flows: after, ids } = duplicateScreens(marked, ['notes']);
+    valid(after);
+    const copy = must(after.screens.find((s) => s.id === ids[0]));
+    const state = must(copy.states[0]);
+    expect(state.primaryCtaId).toBe(state.ctas[0]?.id);
+    expect(state.primaryCtaId).not.toBe('notes-new');
   });
 });

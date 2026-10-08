@@ -678,3 +678,390 @@ Decided after the phase 5 walk.
 - **Approved and extended:** Material Symbols now also draw the Reload icon (`refresh`, in the header, Reload preview and the validation surface, which all share `ReloadGlyph`), the toolbar's undo and redo (`undo`, `redo`), and the header's shortcuts button (`question_mark`). The unused `.glyph` style is gone. Close ×, zoom − + and the arrow in "Open in browser ↗" are still text characters.
 - **Also:** the header's close × is Material's `close`. In keyboard hints, ⇧ is drawn with Material's `shift` icon (14px, `--kbd-icon-size`), because the font's ⇧ was too narrow to read. `Kbd` swaps it in for any ⇧ in its text, so the toolbar, buttons and the shortcuts overlay all match. The icon sits inline with the hint's text (`vertical-align`), so rows keep their height. Tooltips still spell shortcuts out in text.
 - **And:** "Open in browser" has Material's `open_in_browser` icon in front of its label, replacing the trailing ↗. The icon is in the same leading position as Reload preview's, both in the preview toolbar and on the "refuses to be embedded" card, where it takes the primary button's text colour.
+
+## 2026-10-06 — Phase 6 planning decisions
+
+Settled in the phase 6 interview before any code was written.
+
+### The plugin replaces "a skill in each project repo" (supersedes the founding "Claude Design vs Claude Code" line)
+
+The founding entry said `/build-from-design` would eventually be a skill in each project repo. Phase 6 makes it a user-scope Claude Code plugin, `modelwright`, published from this repo as a marketplace (`modelwright@modelwright`). It's installed once and works in every project repo, so modelwright still never writes outside `.design/`.
+
+### Where the Claude Code docs differ from the brief (the docs win)
+
+- **No `version` in `plugin.json`.** A set version pins every install to that string until it's bumped, whatever is pushed. Without one, a relative-path plugin in a git-hosted marketplace is versioned by its commit, so every pushed change is an update. `claude plugin validate` passes with a "missing version" warning, which is expected.
+- **Updates are manual.** Auto-update is off by default for marketplaces that aren't Anthropic's. `claude plugin marketplace update modelwright` then `claude plugin update modelwright@modelwright`, or turn auto-update on in `/plugin`.
+- **`bin/` is on the Bash tool's `PATH`,** not the user's shell's. The skill calls `modelwright-design` as a bare command; `${CLAUDE_PLUGIN_ROOT}` isn't set in Bash.
+- **A branch is installed with `vedranio/modelwright#<branch>`** (or `@<branch>`). A marketplace name can be registered once, so switching branches means removing and re-adding it, which uninstalls the plugin.
+- **For the dry run, this checkout is added as a local directory marketplace.** Such a plugin loads in place, so a fix takes effect on `/reload-plugins` with no commit.
+- `claude` isn't on this machine's shell `PATH`; `claude plugin validate` runs through the desktop app's bundled CLI.
+
+### The brief's decisions stand
+
+User-scope plugin; the CLI for every deterministic step; the committed bundle with a drift test; a full snapshot plus an id → code map in `build.json`, written only by the CLI after a verified build; diffs ignore layout; the design is read-only to the build; plan first, explicit assumptions, removals approved; every state reachable; plain styling; the map lives in `build.json` only, with no markers in code. Markers would clutter generated code and break under hand edits. Instead the skill checks that mapped paths still exist and falls back to searching by name.
+
+### Sharpened
+
+- **`map.states` nests under the screen** (`{ [screenId]: { [stateId]: string[] } }`), because state ids are only unique within their screen.
+- **A state with no natural trigger is reachable through a dev-only `?state=<stateId>` query parameter,** the one convention the skill uses in every stack, so any state can be shown in the UI preview by editing the URL.
+- **Information items have no ids,** so the diff lines them up by text (longest common subsequence). In each gap, removed and added items pair up in order as "changed from X to Y"; the rest are plain removals or additions. Reordering shows as a removal plus an addition.
+- **"Built <time>"** counts minutes and hours under a day ("just now", "12 minutes ago", "3 hours ago"), then uses the day wording from the picker.
+- **The skill pre-approves its CLI** with `allowed-tools: Bash(modelwright-design *)`.
+- **Shared code lives in a new `packages/project`:** pure config ops and URL rules (moved from `apps/web`, so the UI and the CLI apply the same ones) and the Node file I/O and `spec.md` writer (moved from `apps/server`, so the server and the CLI share them).
+
+## 2026-10-06 — Phase 6 milestone 0: diff and build record
+
+- **`diffDesign(before, after)`** (`packages/spec/src/diff.ts`) returns `{ dataModel, screens, config }`, each a list of `{ kind, ids, text }`. `renderDiff` turns it into Markdown with a `###` per group that has changes, or "No changes."
+  - **Order:** the newer design's order, with removed items placed right after what they followed in the older one (`mergedOrder`). Within an entity: its own changes, then its attributes, then a reorder. Within a screen: the screen, its default and order, then each state's information, then its actions. Relationships follow entities; transitions follow screens.
+  - **Names** are quoted with “ ”, and named as they are now. A removed transition, or the old end of a retargeted one, uses the current names whenever that element still exists.
+  - **Folded changes:** a transition that went because its CTA, state or screen went, or because its target screen went, isn't listed on its own. It's part of that removal, and a CTA left with nowhere to go shows as "is now a dead end".
+  - **Reversed** means the ends swapped (as Reverse direction does). Ends that changed otherwise are "now joins X and Y", with the new sentences.
+  - **A new default state** and the resulting reorder are both reported.
+  - **Preview `devCommand` and `devices`** aren't reported; the brief lists only the name and the URL for config.
+- **`BuildRecord`** (`packages/schema/src/build.ts`), with `parseBuildRecord(Json)` and `stringifyBuildRecord`:
+  - The snapshot is built from the design schemas themselves, so issue paths run into it (`snapshot.erd.entities.0.attributes.0.type`).
+  - Map ids must exist in the snapshot, as layout keys must exist in their document.
+  - Canonical serialisation reuses the design files' `canonicalise` and `orderLayout`, and map keys follow design order.
+  - A newer `schemaVersion` is refused with the same wording as the design files.
+  - **A future design `schemaVersion` bump must ship a build-record migration that upgrades the snapshot,** since the snapshot uses the current design schemas.
+
+## 2026-10-06 — Phase 6 milestone 1: the CLI
+
+- **`packages/project`** holds what the web app, server and CLI share:
+  - `@modelwright/project/rules`: pure, safe in the browser. `renameProject`, `setPreviewUrl`, the new `setDevCommand`, and the preview URL rules (moved from `apps/web/src/config/ops.ts` and `preview/url.ts`, with their tests).
+  - `@modelwright/project/node`: `readTextOrNull`, `writeAtomic`, the `.design/` file paths (each re-checked to sit directly in `.design/`), `designDirState`, `loadDesign`, `regenerateSpec` and `readBuildRecord`. These moved from `apps/server`, whose `paths.ts` re-exports them beside its HTTP-specific helpers.
+  - The server's own copy of the URL rule (`previewCheck.ts`) is unchanged and now points at the shared rules.
+- **`BuildRead`** (`{status:'none'} | {status:'ok', record} | {status:'invalid', issues}`) is an API shape in `schema/api.ts`, used by the CLI now and by the server endpoint in milestone 3.
+- **`modelwright-design`** (`packages/cli/src/main.ts`, `main(argv, io)` for in-process tests):
+  - **Exit codes:** 0 done, 1 the command failed (invalid design, refused URL…), 2 used wrongly (unknown command or option, an option on the wrong command, `set-preview` without `--url`).
+  - **Output:** plain text by default; `--json` prints one object, with `ok: false`, `error` and `issues` on failure. Issues print as the validation surface's Copy problems does (`erd.json: entities › 0 › attributes › 0 › type: Unknown key "type"`).
+  - **Times** print as `2026-10-06 09:30 UTC`, the same on every machine.
+  - **Every command needs a real `.design/` folder** and refuses a symlinked one, as the server does.
+  - **`validate`** checks the three files and `build.json` if present, and exits 1 if any is missing or invalid.
+  - **`diff`, `status` and `record-build` need a valid design;** `diff` and `status` also need a valid `build.json` if there is one.
+  - **`diff --from`** accepts a build record or a bare `{config, erd, flows}` snapshot.
+  - **`record-build`:**
+    - refuses an invalid previous `build.json` rather than overwriting it, since its map would be lost
+    - the new map file is laid over the old map id by id, and ids no longer in the design are dropped
+    - an empty map is left out
+    - the record is validated before it's written
+  - **`set-preview`** uses the UI's `normalizePreviewUrl` with the tool's ports and `http://localhost:4300` as its origin, writes `config.json` only when it changed, then regenerates `spec.md`. It needs only `config.json` to be valid; the spec is regenerated only when all three are.
+- **The bundle:**
+  - `pnpm build:plugin` runs esbuild (one ESM file, node24, everything bundled, not minified, no legal comments) and writes `plugins/modelwright/bin/modelwright-design` with mode 755 and a `#!/usr/bin/env node` banner.
+  - It's about 820 KB, mostly zod (core plus about 340 KB of locales that esbuild can't tree-shake). That's acceptable for a committed tool. Switching to `zod/mini` isn't worth changing the schema package for.
+  - The bundle test builds afresh in memory and compares byte for byte, checks the executable bits, and runs the committed file.
+  - The bundle is excluded from ESLint and Prettier.
+- **The byte-for-byte spec test** runs the CLI's `spec` and the server's `PUT` on two copies of the same design and compares the files. Both use `regenerateSpec` from `packages/project`.
+
+## 2026-10-06 — Phase 6 milestone 2: plugin and skill
+
+- **Layout as the brief has it,** confirmed against the docs:
+  - `.claude-plugin/marketplace.json`: marketplace `modelwright`, one relative-path entry `./plugins/modelwright`
+  - `plugins/modelwright/.claude-plugin/plugin.json`: name, description, author, homepage, repository, keywords; no `version`
+  - `skills/build-from-design/SKILL.md`
+  - `bin/modelwright-design`
+- **`claude plugin validate`** passes on the marketplace root and on the plugin directory, each with the expected "No version specified" warning.
+- **SKILL.md calls that go slightly past the brief,** for the review gate:
+  - **Every state answers to `?state=<stateId>` in development,** including states with real conditions, not only those without one. This makes every state viewable in the UI preview the same way, and gives verification one uniform route to each state.
+  - **Arguments** passed with the command (`/modelwright:build-from-design use SvelteKit`) are followed for that run (`argument-hint: [notes for this build]`).
+  - **iframe constraints** for a first build's stack: framing allowed from `localhost:4300` / `127.0.0.1:4300`, and ports 4300/4301 avoided.
+  - **Renames get rename migrations,** not a drop and an add.
+  - **The map file is written outside the repo** (`mktemp -d`), so it never lands in the project.
+  - **The skill doesn't commit;** it reminds the user to commit `build.json` with the code.
+
+## 2026-10-07 — Phase 6 milestone 3: changes since last build
+
+- **Server:**
+  - `GET /api/design/build?path=` returns `BuildRead` through `readBuildRecord`, behind the guard. It's registered before `/design/:file`, which would otherwise read "build" as a file kind.
+  - `PUT /design/build` is still a 400 (unknown file kind), and a test pins that saving a design file leaves `build.json` untouched.
+  - `DesignWatcher` also watches `build.json` and reports it as `kind: 'build'` on the existing SSE stream. The server never writes it, so there's no write to ignore.
+- **Web:**
+  - `ProjectClient.readBuildRecord(path)`, and `DesignChange.kind` is `DesignKind | 'build'`.
+  - `buildRecord/useBuildRecord` reads the record on open and on window focus, dropping stale results. `Shell` re-reads it on a `build` event and on Reload.
+  - `buildRecord/status.ts` (pure, tested) gives the indicator's state. `buildStatus(read, design, designLoading, now)` diffs the snapshot against the three working copies, so unsaved edits count at once. `builtAgo` gives the time wording.
+  - **`BuildIndicator`** sits in the header after the project path, as a quiet button with a status dot: success when up to date, accent with changes, warning for an invalid `build.json` or a design that can't be compared. "Not built yet" has no dot. The tooltip gives the full build time.
+  - **The popover** (click to open; Esc or a click outside closes it, as the theme menu does) shows one of:
+    - the grouped changes ("The next build will apply:"), with the same text and groups as `renderDiff`
+    - "up to date"
+    - "nothing built yet"
+    - `build.json`'s problems, with paths like the validation surface's
+  - Below that: the last build time, then "Run this in the project repo…" with `/modelwright:build-from-design` and Copy.
+  - `CommandSnippet` moved out of `PreviewStates` so the popover can share it.
+  - New tokens: `--build-popover-w` (400px) and `--build-popover-max-h` (70vh; the list scrolls past that), plus `.dot-accent`.
+  - `apps/web` depends on `@modelwright/spec` again, for `diffDesign` and `DIFF_GROUPS`.
+- **Verified in the browser against a scratch copy of the notes fixture, light and dark:**
+  - "Built just now" after `record-build`, and back to it when the CLI records again (watcher, no refocus)
+  - an outside rename turned it into "1 change since last build", and a moved card added nothing
+  - a rename on the card counted before its autosave
+  - a hand-broken `build.json` showed "build.json has problems" with both issue paths
+  - deleting it showed "Not built yet"
+  - no console errors
+
+## 2026-10-07 — UI feedback round (outside the phase 6 brief)
+
+Designing PhotoBackup for the milestone 4 dry run turned up twelve UI changes, logged in `docs/ui-feedback.md`. You paused the dry run to make them first. They're on `phase-6` in their own commits, because the dry run needs them in the running app. Settled before starting:
+
+- **Single click** opens every text on a screen card, not only information items.
+- **The no-overlap placement rule** applies to new screens as well as new entities.
+- **Item 12 detects a stopped server and says so,** and doesn't restart it: a web page can't start a process.
+- **Items 6 and 8 (primary CTA, state notes) change the schema** and are included now.
+
+### Commit A: canvas interaction (items 1, 2, 3, 4, 5, 9, 10, 11)
+
+- **Item 4, diagnosed on a copy of PhotoBackup:**
+  - On a multi-state screen, only the thin state-header strip was a drop target. Anywhere else on the card meant "this screen's default state".
+  - For a CTA in the default state, such as Home › Default › "Select items to back up", that's its own state, so the drop was silently ignored.
+  - Two smaller causes: CTA handles were 8 units wide (about 5 px at 65%), and `elementFromPoint` stopped at an edge label lying over a card.
+- **Drop targets** (`flows/connect.ts`):
+  - Each state's whole section (`data-state`) leads to that state.
+  - A single-state card leads to its default state from anywhere.
+  - The screen header still leads to the default state.
+  - The own-state rule stands.
+  - `canvas/cards.ts` `nodeUnderPoint` looks through everything stacked at the drop point (`elementsFromPoint`), on both canvases.
+- **While dragging a connection,** CSS outlines the target: the hovered state, the whole single-state card, or the default state when over a multi-state header (`:has`). The dragged CTA's own state is marked `no-drop` and isn't outlined.
+- **CTA handles** keep their 8-unit dot, with a 20-unit invisible hit area (`::before`).
+- **A new transition or relationship is selected after the click that ends the drag.** Dropped on its own card, that click would otherwise select the card and close the popover. This was found while verifying.
+- **Dropping on empty canvas** creates a screen (`addScreenWithTransition`) or an entity (`addEntityWithRelationship`) under the pointer, already connected, as one undo step, with its name open.
+- **Placement** (`canvas/freeSpot.ts`, pure, tested):
+  - Add screen / Add entity (button, S, E) place the new card one `PLACEMENT_GAP` right of the selected card (exactly one selected) or the last one added, top-aligned, moved further right past any card in the way.
+  - Double-click and drop-on-canvas use the pointer spot, nudged right the same way.
+  - A margin of 16 units is kept between cards.
+  - The view pans, keeping its zoom, when the new card isn't fully visible.
+- **Single click** opens screen names, notes, state names, information items and CTA labels. React Flow swallows the click that ends a drag, so dragging a card by its text still just moves it (verified). Entity cards stay double-click.
+- **Connectors** respond within 24 units of the line (up from 12), and a transition's label selects it.
+- **Hover and selection highlight** a transition's source CTA row (accent tint) and target state (accent outline; the first state when `to.stateId` is omitted), via node data computed in `FlowsCanvas`.
+- **Verified in the browser on a scratch copy of PhotoBackup,** with real drags:
+  - a drop into Home › Backup successful's body from "Select items to back up"
+  - a drop on empty canvas creating a connected screen, and a connected entity on the ERD
+  - S beside a selected screen, beside the last screen, and panning to an off-screen one
+  - E beside the last entity
+  - one-click editing, and a drag by the name not opening it
+  - hover highlighting
+- **Not verifiable with simulated input:** the outline during a drag (the browser tool can't pause mid-drag). This wants a look by hand.
+
+### Commit B: connectors on either side, by the shortest path (item 7)
+
+- **`routeTransitionSides`** (`flows/route.ts`, pure, tested) builds four candidates:
+  - right → left: `routeTransition`, unchanged
+  - left → right: the same router run on a mirror image
+  - right → right and left → left: a "C" out past the far edge of both cards
+- **Choosing a candidate:** any that would cut through either card is dropped (`cutsThrough`), and the shortest of the rest wins. Ties go right → left, right → right, left → right, left → left, so the usual left-to-right reading stays the default.
+- **Fans and tracks** turn at their own columns on whichever side is used.
+- **In practice:**
+  - A loop to another state of the same card now runs down that card's nearer side instead of wrapping round it.
+  - A target to the left is reached left → right.
+  - Stacked cards use a C.
+- **Handles only fix heights.** Edges are still drawn between the right CTA handle and the left header anchor, because both sides share a height. The route decides the sides, and the arrowhead faces whichever side it enters.
+- **Dragging from the left:** each CTA row has a second source handle there (`cta-left:<state>:<cta>`), shown on a hovered or selected card. `ctaForHandle` accepts either.
+- **Start dots:** a transition leaving from a card's left side draws its own start dot in the label layer, above the card, styled like a connected handle. The CTA's own dot stays on the right edge.
+- **Not done:** no target anchors were added on the right of headers. The route computes the arrival point itself, so there's nothing for them to do.
+- **Verified in the browser** on the PhotoBackup copy:
+  - Home's state loops run down its right side
+  - Confirm cancel's actions go left → right into Home
+  - dragging from a left handle onto Splash connects
+
+### Commit C: flows schema v2, primary CTA and state notes (items 6 and 8)
+
+- **`flows.json` schemaVersion 2.** `ScreenState` gains two optional fields:
+  - `notes` (after `name`)
+  - `primaryCtaId` (after `ctas`), which must name one of that state's CTAs, enforced by a superRefine issue at `…states.N.primaryCtaId`
+  - A single field per state makes "at most one primary per state" structural, rather than a flag on each CTA that would need its own rule.
+- **Migration 1 → 2** only changes the version: every v1 file is a valid v2 file. `erd.json` and `config.json` stay at 1.
+- **The fixtures** (notes, busy, notes-edited) are v2. `packages/schema/test/fixtures/v1/flows.json` keeps a v1 copy for the migration test. The busy and notes-edited fixtures gained a state note and a primary CTA, so the goldens cover them.
+- **`build.json`:** `parseBuildRecord` migrates each snapshot document before validating, as the milestone 0 entry required, so a build recorded against v1 flows still reads and diffs. The build record itself stays at schemaVersion 1. Verified with the CLI on a v1 copy of PhotoBackup with a v1 snapshot.
+- **An older modelwright** (main before this merges) refuses a v2 `flows.json` with "written by a newer modelwright". This is expected: the file is migrated in place on its next save from this branch.
+- **Ops:**
+  - `setStateNotes`, and `setPrimaryCta(…, ctaId | null)`, which replaces any previous primary and ignores a CTA that isn't in the state
+  - `deleteCta` removes the mark with its CTA
+  - `duplicateScreens` points the copy's mark at the copied CTA
+- **Card:**
+  - A primary CTA shows the accent "primary" tag (the "default" tag's style) after its label.
+  - Each CTA row's hover controls offer "make primary", or "unset" on the primary.
+  - A state header's hover controls offer "+ notes". Notes show as a muted line under the header and open on click.
+  - A single-state screen has no state header, so its screen notes serve. Notes already on its state show at the top of the body.
+  - State notes aren't on the Tab path.
+  - `estimateScreenSize` counts a notes line per state that has notes.
+- **`spec.md`:** a state's notes come before its "Information:" list, and the primary CTA reads `**Label** (primary) → …`.
+- **The diff** adds:
+  - `state-notes-changed` ("Added notes to “Memos › List”: …")
+  - `primary-cta-changed` ("“Open note” is now the primary action in …")
+- **SKILL.md:**
+  - state notes are requirements for that state
+  - the primary CTA is rendered as the visually primary button
+- **The bundled CLI was rebuilt,** and `claude plugin validate` still passes with the "no version" warning.
+
+### Commit D: a stopped server (item 12)
+
+- **Detecting it:**
+  - `httpClient.clientError` classifies failed responses. Our server always answers with a JSON body, so a 5xx without one comes from the Vite proxy when the server is down. That, like a request that never connected, is reported as unreachable (status 0) with one message (`UNREACHABLE_MESSAGE`).
+  - A failed save that couldn't reach the server sets the new `offline` status (`saveFailed(s, offline)`).
+- **Saving by itself:** while `offline`, `useEditableDoc` retries every 3 s (`OFFLINE_RETRY_MS`), chained through the status changes each attempt makes. Edits save on their own once only the API server comes back. Retry still saves at once.
+- **Saying so:**
+  - The canvas pill reads "modelwright's server isn't running — start it with `pnpm dev` · retry".
+  - A config save behind the header's name reads "Server not running — retry".
+- **Found while verifying:** with the server down, refocusing the window re-read the files, failed, and replaced the whole canvas with "couldn't be loaded". Now `keepUnchanged` keeps the document on screen when a re-read can't reach the server, because nothing is known to have changed on disk. A first load with the server down still shows the error.
+- **Not restarting the server:** a web page can't start a process. That needs Electron's main process or a launcher that supervises the server.
+- **Known limit, found while verifying:**
+  - When both servers stop (as with `pnpm dev` itself) and come back, Vite's dev client reloads the page as soon as it reconnects. That's usually before the next retry.
+  - The `beforeunload` guard should make a real browser ask before reloading, and cancelling keeps the edits for the retry to save. The browser pane used for verification doesn't show that prompt, so this is unverified.
+  - Vite has no option to skip that reload. The robust fix is keeping unsaved working copies in session storage and restoring them after a reload, which is logged as a follow-up in `docs/ui-feedback.md` rather than built here.
+- **Verified in the browser** (servers stopped, an edit made, the server restarted):
+  - the offline pill
+  - the canvas staying up on refocus
+  - the status returning to Saved
+  - the reload losing the edit
+
+### Commit E: cursors, connector emphasis and help (items 14–17)
+
+- **Cursors** (`canvas/canvas.css`):
+  - React Flow's own styles gave the pane a pointing hand (because drag-to-select is on) and cards a grab hand. Both are overridden: empty canvas shows the arrow, and cards a pointing hand.
+  - Editable text shows a pointing hand rather than the I-beam, since one click opens it. Open fields keep the text cursor.
+  - Handles keep the crosshair, which means "drag to connect".
+  - Panning and dragging still show the grabbing hand.
+- **Connector emphasis, on both canvases:**
+  - Hover turns the line (and ERD markers) accent. Selection is accent plus a thicker line (`--edge-selected-w`, 2px).
+  - On the ERD, a hovered or selected relationship gives its two entities an accent outline (`.entity.highlighted`, kept apart from the selection ring), matching what Flows already did for a transition's CTA and target state.
+- **Help** (`HelpOverlay.tsx`, formerly `ShortcutsOverlay.tsx`) has two tabs in the header's segmented style:
+  - **How it works:** a lead line on the boundary ("You design the app here. Your AI coding tool builds it. They meet in your project's `.design/` folder."), then what happens in each, the loop, and the build command with Copy.
+  - **Keyboard shortcuts:** unchanged.
+  - The header's ? button opens How it works. The `?` key still opens the shortcuts, as its label in the registry says.
+- **Verified in the browser** on the PhotoBackup scratch copy:
+  - the computed cursors
+  - ERD hover and selection lighting Config and Source, with a 2px selected line
+  - both help tabs
+
+### Commit F: a connector's details card stays in view (item 18)
+
+- **The cause:** the popover for a relationship or transition was drawn inside React Flow's zoomed layer, at the line's label point. When that point was near an edge of the view, or off it, the card was too. It also scaled with the zoom.
+- **The fix:** `canvas/EdgePopoverAnchor.tsx` draws the popover in screen space instead, in a portal on the React Flow element, outside the zoomed layer. It converts the label point with the live viewport (`useViewport`), measures itself with a `ResizeObserver`, and places itself with `placePopover` (`canvas/popoverPlacement.ts`, pure, tested):
+  - centred 16 px below the point
+  - above it when there's no room below
+  - always held 12 px inside the canvas, so even with the line off-screen the card is pinned to the nearest edge
+- **Size and stacking:** the card keeps its size at any zoom, and sits above React Flow's panels (z-index 6).
+- **Both canvases** use the anchor: `CrowsFootEdge` for relationships and `TransitionEdge` for transitions.
+- **Verified in the browser** on the PhotoBackup copy:
+  - a transition whose line ran off the top of the view opened its card on screen
+  - panning the line out of view left the card pinned 12 px from the top
+  - typing a label into the card still saved
+
+### Commit G: where visual design happens, in the help
+
+"How it works" now says that modelwright designs how the app works (data and flows), and that the AI tools build it and design how it looks:
+- **The UI tab** is described as a live preview for checking what was built, not a place to design.
+- **The coding tool's list** notes that the first build is deliberately plain.
+- **A "Designing how it looks" section:** design the UI in an AI design tool (e.g. Claude Design), have the coding tool apply it, and check it in the UI view. Later flow changes still update only what changed, so the visual design is kept.
+- **The loop** gains that step.
+
+### Commit H: create a project from the picker (item 19)
+
+Settled with you first:
+- **modelwright creates the project folder.** This is a logged exception to "modelwright writes only inside `.design/`". Creating a project makes one new, empty folder, `<location>/<name>/`, and refuses if it already exists, so nothing is ever written into an existing folder outside `.design/`.
+- **The location is remembered.** It starts at `~/Code`.
+- **An "Initialise a git repository" checkbox,** off by default.
+- **"Open an existing project"** is a button that reveals the path field.
+
+Details:
+- **`POST /api/projects/create`** takes `{ parent, name, git? }`, behind the guard:
+  - `parent` may start with `~` (expanded with the server's home) and must be an existing folder (`resolveParentDir`).
+  - The folder name is the name trimmed. `/`, `\`, `.`, `..` and control characters are refused (`projectFolderName`).
+  - The folder is made with a non-recursive `mkdir`, then `initialise` writes `.design/`, the spec is regenerated, and the project is added to recents.
+- **Git:**
+  - When `git` is true, git is checked with `git --version` before anything is created, so a missing git creates nothing.
+  - After the design files, `git init --quiet` runs in the new folder (10 s timeout). If that fails, the project stays and the error says so.
+  - Nothing is committed.
+- **`ProjectClient.createProject(parent, name, git)`.**
+- **The picker:**
+  - **Left:** "Create a project", with Name, Location, a "Creates `<path>`" preview, the git checkbox and Create project. The location is saved as `modelwright.new-project-location` (the default isn't stored).
+  - **Right:** up to five recent projects, then "Open an existing project". The button expands into the path field and Open (Esc collapses it). The "Initialise modelwright in this folder" panel for a folder without `.design/` shows there too.
+- **Verified in the browser:** created "Picker Test" with git ticked, which made `.design/` (4 files) and `.git/` and opened the project. Then the test entry was removed from recents.
+
+### Commit I: Material icons in the picker's key hints (item 20)
+
+- **New icons:** `Icon` gains `sync_alt` and `keyboard_return`, and an `upright` option that turns an icon a quarter turn (`.icon-upright`). That's how `sync_alt`'s ⇄ becomes up/down arrows.
+- **The recents hint** reads [↕] choose · [↵] open, with icons sized like the keyboard hints' (`--kbd-icon-size`).
+- **The ↵ on every picker button** (Create project, Open, Initialise) is `keyboard_return`, through a small `ReturnKey`. Esc stays text.
+- **The rest of the app** keeps its text ↵ for now. Moving it to the icon too would be a one-line change in `Kbd`, like ⇧.
+- **Later:** `keyboard_return`'s glyph sits high in its box, so every use of it is dropped by `--return-icon-drop` (2px). `Icon` sets `data-icon` with the icon's name, so the CSS targets it wherever it's used. The drop is a `translate`, not a `transform`, so it combines with a rotation.
+
+### Commit J: a demo project (item 21)
+
+Settled with you first: the Todo design below; the demo copied into modelwright's own folder; offered once to every install that hasn't had it, including existing ones.
+
+- **The demo, Todo,** is as small as a sensible model gets:
+  - **ERD:** List (`name`) contains zero or more Tasks (`title`, `due date` (optional), `done`), and each Task belongs to exactly one List.
+  - **Flows:**
+    - Lists (Default and Empty)
+    - New list
+    - Tasks (Default and Empty)
+    - Task editor
+  - Every action leads somewhere, every state has a primary action, and every screen names the entities it uses. "Create" and "Save" are labelled "success".
+  - It's flows schemaVersion 2 (state notes and primary CTAs) and has no preview URL, since nothing is built.
+- **The template is design files only,** in `apps/server/demo/todo/.design/`. It's the one design that ships in this repo, and like the test fixtures it's `.design/` JSON, not project code, so it's consistent with the two-repo rule. It's excluded from Prettier because it's canonical serialiser output, as a test checks. Another test checks that it makes sense: no dead ends, every state with a primary action, every screen reachable, and its entity cross-references valid.
+- **Offering it** (`apps/server/src/demo.ts`, `offerDemo`):
+  - Once per install, before the first recents listing, the server copies the template to `~/.modelwright/demo/todo/` (reusing an existing copy, so edits survive), writes its `spec.md`, and adds it to the end of the recents without an opened time (`Recents.addLast`). So it never pushes your own projects down.
+  - A `demo-offered` marker in modelwright's home means it's never offered again: dismissing it with × is permanent, and it can drop off like any other recent project.
+  - Failures are logged, never fatal.
+  - `createApp({ demoTemplate })` turns it on. Only the real server (`index.ts`) passes the template, so the other tests have no demo.
+- **`ProjectSummary.demo`** marks the demo in recents listings.
+- **The picker** titles the list "Demo project" while the demo is its only entry, and "Recent projects" otherwise. The demo row carries a "demo" tag.
+- **Your install** was offered the demo when the dev server reloaded: it sits under photobackup. Opening and editing it changes only `~/.modelwright/demo/todo`.
+
+### Commit K: reassign a connection, and revert to the last build (items 22 and 23)
+
+Asked for after the PhotoBackup update run. Item 22 also fixes that run's finding: retargeting a transition used to mean deleting and redrawing it, so the build saw a new transition with a new id.
+
+- **Reassigning keeps the transition's id,** so the build diff reports one change ("now leads to …"), and its label and source stay. The new `retargetTransition` op refuses unknown targets and the state the CTA sits in (`leadsToOwnState`, the same rule as drawing one).
+- **The To list** offers every screen, grouped, with its default state and, on multi-state screens, each state. The CTA's own state is listed but disabled.
+- **Dragging:** a selected transition shows a grip on its arrow end. Dragging it uses the same drop targets and highlights as drawing a connection (`dropTarget`, the `connecting` class), with a dashed line following the pointer. Empty canvas or Escape cancels, so a stray drag never creates a screen.
+  - **Why our own grip, not React Flow's reconnect anchors:** those sit on the handle positions, but our routes pick a side per path (commit B), so the anchor would often be on the wrong side of the card. The grip sits on the drawn tip, just outside the card (cards are drawn above edge labels and would take the press), and keeps one on-screen size at any zoom.
+- **Revert all** sits beside "The next build will apply:", so it stays visible when a long list scrolls. It asks first.
+  - Everything the diff compares comes back from the build snapshot: the ERD and flows semantics, the project name and the preview URL.
+  - **Cards stay where they are,** because moving a card isn't a change. Only cards that come back take their recorded spot. Config keeps what the diff ignores (devices, dev command).
+  - Each document's revert is one edit, so ERD and Flows can each undo it, and a document already as built isn't touched.
+  - The revert goes through the normal editors and autosave, so modelwright still writes only `.design/` and never `build.json`.
+
+## 2026-10-08 — Milestone 4: dry-run findings
+
+The dry run used your own PhotoBackup app (`~/Code/photobackup`, Electron) instead of the notes fixture, by your choice. It started from an empty folder, so it also covered creating a project and designing from scratch.
+
+**First build: passed review.**
+- The skill validated the design, asked for the stack, stopped at the plan, listed its assumptions, and asked about real gaps instead of patching the design. You fixed most of them in modelwright, and it re-read the design.
+- The build recorded `.design/build.json` with a complete map whose paths all existed. All 8 states rendered through `?state=`, the transitions navigated as designed, and PhotoBackup's own tests, typecheck and lint passed.
+- Neither run wrote `erd.json` or `flows.json`.
+
+**Update run: plan reviewed, not applied.** After your design changes the indicator showed 9 changes, with the rename as a rename and moved cards adding nothing. The skill's plan touched only those changes, used a rename migration, and listed the removals for approval. You chose to stop there and test updates on real projects later. PhotoBackup's design has since gone back to the first build ("Up to date").
+
+**Findings, and what changed:**
+1. **Some actions without a transition aren't dead ends.** "Select items to back up" is an in-place control. The skill rightly asked instead of following its "render dead ends disabled" rule. `SKILL.md` now distinguishes in-place controls (build them working, list as an assumption) from dead ends (navigation not yet drawn: disabled with a TODO), and asks when it can't tell.
+2. **Seven questions in one message was too many.** `SKILL.md` now asks the blocking gaps one at a time, each with a recommended answer, and points out when a gap is best fixed in the design.
+3. **A desktop app can't be framed.** The skill worked out that the preview should be the Electron renderer's browser dev server (`npm run dev:web`). `SKILL.md` now says so for desktop stacks, with stubs for native APIs so every screen renders.
+4. **Retargeting a transition meant deleting and redrawing it,** so the diff saw a removal plus an addition. Fixed in commit K: the To list offers every screen and state, and the arrow end can be dragged.
+5. **Small:** `record-build` said "1 screens". It now uses singulars.
+
+The rest of the UI feedback from the dry run is logged above (commits A–K).
+
+## 2026-10-08 — Milestone 5: done means, walked
+
+- **`pnpm test`, `pnpm typecheck`, `pnpm lint`:** pass (697 tests). `claude plugin validate` passes on the marketplace root and the plugin, with the expected "No version specified" warning.
+- **Installs from the marketplace at user scope:** done from this checkout as a folder marketplace for the dry run, and used in an unrelated repo (PhotoBackup). The GitHub path was also checked, in a throwaway `CLAUDE_CONFIG_DIR` so your settings weren't touched: `vedranio/modelwright#phase-6` added and installed at user scope, versioned by its commit, with `bin/modelwright-design` in place.
+- **The CLI on `PATH` in that session:** the skill ran `modelwright-design` as a bare command throughout the PhotoBackup runs.
+- **The commands as specified:** walked on a copy of the notes fixture.
+  - `validate` and `status` with no build, then `spec` and `record-build --map`, then `status` "Up to date".
+  - After a rename and a card move, `status` reported 1 change and `diff` reported the rename as a rename.
+  - `set-preview` wrote the URL and dev command.
+- **First build:** see milestone 4. The brief's "notes design" became PhotoBackup. Every screen and state could be seen in the UI preview, and every transition navigated as designed.
+- **Plan first, assumptions listed, waited for approval:** yes, in both runs.
+- **`build.json` validates and the indicator said "Built …":** yes.
+- **The indicator showed the design changes, renames as renames, moves adding nothing:** yes, 9 changes. Since commit K, a retarget is one change, not two.
+- **The update changed only what changed, asked before removals, kept hand edits:** the plan did all three. The update itself wasn't run, by your choice, so applying it and keeping hand edits are untested end to end.
+- **Neither run modified `erd.json` or `flows.json`:** yes.
+- **A stray `"type"` key:** `validate` fails with `entities › 0 › attributes › 0 › type: Unknown key "type"` and exits 1. `spec` and `record-build` refuse to write, and the design files are unchanged.
+  - That the skill then stops follows from its first step and its `modelwright-design`-only tool permission. It wasn't run headless, because the desktop app's bundled `claude` isn't signed in on its own.
+- **`docs/using-modelwright.md`:** written, and linked from a new root `README.md`.
+- **Phases 1–5 spot checks** on a scratch copy of the Todo demo:
+  - the picker and opening a project
+  - the ERD with its crow's-foot relationship
+  - adding an entity, which autosaved and regenerated `spec.md` with Mermaid diagrams, then undoing it in two steps
+  - Flows with states, primary actions and labelled transitions
+  - the UI preview framing a running app at mobile width
+  - the light theme

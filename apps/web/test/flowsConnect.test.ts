@@ -52,4 +52,25 @@ describe('dropTarget', () => {
       screenId: 'login',
     });
   });
+
+  it('targets a state when dropped anywhere in it, not just its header', () => {
+    // The drop's stateId comes from the state section under the pointer: header or body.
+    const fromDefault = { screenId: 'notes', stateId: 'notes-list', ctaId: 'notes-new' };
+    expect(dropTarget(f, fromDefault, { screenId: 'notes', stateId: 'notes-empty' })).toEqual({
+      screenId: 'notes',
+      stateId: 'notes-empty',
+    });
+  });
+
+  it('targets the default state anywhere on a single-state card', () => {
+    expect(dropTarget(f, signIn, { screenId: 'editor', stateId: 'editor-default' })).toEqual({
+      screenId: 'editor',
+    });
+  });
+
+  it('does nothing anywhere on a single-state card from its own CTA', () => {
+    const save = { screenId: 'editor', stateId: 'editor-default', ctaId: 'editor-save' };
+    expect(dropTarget(f, save, { screenId: 'editor', stateId: 'editor-default' })).toBeNull();
+    expect(dropTarget(f, save, { screenId: 'editor', stateId: null })).toBeNull();
+  });
 });

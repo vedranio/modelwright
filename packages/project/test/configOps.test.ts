@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Config } from '@modelwright/schema';
-import { renameProject, setPreviewUrl } from '../src/config/ops';
+import { renameProject, setDevCommand, setPreviewUrl } from '../src/rules/config';
 import { deepFreeze } from './helpers';
 
 const full = (): Config =>
@@ -76,5 +76,23 @@ describe('setPreviewUrl', () => {
   it('returns the same object when clearing a URL that isn’t set', () => {
     const before = bare();
     expect(setPreviewUrl(before, '')).toBe(before);
+  });
+});
+
+describe('setDevCommand', () => {
+  it('sets a command, keeping the URL', () => {
+    const before = bare();
+    const withUrl = setPreviewUrl(before, 'http://localhost:3000');
+    expect(valid(setDevCommand(withUrl, '  npm run dev '))).toEqual({
+      ...before,
+      preview: { url: 'http://localhost:3000', devCommand: 'npm run dev' },
+    });
+  });
+
+  it('returns the same object when unchanged, and removes the key when blank', () => {
+    const before = full();
+    expect(setDevCommand(before, 'pnpm dev')).toBe(before);
+    expect(valid(setDevCommand(before, ' ')).preview).toEqual({ url: 'http://localhost:5173' });
+    expect(setDevCommand(bare(), '')).toEqual(bare());
   });
 });

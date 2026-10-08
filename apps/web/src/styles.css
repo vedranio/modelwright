@@ -52,6 +52,31 @@ button {
   white-space: nowrap;
 }
 
+/* sync_alt's arrows turned to point up and down. */
+.icon-upright {
+  transform: rotate(90deg);
+}
+
+/* Key hints beside a heading ("↑↓ choose · ↵ open"), with icons for the keys. */
+.picker-keys {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.picker-keys .icon {
+  width: var(--kbd-icon-size);
+  height: var(--kbd-icon-size);
+}
+
+/*
+ * keyboard_return's glyph sits high in its box; drop it so it centres on the text beside it.
+ * `translate` rather than `transform`, so it combines with a rotation.
+ */
+.icon[data-icon='keyboard_return'] {
+  translate: 0 var(--return-icon-drop);
+}
+
 /* Inline with the hint's text, so the text keeps the baseline and the line keeps its height. */
 .kbd .icon {
   width: var(--kbd-icon-size);
@@ -78,10 +103,23 @@ button {
 
 .logo {
   flex: none;
-  width: var(--logo-size);
+  /* The mark is a 7:4 tile, white on black in both themes. */
+  width: calc(var(--logo-size) * 1.75);
   height: var(--logo-size);
-  border-radius: var(--radius-sm);
-  background: var(--color-accent);
+}
+
+.logo rect {
+  fill: #000;
+}
+
+.logo path {
+  fill: none;
+  stroke: #fff;
+  stroke-width: 80;
+}
+
+.wordmark > .logo {
+  --logo-size: 20px;
 }
 
 .dot {
@@ -547,7 +585,7 @@ button {
 .picker-open {
   display: flex;
   gap: var(--space-2);
-  margin-top: var(--space-5);
+  margin-top: var(--space-3);
 }
 
 .picker-open .input {
@@ -595,15 +633,86 @@ button {
   margin-top: var(--space-4);
 }
 
+/* The right side: recent projects on top, opening an existing folder below. */
+.picker-side {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  background: var(--color-surface-sunken);
+  border-left: var(--border-w) solid var(--color-border);
+}
+
 .picker-recents {
+  flex: 1;
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-  min-width: 0;
   min-height: 0;
-  padding: var(--space-6);
-  background: var(--color-surface-sunken);
-  border-left: var(--border-w) solid var(--color-border);
+  padding: var(--space-6) var(--space-6) var(--space-5);
+}
+
+.picker-open-section {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-5) var(--space-6) var(--space-6);
+  border-top: var(--border-w) solid var(--color-border);
+}
+
+.picker-open-section .picker-copy {
+  font-size: var(--text-sm);
+}
+
+.picker-open-toggle {
+  width: 100%;
+  justify-content: center;
+}
+
+/* Creating a project, on the left. */
+.picker-create {
+  display: flex;
+  flex-direction: column;
+  margin-top: var(--space-5);
+}
+
+.picker-create .field-label {
+  margin-bottom: var(--space-1);
+}
+
+.picker-create .field-label ~ .field-label {
+  margin-top: var(--space-3);
+}
+
+.picker-target {
+  margin-top: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  overflow-wrap: anywhere;
+}
+
+.picker-target code {
+  color: var(--color-text);
+}
+
+.checkbox {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+
+.checkbox input {
+  margin: 0;
+  accent-color: var(--color-accent);
+}
+
+.picker-create-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: var(--space-4);
 }
 
 .recents-head {
@@ -1382,6 +1491,49 @@ button {
   color: var(--color-text-muted);
 }
 
+/* Help: how modelwright works (HelpOverlay.tsx) */
+
+.help-guide {
+  overflow: auto;
+  font-size: var(--text-sm);
+  line-height: var(--text-sm-lh);
+  color: var(--color-text);
+}
+
+.help-guide p,
+.help-guide ul,
+.help-guide ol {
+  margin: 0 0 var(--space-3);
+}
+
+.help-guide ul {
+  padding-left: var(--space-4);
+}
+
+/* Room for the step numbers. */
+.help-guide ol {
+  padding-left: var(--space-5);
+}
+
+.help-guide li {
+  margin-bottom: var(--space-1);
+}
+
+.help-guide .shortcuts-group-title {
+  padding-top: var(--space-3);
+}
+
+.help-lead {
+  font-size: var(--text-md);
+  line-height: var(--text-md-lh);
+}
+
+.help-sides {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-6);
+}
+
 /* Conflict banner: a design file changed on disk under unsaved edits */
 
 .conflict-banner {
@@ -1454,6 +1606,92 @@ button {
 
 .theme-menu-item.selected {
   color: var(--color-accent);
+}
+
+/* Build indicator in the header (buildRecord/BuildIndicator.tsx) */
+
+.build-indicator {
+  position: relative;
+  flex: none;
+}
+
+.build-indicator-button {
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+.dot-accent {
+  background: var(--color-accent);
+}
+
+.build-popover {
+  position: absolute;
+  top: calc(100% + var(--space-1));
+  left: 0;
+  z-index: 9;
+  width: var(--build-popover-w);
+  max-height: var(--build-popover-max-h);
+  overflow-y: auto;
+  padding: var(--space-3) var(--space-4) var(--space-4);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-md);
+  font-size: var(--text-sm);
+  line-height: var(--text-sm-lh);
+  color: var(--color-text);
+}
+
+.build-popover p {
+  margin: 0 0 var(--space-2);
+}
+
+.build-popover-lead {
+  font-weight: var(--weight-medium);
+}
+
+.build-popover-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+
+.build-popover-head .build-popover-lead {
+  margin: 0;
+}
+
+.build-popover-when {
+  color: var(--color-text-faint);
+}
+
+.build-popover-diff h3 {
+  margin: var(--space-3) 0 var(--space-1);
+  font-size: var(--text-xs);
+  line-height: var(--text-xs-lh);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text-muted);
+}
+
+.build-popover-diff ul,
+.build-popover-issues {
+  margin: 0 0 var(--space-3);
+  padding-left: var(--space-4);
+}
+
+.build-popover-diff li,
+.build-popover-issues li {
+  margin-bottom: var(--space-1);
+  overflow-wrap: anywhere;
+}
+
+.build-popover-run {
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: var(--border-w) solid var(--color-border);
+  color: var(--color-text-muted);
 }
 
 /* Material Symbols icons (Icon.tsx): a mask filled with the surrounding text colour. */

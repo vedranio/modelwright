@@ -24,4 +24,14 @@ export {
 } from './parse';
 export { stringifyConfig, stringifyDesign, stringifyErd, stringifyFlows } from './stringify';
 export { defaultConfig, defaultErd, defaultFlows } from './defaults';
-export type { ApiErrorBody, PreviewCheck, ProjectSummary } from './api';
+export {
+  BUILD_RECORD_VERSION,
+  BuildMap,
+  BuildRecord,
+  DesignSnapshot,
+  parseBuildRecord,
+  parseBuildRecordJson,
+  stringifyBuildRecord,
+  type BuildRecordResult,
+} from './build';
+export type { ApiErrorBody, BuildRead, PreviewCheck, ProjectSummary } from './api';

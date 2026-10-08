@@ -1,8 +1,7 @@
-import { setPreviewUrl } from '../config/ops';
+import { checkPreviewUrl, setPreviewUrl } from '@modelwright/project/rules';
 import type { EditableDoc } from '../editing/useEditableDoc';
 import { PreviewPane } from '../preview/PreviewPane';
 import { InvalidUrl } from '../preview/PreviewStates';
-import { checkPreviewUrl } from '../preview/url';
 import { UrlField, toolRules } from '../preview/UrlField';
 import type { DocState } from '../useDesign';
 import { DocStateView } from './DocStateView';

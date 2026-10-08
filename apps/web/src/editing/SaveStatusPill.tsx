@@ -7,7 +7,10 @@ interface Props {
   onRetry: () => void;
 }
 
-/** The save status at the canvas's bottom left, styled as in 07-components. */
+/**
+ * The save status at the canvas's bottom left, styled as in 07-components. While the server
+ * can't be reached, saving retries every few seconds by itself; Retry tries at once.
+ */
 export function SaveStatusPill({ status, issues, onRetry }: Props) {
   switch (status) {
     case 'saved':
@@ -43,6 +46,16 @@ export function SaveStatusPill({ status, issues, onRetry }: Props) {
         <span className="save-pill failed" role="alert">
           <span className="dot dot-error" aria-hidden="true" />
           Couldn't save —{' '}
+          <button type="button" className="save-retry" onClick={onRetry}>
+            retry
+          </button>
+        </span>
+      );
+    case 'offline':
+      return (
+        <span className="save-pill failed" role="alert">
+          <span className="dot dot-error" aria-hidden="true" />
+          modelwright’s server isn’t running — start it with <code>pnpm dev</code> ·{' '}
           <button type="button" className="save-retry" onClick={onRetry}>
             retry
           </button>

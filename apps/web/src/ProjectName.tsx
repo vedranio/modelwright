@@ -1,5 +1,5 @@
 import { useState, type FormEvent, type KeyboardEvent } from 'react';
-import { renameProject } from './config/ops';
+import { renameProject } from '@modelwright/project/rules';
 import type { EditableDoc } from './editing/useEditableDoc';
 
 interface Props {
@@ -22,7 +22,8 @@ export function ProjectName({ config, fallbackName, onEditingChange }: Props) {
   // While config.json's save is on hold (it changed on disk under an edit), the name waits for
   // the choice on the UI view's banner rather than piling up edits the banner can't show.
   const editable = doc !== null && !config.held;
-  const saveError = config.status === 'failed' || config.status === 'invalid';
+  const saveError =
+    config.status === 'failed' || config.status === 'invalid' || config.status === 'offline';
 
   function startEditing() {
     if (!editable) return;
@@ -76,7 +77,7 @@ export function ProjectName({ config, fallbackName, onEditingChange }: Props) {
             role="alert"
             onClick={() => void config.flush()}
           >
-            Couldn’t save — retry
+            {config.status === 'offline' ? 'Server not running — retry' : 'Couldn’t save — retry'}
           </button>
         )}
       </span>

@@ -8,8 +8,10 @@ export type SaveStatus =
   /** Edits are waiting for the autosave. */
   | 'unsaved'
   | 'saving'
-  /** The write failed (server down, disk error); edits are kept. */
+  /** The write failed (a disk error, a refusal); edits are kept. */
   | 'failed'
+  /** The modelwright server can't be reached; edits are kept and saving retries by itself. */
+  | 'offline'
   /** An edit produced a document that fails the schema. Not saved: that's a bug to fix. */
   | 'invalid'
   /** The file changed on disk while there were unsaved edits; saving waits for a choice. */
@@ -156,8 +158,12 @@ export function saveSucceeded<K extends DesignKind>(
   return { ...s, dirty: false, status: s.held ? 'held' : 'saved', issues: [] };
 }
 
-export function saveFailed<K extends DesignKind>(s: EditableState<K>): EditableState<K> {
-  return { ...s, status: 'failed' };
+/** The write didn't land. `offline` when the server couldn't be reached at all. */
+export function saveFailed<K extends DesignKind>(
+  s: EditableState<K>,
+  offline = false,
+): EditableState<K> {
+  return { ...s, status: offline ? 'offline' : 'failed' };
 }
 
 export function saveRefused<K extends DesignKind>(

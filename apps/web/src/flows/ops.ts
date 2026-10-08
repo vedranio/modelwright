@@ -131,6 +131,33 @@ export function renameState(flows: Flows, screenId: string, stateId: string, nam
   return mapState(flows, screenId, stateId, (st) => (st.name === name ? st : { ...st, name }));
 }
 
+/** Sets a state's notes; empty or blank ones remove the key. */
+export function setStateNotes(
+  flows: Flows,
+  screenId: string,
+  stateId: string,
+  notes: string,
+): Flows {
+  return mapState(flows, screenId, stateId, (st) => withOptional(st, 'notes', notes));
+}
+
+/**
+ * Makes a CTA its state's primary one, replacing any other: a state has at most one. `null`
+ * unsets it. A CTA that isn't in the state is ignored.
+ */
+export function setPrimaryCta(
+  flows: Flows,
+  screenId: string,
+  stateId: string,
+  ctaId: string | null,
+): Flows {
+  return mapState(flows, screenId, stateId, (st) => {
+    if (ctaId === null) return withOptional(st, 'primaryCtaId', '');
+    if (st.primaryCtaId === ctaId || !st.ctas.some((c) => c.id === ctaId)) return st;
+    return { ...st, primaryCtaId: ctaId };
+  });
+}
+
 /**
  * Removes a state. Transitions starting from its CTAs are deleted; transitions into it are
  * retargeted to the screen's default state by dropping their `stateId`. A screen's last state
@@ -259,11 +286,12 @@ export function renameCta(
 
 /** Removes a CTA and every transition starting from it. */
 export function deleteCta(flows: Flows, screenId: string, stateId: string, ctaId: string): Flows {
-  const next = mapState(flows, screenId, stateId, (st) =>
-    st.ctas.some((c) => c.id === ctaId)
-      ? { ...st, ctas: st.ctas.filter((c) => c.id !== ctaId) }
-      : st,
-  );
+  const next = mapState(flows, screenId, stateId, (st) => {
+    if (!st.ctas.some((c) => c.id === ctaId)) return st;
+    const kept = { ...st, ctas: st.ctas.filter((c) => c.id !== ctaId) };
+    // A primary CTA takes its mark with it.
+    return st.primaryCtaId === ctaId ? withOptional(kept, 'primaryCtaId', '') : kept;
+  });
   if (next === flows) return flows;
   return {
     ...next,
@@ -296,6 +324,22 @@ export function addTransition(
 }
 
 /**
+ * Adds a screen with its top-left at `position` and a transition to it from `from`, as one
+ * edit: what dropping a connection on empty canvas does. Returns null ids, and the document
+ * unchanged, if the CTA doesn't exist.
+ */
+export function addScreenWithTransition(
+  flows: Flows,
+  position: Position,
+  from: TransitionFrom,
+): { flows: Flows; screenId: string | null; transitionId: string | null } {
+  if (!ctaExists(flows, from)) return { flows, screenId: null, transitionId: null };
+  const screen = addScreen(flows, position);
+  const transition = addTransition(screen.flows, from, { screenId: screen.id });
+  return { flows: transition.flows, screenId: screen.id, transitionId: transition.id };
+}
+
+/**
  * Changes a transition's label (blank removes it) and/or its target state within the same
  * screen: a state id targets that state, null targets the screen's default state. A state
  * that isn't on the target screen is ignored.
@@ -321,6 +365,33 @@ export function updateTransition(
     return next;
   });
   return changed ? { ...flows, transitions } : flows;
+}
+
+/**
+ * Points a transition at another screen, or at one of its states when `to.stateId` is set,
+ * keeping its id, source and label. Unchanged if the target doesn't exist, or is the state the
+ * transition starts from (see `leadsToOwnState`).
+ */
+export function retargetTransition(flows: Flows, transitionId: string, to: TransitionTo): Flows {
+  const t = flows.transitions.find((x) => x.id === transitionId);
+  if (!t || !targetExists(flows, to) || leadsToOwnState(flows, t.from, to)) return flows;
+  if (t.to.screenId === to.screenId && t.to.stateId === to.stateId) return flows;
+  const next = to.stateId === undefined ? { screenId: to.screenId } : { ...to };
+  return {
+    ...flows,
+    transitions: flows.transitions.map((x) => (x.id === transitionId ? { ...x, to: next } : x)),
+  };
+}
+
+/**
+ * Whether `to` is the state `from`'s CTA sits in: a transition can't lead there. With no
+ * `stateId`, `to` is the screen's default (first) state.
+ */
+export function leadsToOwnState(flows: Flows, from: TransitionFrom, to: TransitionTo): boolean {
+  if (to.screenId !== from.screenId) return false;
+  const target =
+    to.stateId ?? flows.screens.find((s) => s.id === to.screenId)?.states[0]?.id ?? null;
+  return target === from.stateId;
 }
 
 export function deleteTransitions(flows: Flows, transitionIds: Iterable<string>): Flows {
@@ -416,14 +487,20 @@ export function duplicateScreens(
       states: s.states.map((st) => {
         const stateId = fresh('st');
         stateCopy.set(key(s.id, st.id), stateId);
+        const ctas = st.ctas.map((c) => {
+          const ctaId = fresh('cta');
+          ctaCopy.set(key(s.id, st.id, c.id), ctaId);
+          return { ...c, id: ctaId };
+        });
+        const primary =
+          st.primaryCtaId === undefined
+            ? undefined
+            : ctaCopy.get(key(s.id, st.id, st.primaryCtaId));
         return {
           ...st,
           id: stateId,
-          ctas: st.ctas.map((c) => {
-            const ctaId = fresh('cta');
-            ctaCopy.set(key(s.id, st.id, c.id), ctaId);
-            return { ...c, id: ctaId };
-          }),
+          ctas,
+          ...(primary !== undefined && { primaryCtaId: primary }),
         };
       }),
     };

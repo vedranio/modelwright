@@ -15,6 +15,8 @@ import {
   renameCta,
   renameScreen,
   renameState,
+  setPrimaryCta,
+  setStateNotes,
   moveCta,
   moveSeesItem,
   moveState,
@@ -30,11 +32,21 @@ import {
   seesStart,
 } from './tabOrder';
 
+/** What a hovered or selected transition lights up on a card: its source CTA and target state. */
+export interface Highlight {
+  /** `${stateId}:${ctaId}` of the CTAs to highlight. */
+  ctas: ReadonlySet<string>;
+  states: ReadonlySet<string>;
+}
+
 export type ScreenNodeType = Node<
   {
     screen: Screen;
     /** `${stateId}:${ctaId}` of this screen's CTAs that have a transition from them. */
     connected: ReadonlySet<string>;
+    highlight?: Highlight;
+    /** While a connection is dragged from one of this screen's CTAs: that CTA's state. */
+    noDropState?: string;
   },
   'screen'
 >;
@@ -44,13 +56,19 @@ export type ScreenNodeType = Node<
  * sees) and "Actions" list (the CTAs they can use). A single-state screen hides its state header, so
  * the common case reads as just name / sees / does. Every CTA row has a source handle on the
  * card's right edge, filled when a transition starts from it and hollow when none does (a dead
- * end). The screen header and each shown state header have a target handle on the left edge.
+ * end), and a second on the left edge, shown on hover. The screen header and each shown state
+ * header have a target handle; transitions route to whichever side of a card is nearer.
  *
- * Every text is edited in place: double-click it, then Enter or click away to keep the change,
- * Escape to drop it, Tab to move on through the card.
+ * Every text is edited in place: click it, then Enter or click away to keep the change, Escape
+ * to drop it, Tab to move on through the card. (Dragging a card by its text doesn't count as a
+ * click: React Flow swallows the click that ends a drag.)
+ *
+ * While a connection is being dragged, CSS outlines where it would land: the whole card when it
+ * has one state, otherwise the state under the pointer (the default state over the header).
+ * `no-drop` marks the dragged CTA's own state, where a drop does nothing.
  */
 export function ScreenNode({ data }: NodeProps<ScreenNodeType>) {
-  const { screen, connected } = data;
+  const { screen, connected, highlight, noDropState } = data;
   const { apply, editing, setEditing } = useFlowsEditor();
   const multi = showsStateHeaders(screen);
   const at = (kind: 'name' | 'notes') => ({ kind, screenId: screen.id }) as const;
@@ -77,7 +95,15 @@ export function ScreenNode({ data }: NodeProps<ScreenNodeType>) {
   };
 
   return (
-    <div className="screen">
+    <div
+      className={[
+        'screen',
+        multi ? 'multi' : 'single',
+        !multi && noDropState !== undefined ? 'no-drop' : '',
+      ]
+        .filter(Boolean)
+        .join(' ')}
+    >
       <header className="screen-head" data-screen-header="">
         <Handle
           type="target"
@@ -105,7 +131,7 @@ export function ScreenNode({ data }: NodeProps<ScreenNodeType>) {
           <div
             className="screen-name editable"
             title={screen.name}
-            onDoubleClick={(e) => {
+            onClick={(e) => {
               e.stopPropagation();
               setEditing(at('name'));
             }}
@@ -134,7 +160,7 @@ export function ScreenNode({ data }: NodeProps<ScreenNodeType>) {
           screen.notes && (
             <p
               className="screen-notes editable"
-              onDoubleClick={(e) => {
+              onClick={(e) => {
                 e.stopPropagation();
                 setEditing(at('notes'));
               }}
@@ -171,6 +197,8 @@ export function ScreenNode({ data }: NodeProps<ScreenNodeType>) {
           stateIndex={i}
           showHeader={multi}
           connected={connected}
+          highlight={highlight}
+          noDrop={noDropState === state.id}
         />
       ))}
     </div>
@@ -183,12 +211,17 @@ function StateSection({
   stateIndex,
   showHeader,
   connected,
+  highlight,
+  noDrop,
 }: {
   screen: Screen;
   state: ScreenState;
   stateIndex: number;
   showHeader: boolean;
   connected: ReadonlySet<string>;
+  highlight: Highlight | undefined;
+  /** The dragged connection's own state: dropping here does nothing. */
+  noDrop: boolean;
 }) {
   const { apply, remove, editing, setEditing } = useFlowsEditor();
   const ids = { screenId: screen.id, stateId: state.id };
@@ -203,13 +236,55 @@ function StateSection({
     if (name) apply((f) => renameState(f, screen.id, state.id, name));
   };
 
+  const notesTarget: EditTarget = { kind: 'stateNotes', ...ids };
+  const editingNotes = isEditing(editing, notesTarget);
+  const commitNotes = (value: string) =>
+    apply((f) => setStateNotes(f, screen.id, state.id, value.trim()));
+  /** The state's notes: a muted line, or its field while being edited. */
+  const notes = editingNotes ? (
+    <div className="state-notes">
+      <InlineField
+        className="state-notes-input"
+        ariaLabel="State notes"
+        placeholder="Notes on this state"
+        value={state.notes ?? ''}
+        onCommit={(value) => {
+          commitNotes(value);
+          setEditing(null);
+        }}
+        onCancel={() => setEditing(null)}
+      />
+    </div>
+  ) : (
+    state.notes && (
+      <p
+        className="state-notes editable"
+        onClick={(e) => {
+          e.stopPropagation();
+          setEditing(notesTarget);
+        }}
+      >
+        {state.notes}
+      </p>
+    )
+  );
+
   const seesDraftAt = (after: number | null) =>
     isEditing(editing, { kind: 'seesDraft', ...ids, after });
   const ctaDraftAt = (after: string | null) =>
     isEditing(editing, { kind: 'ctaDraft', ...ids, after });
 
   return (
-    <section className="screen-state">
+    <section
+      className={[
+        'screen-state',
+        highlight?.states.has(state.id) ? 'highlighted' : '',
+        noDrop ? 'no-drop' : '',
+      ]
+        .filter(Boolean)
+        .join(' ')}
+      data-state={state.id}
+    >
       {showHeader && (
         <div className="state-head" data-state-header={state.id}>
           <Handle
@@ -242,7 +317,7 @@ function StateSection({
             <span
               className="state-name editable"
               title={state.name}
-              onDoubleClick={(e) => {
+              onClick={(e) => {
                 e.stopPropagation();
                 setEditing({ kind: 'stateName', ...ids });
               }}
@@ -253,6 +328,16 @@ function StateSection({
           {isDefault && <span className="state-tag">default</span>}
           {!nameTarget && (
             <span className="row-actions">
+              {!state.notes && !editingNotes && (
+                <button
+                  type="button"
+                  className="row-action nodrag"
+                  title="Add notes on this state"
+                  onClick={() => setEditing(notesTarget)}
+                >
+                  + notes
+                </button>
+              )}
               {!isDefault && (
                 <button
                   type="button"
@@ -282,6 +367,8 @@ function StateSection({
         </div>
       )}
 
+      {/* Under the state's header; a single-state screen has none, so its notes lead the body. */}
+      {notes}
       <div className="state-body">
         <div className="list-caption">Information</div>
         <ul className="sees">
@@ -319,7 +406,9 @@ function StateSection({
                 state={state}
                 stateIndex={stateIndex}
                 cta={cta}
+                primary={state.primaryCtaId === cta.id}
                 connected={connected.has(`${state.id}:${cta.id}`)}
+                highlighted={highlight?.ctas.has(`${state.id}:${cta.id}`) ?? false}
               />
             );
             return ctaDraftAt(cta.id)
@@ -407,7 +496,7 @@ function SeesRow({
       ) : (
         <span
           className="sees-text editable"
-          onDoubleClick={(e) => {
+          onClick={(e) => {
             e.stopPropagation();
             setEditing(target);
           }}
@@ -495,8 +584,10 @@ function CtaRow({
   state,
   stateIndex,
   cta,
+  primary,
   connected,
-}: RowProps & { cta: Cta; connected: boolean }) {
+  highlighted,
+}: RowProps & { cta: Cta; primary: boolean; connected: boolean; highlighted: boolean }) {
   const { apply, remove, editing, setEditing } = useFlowsEditor();
   const target: EditTarget = { kind: 'cta', screenId: screen.id, stateId: state.id, ctaId: cta.id };
 
@@ -508,7 +599,7 @@ function CtaRow({
   };
 
   return (
-    <li className="cta-row">
+    <li className={`cta-row${highlighted ? ' highlighted' : ''}`}>
       {isEditing(editing, target) ? (
         <InlineField
           ariaLabel="CTA label"
@@ -536,7 +627,7 @@ function CtaRow({
         <span
           className="cta-label editable"
           title={cta.label}
-          onDoubleClick={(e) => {
+          onClick={(e) => {
             e.stopPropagation();
             setEditing(target);
           }}
@@ -544,7 +635,20 @@ function CtaRow({
           {cta.label || ' '}
         </span>
       )}
+      {primary && !isEditing(editing, target) && <span className="state-tag">primary</span>}
       <span className="row-actions">
+        <button
+          type="button"
+          className="row-action nodrag"
+          title={
+            primary ? 'Stop marking this as the primary CTA' : 'Make this the state’s primary CTA'
+          }
+          onClick={() =>
+            apply((f) => setPrimaryCta(f, screen.id, state.id, primary ? null : cta.id))
+          }
+        >
+          {primary ? 'unset' : 'make primary'}
+        </button>
         <button
           type="button"
           className="row-action row-delete nodrag"
@@ -560,6 +664,13 @@ function CtaRow({
           ×
         </button>
       </span>
+      {/* Drag from either side; the left one shows on hover or selection. */}
+      <Handle
+        type="source"
+        id={ctaHandle(state.id, cta.id, 'left')}
+        position={Position.Left}
+        className={`cta-handle left${connected ? ' connected' : ''}`}
+      />
       <Handle
         type="source"
         id={ctaHandle(state.id, cta.id)}

@@ -122,7 +122,7 @@ describe('defaults', () => {
   it('defaultFlows is a valid empty flow chart', () => {
     expect(parseFlows(defaultFlows())).toEqual({
       ok: true,
-      doc: { schemaVersion: 1, screens: [], transitions: [], layout: {} },
+      doc: { schemaVersion: 2, screens: [], transitions: [], layout: {} },
     });
   });
 

@@ -12,7 +12,14 @@ import {
   updateAttribute,
 } from './ops';
 
-export type EntityNodeType = Node<{ entity: Entity }, 'entity'>;
+export type EntityNodeType = Node<
+  {
+    entity: Entity;
+    /** One of the entities a hovered or selected relationship joins. */
+    highlighted?: boolean;
+  },
+  'entity'
+>;
 
 const CONNECT_SIDES = [Position.Top, Position.Right, Position.Bottom, Position.Left];
 
@@ -44,7 +51,7 @@ export function EntityNode({ data }: NodeProps<EntityNodeType>) {
   const lastDraftAtEnd = isEditing(editing, { kind: 'draft', entityId: entity.id, after: null });
 
   return (
-    <div className="entity">
+    <div className={`entity${data.highlighted ? ' highlighted' : ''}`}>
       {/* Floating edges compute their own endpoints; these only satisfy React Flow. */}
       <Handle type="target" position={Position.Top} className="anchor-handle" />
       <Handle type="source" position={Position.Top} className="anchor-handle" />

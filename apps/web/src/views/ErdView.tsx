@@ -3,6 +3,8 @@ import type { NodeChange, OnConnectEnd, ReactFlowInstance, XYPosition } from '@x
 import type { Erd } from '@modelwright/schema';
 import type { Rect } from '../canvas/edgeGeometry';
 import { Canvas } from '../canvas/Canvas';
+import { anchorCard, cardRects, nodeUnderPoint, revealCard } from '../canvas/cards';
+import { besideAnchor, nudgeClear } from '../canvas/freeSpot';
 import { UndoRedoButtons } from '../canvas/UndoRedoButtons';
 import { useCanvasShortcuts } from '../canvas/useCanvasShortcuts';
 import { useMeasurements } from '../canvas/useMeasurements';
@@ -19,6 +21,7 @@ import { EntityNode, type EntityNodeType } from '../erd/EntityNode';
 import { ENTITY_WIDTH, estimateEntitySize } from '../erd/metrics';
 import {
   addEntity,
+  addEntityWithRelationship,
   addRelationship,
   deleteEntities,
   deleteRelationships,
@@ -39,6 +42,9 @@ const EDGE_TYPES = { crowsfoot: CrowsFootEdge };
 
 /** Where a new entity's top-left sits relative to the point it's created at. */
 const NEW_ENTITY_OFFSET = { x: -ENTITY_WIDTH / 2, y: -20 };
+
+/** A new entity's size: no attributes yet. */
+const NEW_ENTITY_SIZE = estimateEntitySize({ id: '', name: '', attributes: [] });
 
 interface Props {
   projectPath: string;
@@ -68,6 +74,8 @@ function ErdCanvas({
 }) {
   const [editing, setEditing] = useState<EditTarget | null>(null);
   const [dragging, setDragging] = useState<Record<string, XYPosition>>({});
+  /** The relationship under the pointer, highlighted with the entities it joins. */
+  const [hoveredEdge, setHoveredEdge] = useState<string | null>(null);
   const selection = useSelection();
   const measurements = useMeasurements();
   const instance = useRef<ReactFlowInstance<EntityNodeType, CrowsFootEdgeType> | null>(null);
@@ -101,6 +109,16 @@ function ErdCanvas({
   );
 
   const flow = useMemo(() => toFlow(erd), [erd]);
+  // A hovered or selected relationship lights up the two entities it joins.
+  const highlighted = useMemo(() => {
+    const lit = new Set<string>();
+    for (const r of erd.relationships) {
+      if (r.id !== hoveredEdge && !selection.selectedEdges.has(r.id)) continue;
+      lit.add(r.from);
+      lit.add(r.to);
+    }
+    return lit;
+  }, [erd, hoveredEdge, selection.selectedEdges]);
   const nodes = useMemo(
     () =>
       flow.nodes.map((n) => {
@@ -110,9 +128,10 @@ function ErdCanvas({
           position: dragging[n.id] ?? n.position,
           selected: selection.selectedNodes.has(n.id),
           ...(measured && { measured }),
+          ...(highlighted.has(n.id) && { data: { ...n.data, highlighted: true } }),
         };
       }),
-    [flow, dragging, selection.selectedNodes, measurements.sizes],
+    [flow, dragging, selection.selectedNodes, measurements.sizes, highlighted],
   );
   const edges = useMemo(() => {
     // The popover shows when one relationship, and nothing else, is selected. Only count what
@@ -129,15 +148,25 @@ function ErdCanvas({
 
   /**
    * Dropping a connection anywhere on another entity relates the two, with the default
-   * cardinalities. Dropping on the same entity, or on empty canvas, does nothing.
+   * cardinalities; the new relationship is selected, which opens its popover. Dropping on empty
+   * canvas creates an entity there, already related, with its name open for typing. Dropping
+   * on the same entity does nothing.
    */
   const onConnectEnd: OnConnectEnd = (event, connection) => {
     const from = connection.fromNode?.id;
     const point = 'changedTouches' in event ? event.changedTouches[0] : event;
     if (!from || !point) return;
-    const to = document
-      .elementFromPoint(point.clientX, point.clientY)
-      ?.closest<HTMLElement>('.react-flow__node')?.dataset.id;
+    const under = nodeUnderPoint(point.clientX, point.clientY);
+    if (!under) {
+      if (!instance.current) return;
+      const at = instance.current.screenToFlowPosition({ x: point.clientX, y: point.clientY });
+      createEntity(at, (doc, position) => {
+        const result = addEntityWithRelationship(doc, position, from);
+        return { erd: result.erd, id: result.entityId };
+      });
+      return;
+    }
+    const to = under.node.dataset.id;
     if (!to || to === from) return;
     let id: string | null = null;
     apply((doc) => {
@@ -145,10 +174,9 @@ function ErdCanvas({
       id = result.id;
       return result.erd;
     });
-    if (id) {
-      selection.clear();
-      selection.onEdgesChange([{ type: 'select', id, selected: true }]);
-    }
+    // After the click that ends the drag: dropped on its own card, that click would select
+    // the card instead.
+    if (id) setTimeout(() => selection.select([], [id as string]));
   };
 
   const onNodesChange = (changes: NodeChange<EntityNodeType>[]) => {
@@ -162,24 +190,51 @@ function ErdCanvas({
     if (Object.keys(moved).length > 0) setDragging((d) => ({ ...d, ...moved }));
   };
 
-  /** Adds an entity with its top-left near `at`, and opens its name for typing. */
-  const createEntity = (at: XYPosition) => {
+  /**
+   * Adds an entity centred under `at` (nudged right until it overlaps no card), shows it if
+   * it's off-screen, and opens its name for typing. `add` makes it, `addEntity` by default.
+   */
+  const createEntity = (
+    at: XYPosition,
+    add: (doc: Erd, position: XYPosition) => { erd: Erd; id: string | null } = addEntity,
+  ) => {
+    const spot = nudgeClear(
+      cardRects(nodes),
+      { x: at.x + NEW_ENTITY_OFFSET.x, y: at.y + NEW_ENTITY_OFFSET.y },
+      NEW_ENTITY_SIZE,
+    );
+    placeEntity(spot, add);
+  };
+
+  /** Adds an entity with its top-left exactly at `spot`; see `createEntity`. */
+  const placeEntity = (
+    spot: XYPosition,
+    add: (doc: Erd, position: XYPosition) => { erd: Erd; id: string | null } = addEntity,
+  ) => {
     let id: string | null = null;
     apply((doc) => {
-      const result = addEntity(doc, {
-        x: at.x + NEW_ENTITY_OFFSET.x,
-        y: at.y + NEW_ENTITY_OFFSET.y,
-      });
+      const result = add(doc, spot);
       id = result.id;
       return result.erd;
     });
-    if (id) {
-      selection.clear();
-      setEditing({ kind: 'name', entityId: id, selectAll: true });
+    if (!id) return;
+    selection.clear();
+    setEditing({ kind: 'name', entityId: id, selectAll: true });
+    if (instance.current && container.current) {
+      revealCard(instance.current, container.current, { ...spot, ...NEW_ENTITY_SIZE });
     }
   };
 
-  const addAtCentre = () => {
+  /**
+   * Add entity (button or E): beside the selected entity, or the last one added, never on top
+   * of another. The first entity goes at the view's centre.
+   */
+  const addNext = () => {
+    const anchor = anchorCard(nodes, selection.selectedNodes);
+    if (anchor) {
+      placeEntity(besideAnchor(cardRects(nodes), anchor, NEW_ENTITY_SIZE));
+      return;
+    }
     const rect = container.current?.getBoundingClientRect();
     if (!rect || !instance.current) return;
     createEntity(
@@ -240,7 +295,7 @@ function ErdCanvas({
 
   useShortcut('add-entity', (e) => {
     e.preventDefault();
-    addAtCentre();
+    addNext();
   });
 
   return (
@@ -266,6 +321,8 @@ function ErdCanvas({
             setDragging({});
           }}
           onConnectEnd={onConnectEnd}
+          onEdgeMouseEnter={(_event, edge) => setHoveredEdge(edge.id)}
+          onEdgeMouseLeave={() => setHoveredEdge(null)}
           // Only dropping onto an entity counts (onConnectEnd); never connect handle to handle.
           isValidConnection={() => false}
           onBeforeDelete={({ nodes: goneNodes, edges: goneEdges }) => {
@@ -285,7 +342,7 @@ function ErdCanvas({
               <button
                 type="button"
                 className="btn btn-quiet btn-tight toolbar-add"
-                onClick={addAtCentre}
+                onClick={addNext}
               >
                 <span className="toolbar-add-plus" aria-hidden="true">
                   +
@@ -314,7 +371,7 @@ function ErdCanvas({
               <EmptyCard
                 title="No entities yet"
                 actions={
-                  <button type="button" className="btn btn-primary" onClick={addAtCentre}>
+                  <button type="button" className="btn btn-primary" onClick={addNext}>
                     Add entity
                     <Kbd>{shortcutHint('add-entity')}</Kbd>
                   </button>

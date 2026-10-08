@@ -114,6 +114,8 @@
   --icon-size: 18px;
   /* A ⇧ drawn as an icon inside a keyboard hint. */
   --kbd-icon-size: 14px;
+  /* How far keyboard_return is dropped to look centred on its text. */
+  --return-icon-drop: 2px;
   --toast-max-w: 480px;
   /* Toasts sit this far above the view's bottom edge, clear of the canvas toolbar below them. */
   --toast-offset: 72px;
@@ -133,6 +135,11 @@
   --window-bar-h: 28px;
   --window-dot: 8px;
   --state-card-w: 360px;
+  /* A selected connector's line, thicker than the 1px default. */
+  --edge-selected-w: 2px;
+  /* The header's "changes since last build" popover. */
+  --build-popover-w: 400px;
+  --build-popover-max-h: 70vh;
 }
 
 /*

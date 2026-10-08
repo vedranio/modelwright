@@ -1,25 +1,40 @@
 import { watch, type FSWatcher } from 'node:fs';
 import path from 'node:path';
 import { DESIGN_KINDS, isDesignKind, type DesignKind } from '@modelwright/schema';
-import { readTextOrNull } from './fsio';
-import { designDir, designFile } from './paths';
+import { readTextOrNull } from '@modelwright/project/node';
+import { BUILD_FILE, buildFile, designDir, designFile } from './paths';
 
 /** Editors save in several steps (temp file, rename, chmod); one change is reported after this. */
 export const WATCH_DEBOUNCE_MS = 150;
 
-export type DesignChangeListener = (kind: DesignKind) => void;
+/** A watched file: one of the three design files, or `build.json`. */
+export type WatchedKind = DesignKind | 'build';
+
+const WATCHED_KINDS: readonly WatchedKind[] = [...DESIGN_KINDS, 'build'];
+
+export type DesignChangeListener = (kind: WatchedKind) => void;
+
+function watchedKind(filename: string): WatchedKind | null {
+  if (filename === BUILD_FILE) return 'build';
+  const base = path.basename(filename, '.json');
+  return `${base}.json` === filename && isDesignKind(base) ? base : null;
+}
+
+function watchedFile(projectDir: string, kind: WatchedKind): string {
+  return kind === 'build' ? buildFile(projectDir) : designFile(projectDir, kind);
+}
 
 interface ProjectWatch {
   watcher: FSWatcher;
   listeners: Set<DesignChangeListener>;
-  timers: Map<DesignKind, ReturnType<typeof setTimeout>>;
+  timers: Map<WatchedKind, ReturnType<typeof setTimeout>>;
   /** Each file's content as last reported (or as found when watching began). */
-  seen: Map<DesignKind, string | null>;
+  seen: Map<WatchedKind, string | null>;
 }
 
 /**
- * Watches the three design files of each open project and reports changes made outside
- * modelwright. One fs watcher per project, shared by its subscribers and closed when the last
+ * Watches the three design files and `build.json` of each open project and reports changes
+ * made outside modelwright (`build.json` is only ever written by the CLI). One fs watcher per project, shared by its subscribers and closed when the last
  * one leaves. A change is reported only when a file's content differs both from what the
  * server itself last wrote there and from what was last reported, so the server's own saves
  * never echo back, whatever the timing. `spec.md` and every other file are ignored.
@@ -78,10 +93,10 @@ export class DesignWatcher {
   }
 
   private async start(projectDir: string): Promise<ProjectWatch> {
-    const seen = new Map<DesignKind, string | null>();
+    const seen = new Map<WatchedKind, string | null>();
     await Promise.all(
-      DESIGN_KINDS.map(async (kind) => {
-        seen.set(kind, await readTextOrNull(designFile(projectDir, kind)));
+      WATCHED_KINDS.map(async (kind) => {
+        seen.set(kind, await readTextOrNull(watchedFile(projectDir, kind)));
       }),
     );
     const project: ProjectWatch = {
@@ -93,12 +108,12 @@ export class DesignWatcher {
     project.watcher.on('change', (_event, filename) => {
       const name = typeof filename === 'string' ? filename : filename?.toString();
       if (!name) return;
-      const base = path.basename(name, '.json');
-      if (`${base}.json` !== path.basename(name) || !isDesignKind(base)) return;
-      clearTimeout(project.timers.get(base));
+      const kind = watchedKind(path.basename(name));
+      if (!kind) return;
+      clearTimeout(project.timers.get(kind));
       project.timers.set(
-        base,
-        setTimeout(() => void this.check(projectDir, project, base), this.debounceMs),
+        kind,
+        setTimeout(() => void this.check(projectDir, project, kind), this.debounceMs),
       );
     });
     // The folder went away or can't be watched any more: stop quietly; focus re-reads remain.
@@ -106,9 +121,9 @@ export class DesignWatcher {
     return project;
   }
 
-  private async check(projectDir: string, project: ProjectWatch, kind: DesignKind) {
+  private async check(projectDir: string, project: ProjectWatch, kind: WatchedKind) {
     project.timers.delete(kind);
-    const file = designFile(projectDir, kind);
+    const file = watchedFile(projectDir, kind);
     const text = await readTextOrNull(file);
     if (text === project.seen.get(kind) || (text !== null && text === this.written.get(file))) {
       project.seen.set(kind, text);

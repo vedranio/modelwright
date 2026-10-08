@@ -12,6 +12,7 @@
     "test": "vitest run",
     "typecheck": "pnpm -r typecheck",
     "lint": "eslint . && prettier --check .",
+    "build:plugin": "pnpm --filter @modelwright/cli build:plugin",
     "format": "prettier --write ."
   },
   "devDependencies": {

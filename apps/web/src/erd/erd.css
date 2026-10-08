@@ -94,12 +94,21 @@
 
 .canvas .react-flow__edge:hover .crowsfoot-line,
 .canvas .react-flow__edge:hover .crowsfoot-marker {
-  stroke: var(--color-text-muted);
+  stroke: var(--color-accent);
 }
 
+/* Selected is stronger than hovered: the same accent, and a thicker line and markers. */
 .canvas .react-flow__edge.selected .crowsfoot-line,
 .canvas .react-flow__edge.selected .crowsfoot-marker {
   stroke: var(--color-accent);
+  stroke-width: var(--edge-selected-w);
+}
+
+/* A hovered or selected relationship lights up the two entities it joins. */
+.react-flow__node:not(.selected) .entity.highlighted {
+  box-shadow:
+    0 0 0 var(--border-w) var(--color-accent),
+    var(--shadow-md);
 }
 
 /* Editing */

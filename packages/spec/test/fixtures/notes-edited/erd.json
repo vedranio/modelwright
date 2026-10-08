@@ -1,0 +1,82 @@
+{
+  "schemaVersion": 1,
+  "entities": [
+    {
+      "id": "user",
+      "name": "User",
+      "description": "Someone who signs in",
+      "attributes": [
+        {
+          "id": "user-email",
+          "name": "email"
+        }
+      ]
+    },
+    {
+      "id": "note",
+      "name": "Memo",
+      "attributes": [
+        {
+          "id": "note-body",
+          "name": "body"
+        },
+        {
+          "id": "note-title",
+          "name": "heading"
+        },
+        {
+          "id": "note-updated",
+          "name": "updated at",
+          "note": "set on every save, in UTC"
+        },
+        {
+          "id": "note-pinned",
+          "name": "pinned",
+          "note": "shown first"
+        }
+      ]
+    },
+    {
+      "id": "tag",
+      "name": "Tag",
+      "attributes": [
+        {
+          "id": "tag-name",
+          "name": "name"
+        }
+      ]
+    }
+  ],
+  "relationships": [
+    {
+      "id": "user-notes",
+      "from": "user",
+      "to": "note",
+      "fromCard": "one",
+      "toCard": "many",
+      "label": "writes"
+    },
+    {
+      "id": "note-tags",
+      "from": "note",
+      "to": "tag",
+      "fromCard": "zero-many",
+      "toCard": "zero-many",
+      "label": "is tagged with"
+    }
+  ],
+  "layout": {
+    "user": {
+      "x": 40,
+      "y": 0
+    },
+    "note": {
+      "x": 320,
+      "y": 200
+    },
+    "tag": {
+      "x": 640,
+      "y": 0
+    }
+  }
+}

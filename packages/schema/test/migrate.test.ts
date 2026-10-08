@@ -1,10 +1,21 @@
 import { describe, expect, it } from 'vitest';
-import { DESIGN_KINDS, migrate, parseErd } from '../src/index';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { DESIGN_KINDS, migrate, parseErd, parseFlows } from '../src/index';
 import { applyMigrations, type MigrationTable } from '../src/migrate';
 import { expectIssue, fixture } from './helpers';
 
+const FIXTURES = fileURLToPath(new URL('./fixtures', import.meta.url));
+
 describe('migrate', () => {
-  it.each(DESIGN_KINDS)('is a no-op for a v1 %s document', (kind) => {
+  it('upgrades a v1 flows.json to v2 without changing anything else', () => {
+    const v1 = JSON.parse(readFileSync(`${FIXTURES}/v1/flows.json`, 'utf8'));
+    expect(v1.schemaVersion).toBe(1);
+    const result = parseFlows(v1);
+    expect(result.ok && result.doc).toEqual({ ...fixture('flows'), schemaVersion: 2 });
+  });
+
+  it.each(DESIGN_KINDS)('is a no-op for a current %s document', (kind) => {
     const doc = fixture(kind);
     const result = migrate(kind, doc);
     expect(result).toEqual({ ok: true, data: doc });

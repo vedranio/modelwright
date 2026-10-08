@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { parseDesign, type Issue } from '@modelwright/schema';
-import { useProjectClient, type DesignDoc } from '../platform';
+import { ProjectClientError, useProjectClient, type DesignDoc } from '../platform';
 import type { DocState } from '../docState';
 import {
   applyEdit,
@@ -29,6 +29,8 @@ export type EditableKind = 'erd' | 'flows' | 'config';
 
 /** About this long after the last edit, the document saves. */
 export const AUTOSAVE_DELAY_MS = 500;
+/** How often saving is retried while the modelwright server can't be reached. */
+export const OFFLINE_RETRY_MS = 3000;
 
 export interface EditableDoc<K extends EditableKind> {
   /** The document to show and edit: the local copy while there is one, else what's on disk. */
@@ -131,8 +133,9 @@ export function useEditableDoc<K extends EditableKind>(
       noteWritten(kind, target);
       setState((s) => saveSucceeded(s, target));
       return true;
-    } catch {
-      setState(saveFailed);
+    } catch (err) {
+      const offline = err instanceof ProjectClientError && err.status === 0;
+      setState((s) => saveFailed(s, offline));
       saveAgain.current = false;
       return false;
     }
@@ -197,6 +200,15 @@ export function useEditableDoc<K extends EditableKind>(
     },
     [commit],
   );
+  // While the server can't be reached, keep trying, so the edits save by themselves once it's
+  // back. Each attempt ends in another status ('saving', then 'offline' or 'saved'), which
+  // re-runs this and schedules the next one.
+  useEffect(() => {
+    if (state.status !== 'offline') return;
+    const retry = setTimeout(() => void save(), OFFLINE_RETRY_MS);
+    return () => clearTimeout(retry);
+  }, [state.status, save]);
+
   const undo = useCallback(() => step(undoEdit), [step]);
   const redo = useCallback(() => step(redoEdit), [step]);
   const currentRevision = useCallback(() => latest.current.state.revision, []);

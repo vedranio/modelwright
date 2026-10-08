@@ -6,5 +6,5 @@ export default defineConfig({
   target: 'node24',
   clean: true,
   // The workspace packages ship TypeScript source, which Node won't run from node_modules: bundle them.
-  noExternal: ['@modelwright/schema', '@modelwright/spec'],
+  noExternal: ['@modelwright/schema', '@modelwright/spec', '@modelwright/project'],
 });

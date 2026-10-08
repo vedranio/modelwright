@@ -1,0 +1,11 @@
+{
+  "name": "modelwright",
+  "description": "Build an app from a project's modelwright design (.design/), then apply only what changed in the design since the last build",
+  "author": {
+    "name": "Vedran Arnautovic",
+    "url": "https://github.com/vedranio"
+  },
+  "homepage": "https://github.com/vedranio/modelwright",
+  "repository": "https://github.com/vedranio/modelwright",
+  "keywords": ["design", "erd", "flows", "spec"]
+}

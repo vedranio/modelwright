@@ -114,3 +114,166 @@ function longestHorizontalMiddle(points: readonly Point[]): Point {
   }
   return best;
 }
+
+/** A side of a card a transition can leave from or arrive at. */
+export type CardSide = 'left' | 'right';
+
+/** A route, with the sides of the two cards it leaves from and arrives at. */
+export interface SidedRoute extends Route {
+  from: CardSide;
+  to: CardSide;
+}
+
+/**
+ * The shortest way from a CTA (at height `sourceY` on the source card) to a screen or state
+ * header (at `targetY` on the target card), leaving and arriving on either side of each card:
+ *
+ * - **right → left** and **left → right**: `routeTransition`, the second mirrored.
+ * - **right → right** and **left → left**: a "C" out past the far edge of both cards and back,
+ *   which suits stacked cards and loops to another state of the same card.
+ *
+ * A candidate that would cut through either card is dropped, and the shortest of the rest wins.
+ * Ties go right → left, then right → right, left → right, left → left, so the usual
+ * left-to-right reading stays the default.
+ */
+export function routeTransitionSides(
+  sourceY: number,
+  targetY: number,
+  sourceRect: Rect,
+  targetRect: Rect,
+  fan: Fan = { index: 0, count: 1 },
+  track = 0,
+): SidedRoute {
+  const candidates: SidedRoute[] = [
+    {
+      ...routeTransition(
+        at(sourceRect, 'right', sourceY),
+        at(targetRect, 'left', targetY),
+        sourceRect,
+        targetRect,
+        fan,
+        track,
+      ),
+      from: 'right',
+      to: 'left',
+    },
+    {
+      ...sameSideRoute(
+        at(sourceRect, 'right', sourceY),
+        at(targetRect, 'right', targetY),
+        sourceRect,
+        targetRect,
+        fan,
+        track,
+      ),
+      from: 'right',
+      to: 'right',
+    },
+    {
+      ...mirrored(
+        (s, t, a, b) => routeTransition(s, t, a, b, fan, track),
+        'left',
+        sourceY,
+        targetY,
+        sourceRect,
+        targetRect,
+      ),
+      from: 'left',
+      to: 'right',
+    },
+    {
+      ...mirrored(
+        (s, t, a, b) => sameSideRoute(s, t, a, b, fan, track),
+        'right',
+        sourceY,
+        targetY,
+        sourceRect,
+        targetRect,
+      ),
+      from: 'left',
+      to: 'left',
+    },
+  ];
+  const clear = candidates.filter(
+    (c) => !cutsThrough(c.points, sourceRect) && !cutsThrough(c.points, targetRect),
+  );
+  const pool = clear.length > 0 ? clear : candidates;
+  let best = pool[0] as SidedRoute;
+  for (const c of pool) if (pathLength(c.points) < pathLength(best.points)) best = c;
+  return best;
+}
+
+/** The point on a card's side at height `y`. */
+function at(rect: Rect, side: CardSide, y: number): Point {
+  return { x: side === 'right' ? rect.x + rect.width : rect.x, y };
+}
+
+/**
+ * Out of the source's right side, along a column past the right of both cards, and back into
+ * the target's right side. Fanned transitions turn at their own columns; tracks push the
+ * column further out, as for `routeTransition`'s loops.
+ */
+function sameSideRoute(
+  source: Point,
+  target: Point,
+  sourceRect: Rect,
+  targetRect: Rect,
+  fan: Fan,
+  track: number,
+): Route {
+  const clear = Math.max(rightOf(sourceRect), rightOf(targetRect)) + STUB;
+  const column = fan.count > 1 ? clear + fan.index * FAN_SPACING : clear + track * TRACK_SPACING;
+  const points = simplifyPath([
+    source,
+    { x: column, y: source.y },
+    { x: column, y: target.y },
+    target,
+  ]);
+  return { points, label: longestHorizontalMiddle(points) };
+}
+
+/**
+ * Runs a right-side router in a mirror image (x → −x), so its right sides become the cards'
+ * left sides, then mirrors the route back.
+ */
+function mirrored(
+  route: (source: Point, target: Point, sourceRect: Rect, targetRect: Rect) => Route,
+  /** The target's side in the mirror image: 'left' there is the card's right side. */
+  targetSide: CardSide,
+  sourceY: number,
+  targetY: number,
+  sourceRect: Rect,
+  targetRect: Rect,
+): Route {
+  const flipRect = (r: Rect): Rect => ({ ...r, x: -(r.x + r.width) });
+  const flip = (p: Point): Point => ({ x: -p.x, y: p.y });
+  const a = flipRect(sourceRect);
+  const b = flipRect(targetRect);
+  const result = route(at(a, 'right', sourceY), at(b, targetSide, targetY), a, b);
+  return { points: result.points.map(flip), label: flip(result.label) };
+}
+
+/** Whether any segment of the path passes through the inside of `rect`. */
+export function cutsThrough(points: readonly Point[], rect: Rect): boolean {
+  for (let i = 1; i < points.length; i++) {
+    const a = points[i - 1] as Point;
+    const b = points[i] as Point;
+    const [x0, x1] = [Math.min(a.x, b.x), Math.max(a.x, b.x)];
+    const [y0, y1] = [Math.min(a.y, b.y), Math.max(a.y, b.y)];
+    const inside = x0 < rect.x + rect.width && x1 > rect.x && y0 < bottom(rect) && y1 > rect.y;
+    // A vertical run along a card's own edge doesn't cut through it.
+    const onEdge = x0 === x1 && (x0 === rect.x || x0 === rect.x + rect.width);
+    if (inside && !onEdge) return true;
+  }
+  return false;
+}
+
+function pathLength(points: readonly Point[]): number {
+  let length = 0;
+  for (let i = 1; i < points.length; i++) {
+    const a = points[i - 1] as Point;
+    const b = points[i] as Point;
+    length += Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
+  }
+  return length;
+}

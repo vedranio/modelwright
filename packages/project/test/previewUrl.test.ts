@@ -5,7 +5,7 @@ import {
   checkPreviewUrl,
   isLoopback,
   normalizePreviewUrl,
-} from '../src/preview/url';
+} from '../src/rules/url';
 
 const rules = { toolOrigin: 'http://127.0.0.1:4300', toolPorts: TOOL_PORTS };
 const normalize = (input: string) => normalizePreviewUrl(input, rules);

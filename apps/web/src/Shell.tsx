@@ -1,4 +1,9 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { DESIGN_KINDS } from '@modelwright/schema';
+import { BuildIndicator } from './buildRecord/BuildIndicator';
+import { revertToBuild } from './buildRecord/revert';
+import { buildStatus } from './buildRecord/status';
+import { useBuildRecord } from './buildRecord/useBuildRecord';
 import { useConfirm } from './ConfirmDialog';
 import { useEditableDoc } from './editing/useEditableDoc';
 import { ProjectName } from './ProjectName';
@@ -9,7 +14,7 @@ import { UiView } from './views/UiView';
 import { useProjectClient, type DesignKind, type ProjectSummary } from './platform';
 import { loadPref, savePref } from './storage';
 import { Icon } from './Icon';
-import { ShortcutsOverlay } from './ShortcutsOverlay';
+import { HelpOverlay, type HelpTab } from './HelpOverlay';
 import { ThemeMenu } from './ThemeMenu';
 import { useShortcut } from './shortcuts';
 import { shortcutHint } from './shortcutRegistry';
@@ -54,17 +59,47 @@ export function Shell({ project, onClose }: Props) {
   useLayoutEffect(() => {
     latestEditors.current = editors;
   });
+  // The last build, as `.design/build.json` records it.
+  const build = useBuildRecord(project.path);
+  const loadBuild = build.reload;
+
   useEffect(
     () =>
       client.watchDesign(project.path, ({ kind }) => {
+        if (kind === 'build') {
+          void loadBuild();
+          return;
+        }
         const editor = latestEditors.current[kind];
         if (editor.dirty) editor.hold();
         else void reloadOne(kind);
       }),
-    [client, project.path, reloadOne],
+    [client, project.path, reloadOne, loadBuild],
+  );
+
+  // "Built 3 minutes ago" moves on by itself.
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 30_000);
+    return () => clearInterval(timer);
+  }, []);
+  // Compared against the working copies, so unsaved edits count too.
+  const designLoading = DESIGN_KINDS.some((kind) => docs[kind].status === 'loading');
+  const status = useMemo(
+    () =>
+      buildStatus(
+        build.read,
+        erd.doc && flows.doc && config.doc
+          ? { erd: erd.doc, flows: flows.doc, config: config.doc }
+          : null,
+        designLoading,
+        now,
+      ),
+    [build.read, erd.doc, flows.doc, config.doc, designLoading, now],
   );
   const [toastRegion, toasts] = useToasts();
-  const [showShortcuts, setShowShortcuts] = useState(false);
+  /** The help overlay's tab while it's open. */
+  const [help, setHelp] = useState<HelpTab | null>(null);
 
   // A toast about an edit goes once its document is edited again (its Undo would undo
   // something else), and on any view switch.
@@ -107,7 +142,29 @@ export function Shell({ project, onClose }: Props) {
       flows.discard();
       config.discard();
     }
+    void loadBuild();
     await reload();
+  }
+
+  /**
+   * Puts the design back as the last build recorded it, once confirmed. Each document's
+   * revert is one edit, so ERD and Flows can each undo theirs.
+   */
+  async function revertToLastBuild() {
+    if (status.kind !== 'changed' || build.read?.status !== 'ok') return;
+    if (!erd.doc || !flows.doc || !config.doc) return;
+    const { snapshot } = build.read.record;
+    const { count } = status;
+    const ok = await confirm({
+      title: 'Revert all changes?',
+      message: `This puts the design back as it was at the last build, undoing the ${count === 1 ? 'change' : `${count} changes`} since. Cards stay where they are. ERD and Flows can each undo it (${shortcutHint('undo')}).`,
+      confirmLabel: 'Revert',
+    });
+    if (!ok) return;
+    const next = revertToBuild({ erd: erd.doc, flows: flows.doc, config: config.doc }, snapshot);
+    erd.apply(() => next.erd, { saveNow: true });
+    flows.apply(() => next.flows, { saveNow: true });
+    config.apply(() => next.config, { saveNow: true });
   }
 
   /** Saves before closing; if that fails, asks before throwing the edits away. */
@@ -142,7 +199,7 @@ export function Shell({ project, onClose }: Props) {
   useShortcut('view-ui', viewKey('ui'));
   useShortcut('shortcuts', (e) => {
     e.preventDefault();
-    setShowShortcuts(true);
+    setHelp('shortcuts');
   });
 
   return (
@@ -163,6 +220,7 @@ export function Shell({ project, onClose }: Props) {
             <span className={`project-path${editingName ? ' spaced' : ''}`} title={project.path}>
               {project.displayPath}
             </span>
+            <BuildIndicator status={status} onRevert={() => void revertToLastBuild()} />
           </div>
 
           <div className="segmented" role="tablist" aria-label="View">
@@ -190,9 +248,9 @@ export function Shell({ project, onClose }: Props) {
             <button
               type="button"
               className="btn-icon"
-              onClick={() => setShowShortcuts(true)}
-              aria-label="Keyboard shortcuts"
-              title={`Keyboard shortcuts (${shortcutHint('shortcuts')})`}
+              onClick={() => setHelp('guide')}
+              aria-label="Help"
+              title={`Help: how modelwright works, and keyboard shortcuts (${shortcutHint('shortcuts')} opens the shortcuts)`}
             >
               <Icon name="question_mark" />
             </button>
@@ -248,7 +306,7 @@ export function Shell({ project, onClose }: Props) {
           {toastRegion}
         </main>
         {dialog}
-        {showShortcuts && <ShortcutsOverlay onClose={() => setShowShortcuts(false)} />}
+        {help && <HelpOverlay tab={help} onClose={() => setHelp(null)} />}
       </div>
     </ToastProvider>
   );

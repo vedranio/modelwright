@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 1,
+  "entities": [
+    {
+      "id": "list",
+      "name": "List",
+      "description": "A named group of tasks",
+      "attributes": [
+        {
+          "id": "list-name",
+          "name": "name"
+        }
+      ]
+    },
+    {
+      "id": "task",
+      "name": "Task",
+      "description": "Something to do",
+      "attributes": [
+        {
+          "id": "task-title",
+          "name": "title"
+        },
+        {
+          "id": "task-due",
+          "name": "due date",
+          "note": "optional"
+        },
+        {
+          "id": "task-done",
+          "name": "done",
+          "note": "ticked when finished"
+        }
+      ]
+    }
+  ],
+  "relationships": [
+    {
+      "id": "list-tasks",
+      "from": "list",
+      "to": "task",
+      "fromCard": "one",
+      "toCard": "zero-many",
+      "label": "contains"
+    }
+  ],
+  "layout": {
+    "list": {
+      "x": 0,
+      "y": 0
+    },
+    "task": {
+      "x": 320,
+      "y": 0
+    }
+  }
+}

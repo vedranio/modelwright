@@ -1,6 +1,6 @@
 import { useState, type FormEvent, type KeyboardEvent } from 'react';
 import { FieldError } from '../ui';
-import { TOOL_PORTS, normalizePreviewUrl, type UrlRules } from './url';
+import { TOOL_PORTS, normalizePreviewUrl, type UrlRules } from '@modelwright/project/rules';
 
 /** The tool's own address, as the URL rules need it. */
 export function toolRules(): UrlRules {
@@ -25,7 +25,7 @@ interface Props {
   onCancel?: () => void;
 }
 
-/** A preview URL input. Every URL entered in the tool passes through here and `preview/url.ts`. */
+/** A preview URL input. Every URL entered in the tool passes through here and the shared URL rules (`@modelwright/project/rules`). */
 export function UrlField({
   initial = '',
   placeholder = 'http://localhost:5173',

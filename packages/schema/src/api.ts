@@ -1,3 +1,6 @@
+import type { BuildRecord } from './build';
+import type { Issue } from './common';
+
 /**
  * Shapes exchanged between the server and ProjectClient. Not part of the `.design/` file contract:
  * these can change without a schemaVersion bump.
@@ -15,6 +18,8 @@ export interface ProjectSummary {
   initialised: boolean;
   /** ISO timestamp of the last successful open. Absent for recents written before it was recorded. */
   lastOpenedAt?: string;
+  /** Set on the demo project modelwright ships, in recents listings. */
+  demo?: boolean;
 }
 
 /** Body of every non-validation error response (validation errors use `DesignError`). */
@@ -31,3 +36,9 @@ export interface PreviewCheck {
   /** What happened, e.g. "Connection refused" or "X-Frame-Options: DENY". */
   detail?: string;
 }
+
+/** `.design/build.json` as read: absent, a valid record, or why it isn't one. */
+export type BuildRead =
+  | { status: 'none' }
+  | { status: 'ok'; record: BuildRecord }
+  | { status: 'invalid'; issues: Issue[] };

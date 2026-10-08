@@ -1,7 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { z } from 'zod';
-import { readTextOrNull, writeAtomic } from './fsio';
+import { readTextOrNull, writeAtomic } from '@modelwright/project/node';
 
 export const RECENTS_LIMIT = 20;
 
@@ -40,6 +40,16 @@ export class Recents {
       [stamped, ...list.filter((e) => e.path !== entry.path)].slice(0, RECENTS_LIMIT),
     );
     return stamped;
+  }
+
+  /**
+   * Adds a project at the end of the list, without an opened time, unless it's already listed.
+   * For the demo, so it never pushes the user's own projects down.
+   */
+  addLast(entry: { path: string; name: string }): Promise<void> {
+    return this.update((list) =>
+      list.some((e) => e.path === entry.path) ? list : [...list, entry].slice(0, RECENTS_LIMIT),
+    );
   }
 
   remove(projectPath: string): Promise<void> {

@@ -107,6 +107,8 @@ Uses: Product "SKU", Category
 
 #### Browse (default)
 
+Shown when there is at least one item
+
 Information:
 
 - categories
@@ -114,7 +116,7 @@ Information:
 
 Actions:
 
-- **Open product** → Product "detail"
+- **Open product** (primary) → Product "detail"
 - **View cart** → Cart › Has items
 
 #### Loading

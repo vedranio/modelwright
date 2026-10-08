@@ -1,0 +1,333 @@
+{
+  "schemaVersion": 2,
+  "screens": [
+    {
+      "id": "lists",
+      "name": "Lists",
+      "notes": "Where the app opens",
+      "entities": [
+        "list",
+        "task"
+      ],
+      "states": [
+        {
+          "id": "lists-default",
+          "name": "Default",
+          "sees": [
+            "list names",
+            "open task count for each list"
+          ],
+          "ctas": [
+            {
+              "id": "lists-open",
+              "label": "Open list"
+            },
+            {
+              "id": "lists-new",
+              "label": "New list"
+            }
+          ],
+          "primaryCtaId": "lists-new"
+        },
+        {
+          "id": "lists-empty",
+          "name": "Empty",
+          "notes": "Shown when there are no lists",
+          "sees": [
+            "\"No lists yet\" message"
+          ],
+          "ctas": [
+            {
+              "id": "lists-empty-new",
+              "label": "New list"
+            }
+          ],
+          "primaryCtaId": "lists-empty-new"
+        }
+      ]
+    },
+    {
+      "id": "new-list",
+      "name": "New list",
+      "notes": "Creates a list",
+      "entities": [
+        "list"
+      ],
+      "states": [
+        {
+          "id": "new-list-default",
+          "name": "Default",
+          "sees": [
+            "list name field"
+          ],
+          "ctas": [
+            {
+              "id": "new-list-create",
+              "label": "Create"
+            },
+            {
+              "id": "new-list-cancel",
+              "label": "Cancel"
+            }
+          ],
+          "primaryCtaId": "new-list-create"
+        }
+      ]
+    },
+    {
+      "id": "tasks",
+      "name": "Tasks",
+      "notes": "One list's tasks",
+      "entities": [
+        "list",
+        "task"
+      ],
+      "states": [
+        {
+          "id": "tasks-default",
+          "name": "Default",
+          "sees": [
+            "list name",
+            "tasks, each with its due date and done mark"
+          ],
+          "ctas": [
+            {
+              "id": "tasks-add",
+              "label": "Add task"
+            },
+            {
+              "id": "tasks-open",
+              "label": "Open task"
+            },
+            {
+              "id": "tasks-back",
+              "label": "Back"
+            }
+          ],
+          "primaryCtaId": "tasks-add"
+        },
+        {
+          "id": "tasks-empty",
+          "name": "Empty",
+          "notes": "Shown when the list has no tasks",
+          "sees": [
+            "list name",
+            "\"No tasks yet\" message"
+          ],
+          "ctas": [
+            {
+              "id": "tasks-empty-add",
+              "label": "Add task"
+            },
+            {
+              "id": "tasks-empty-back",
+              "label": "Back"
+            }
+          ],
+          "primaryCtaId": "tasks-empty-add"
+        }
+      ]
+    },
+    {
+      "id": "task-editor",
+      "name": "Task editor",
+      "notes": "Adds a task, or edits one",
+      "entities": [
+        "task"
+      ],
+      "states": [
+        {
+          "id": "task-editor-default",
+          "name": "Default",
+          "sees": [
+            "title field",
+            "due date field",
+            "done checkbox"
+          ],
+          "ctas": [
+            {
+              "id": "task-save",
+              "label": "Save"
+            },
+            {
+              "id": "task-delete",
+              "label": "Delete"
+            },
+            {
+              "id": "task-cancel",
+              "label": "Cancel"
+            }
+          ],
+          "primaryCtaId": "task-save"
+        }
+      ]
+    }
+  ],
+  "transitions": [
+    {
+      "id": "t-open-list",
+      "from": {
+        "screenId": "lists",
+        "stateId": "lists-default",
+        "ctaId": "lists-open"
+      },
+      "to": {
+        "screenId": "tasks"
+      }
+    },
+    {
+      "id": "t-new-list",
+      "from": {
+        "screenId": "lists",
+        "stateId": "lists-default",
+        "ctaId": "lists-new"
+      },
+      "to": {
+        "screenId": "new-list"
+      }
+    },
+    {
+      "id": "t-first-list",
+      "from": {
+        "screenId": "lists",
+        "stateId": "lists-empty",
+        "ctaId": "lists-empty-new"
+      },
+      "to": {
+        "screenId": "new-list"
+      }
+    },
+    {
+      "id": "t-create-list",
+      "from": {
+        "screenId": "new-list",
+        "stateId": "new-list-default",
+        "ctaId": "new-list-create"
+      },
+      "to": {
+        "screenId": "tasks",
+        "stateId": "tasks-empty"
+      },
+      "label": "success"
+    },
+    {
+      "id": "t-cancel-list",
+      "from": {
+        "screenId": "new-list",
+        "stateId": "new-list-default",
+        "ctaId": "new-list-cancel"
+      },
+      "to": {
+        "screenId": "lists"
+      }
+    },
+    {
+      "id": "t-add-task",
+      "from": {
+        "screenId": "tasks",
+        "stateId": "tasks-default",
+        "ctaId": "tasks-add"
+      },
+      "to": {
+        "screenId": "task-editor"
+      }
+    },
+    {
+      "id": "t-open-task",
+      "from": {
+        "screenId": "tasks",
+        "stateId": "tasks-default",
+        "ctaId": "tasks-open"
+      },
+      "to": {
+        "screenId": "task-editor"
+      }
+    },
+    {
+      "id": "t-back",
+      "from": {
+        "screenId": "tasks",
+        "stateId": "tasks-default",
+        "ctaId": "tasks-back"
+      },
+      "to": {
+        "screenId": "lists"
+      }
+    },
+    {
+      "id": "t-first-task",
+      "from": {
+        "screenId": "tasks",
+        "stateId": "tasks-empty",
+        "ctaId": "tasks-empty-add"
+      },
+      "to": {
+        "screenId": "task-editor"
+      }
+    },
+    {
+      "id": "t-empty-back",
+      "from": {
+        "screenId": "tasks",
+        "stateId": "tasks-empty",
+        "ctaId": "tasks-empty-back"
+      },
+      "to": {
+        "screenId": "lists"
+      }
+    },
+    {
+      "id": "t-save-task",
+      "from": {
+        "screenId": "task-editor",
+        "stateId": "task-editor-default",
+        "ctaId": "task-save"
+      },
+      "to": {
+        "screenId": "tasks",
+        "stateId": "tasks-default"
+      },
+      "label": "success"
+    },
+    {
+      "id": "t-delete-task",
+      "from": {
+        "screenId": "task-editor",
+        "stateId": "task-editor-default",
+        "ctaId": "task-delete"
+      },
+      "to": {
+        "screenId": "tasks"
+      }
+    },
+    {
+      "id": "t-cancel-task",
+      "from": {
+        "screenId": "task-editor",
+        "stateId": "task-editor-default",
+        "ctaId": "task-cancel"
+      },
+      "to": {
+        "screenId": "tasks"
+      }
+    }
+  ],
+  "layout": {
+    "lists": {
+      "x": 0,
+      "y": 0
+    },
+    "new-list": {
+      "x": 0,
+      "y": 640
+    },
+    "tasks": {
+      "x": 400,
+      "y": 0
+    },
+    "task-editor": {
+      "x": 800,
+      "y": 0
+    }
+  }
+}

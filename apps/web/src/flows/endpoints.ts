@@ -3,9 +3,17 @@ import type { Flows, Screen, Transition } from '@modelwright/schema';
 /** The target handle on a screen's header: targeting the screen means its default state. */
 export const SCREEN_HANDLE = 'screen';
 
-/** The source handle on a CTA row. CTA ids are only unique within their state. */
-export function ctaHandle(stateId: string, ctaId: string): string {
-  return `cta:${stateId}:${ctaId}`;
+/**
+ * A source handle on a CTA row: on the card's right side, or its left. CTA ids are only
+ * unique within their state. Edges are drawn from the right handle, which only fixes the
+ * height; the route picks the side.
+ */
+export function ctaHandle(
+  stateId: string,
+  ctaId: string,
+  side: 'left' | 'right' = 'right',
+): string {
+  return side === 'right' ? `cta:${stateId}:${ctaId}` : `cta-left:${stateId}:${ctaId}`;
 }
 
 /** The target handle on a state's header. */

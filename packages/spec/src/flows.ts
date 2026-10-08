@@ -74,8 +74,9 @@ function destination(flows: Flows, t: Transition): string {
 }
 
 /**
- * The "Screens and flows" section: the diagram, then each screen's states with what the user
- * sees and can do, and where each CTA leads. A CTA with nowhere to go is a "(dead end)".
+ * The "Screens and flows" section: the diagram, then each screen's states with their notes,
+ * what the user sees and can do, and where each CTA leads. The state's primary CTA is marked
+ * "(primary)"; a CTA with nowhere to go is a "(dead end)".
  */
 export function flowsSection(flows: Flows, erd: Erd): string[] {
   const out = ['## Screens and flows', ''];
@@ -96,6 +97,7 @@ export function flowsSection(flows: Flows, erd: Erd): string[] {
       if (s.states.length > 1) {
         out.push(`#### ${inlineText(st.name) || '(unnamed)'}${i === 0 ? ' (default)' : ''}`, '');
       }
+      if (st.notes?.trim()) out.push(inlineText(st.notes), '');
       out.push('Information:', '');
       if (st.sees.length === 0) out.push('- Nothing yet');
       for (const item of st.sees) out.push(`- ${inlineText(item)}`);
@@ -105,7 +107,8 @@ export function flowsSection(flows: Flows, erd: Erd): string[] {
         const leads = flows.transitions.filter(
           (t) => t.from.screenId === s.id && t.from.stateId === st.id && t.from.ctaId === cta.id,
         );
-        const label = `**${inlineText(cta.label) || '(unnamed)'}**`;
+        const primary = st.primaryCtaId === cta.id ? ' (primary)' : '';
+        const label = `**${inlineText(cta.label) || '(unnamed)'}**${primary}`;
         if (leads.length === 0) {
           out.push(`- ${label} (dead end)`);
           continue;

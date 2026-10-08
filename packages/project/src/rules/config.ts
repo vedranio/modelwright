@@ -20,3 +20,12 @@ export function setPreviewUrl(config: Config, url: string): Config {
   if (next === current) return config;
   return { ...config, preview: { ...config.preview, url: next } };
 }
+
+/** Sets `preview.devCommand`. A blank value removes the key. */
+export function setDevCommand(config: Config, command: string): Config {
+  const next = command.trim();
+  const { devCommand: current, ...rest } = config.preview;
+  if (next === '') return current === undefined ? config : { ...config, preview: rest };
+  if (next === current) return config;
+  return { ...config, preview: { ...config.preview, devCommand: next } };
+}

@@ -4,6 +4,7 @@ import {
   NEW_ENTITY_NAME,
   addAttribute,
   addEntity,
+  addEntityWithRelationship,
   addRelationship,
   deleteAttribute,
   deleteEntities,
@@ -243,5 +244,35 @@ describe('relationships', () => {
     expect(erd.entities).toHaveLength(2);
     const doc = frozen();
     expect(deleteRelationships(doc, ['nope'])).toBe(doc);
+  });
+});
+
+describe('addEntityWithRelationship', () => {
+  it('adds an entity related to the one dragged from, in one edit', () => {
+    const before = notesErd();
+    const { erd, entityId, relationshipId } = addEntityWithRelationship(
+      before,
+      { x: 640, y: 0 },
+      'note',
+    );
+    expect(Erd.safeParse(erd).success).toBe(true);
+    expect(erd.entities.at(-1)).toMatchObject({ id: entityId, name: NEW_ENTITY_NAME });
+    expect(erd.layout[entityId ?? '']).toEqual({ x: 640, y: 0 });
+    expect(erd.relationships.at(-1)).toEqual({
+      id: relationshipId,
+      from: 'note',
+      to: entityId,
+      fromCard: 'one',
+      toCard: 'zero-many',
+    });
+  });
+
+  it('changes nothing when the entity dragged from doesn’t exist', () => {
+    const before = notesErd();
+    expect(addEntityWithRelationship(before, { x: 0, y: 0 }, 'gone')).toEqual({
+      erd: before,
+      entityId: null,
+      relationshipId: null,
+    });
   });
 });
