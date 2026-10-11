@@ -285,6 +285,8 @@ function createWindow(): BrowserWindow {
   win.on('closed', () => {
     clearTimeout(saveTimer);
     preview.shutDown();
+    // The window held the project; its dev server goes with it.
+    core?.stopAllDevServers();
     if (mainWindow === win) mainWindow = null;
     closeAllowed = false;
     rendererReady = false;
@@ -334,6 +336,9 @@ void app.whenReady().then(() => {
     if (!mainWindow) mainWindow = createWindow();
   });
 });
+
+// Dev servers modelwright started never outlive it.
+app.on('will-quit', () => core?.stopAllDevServers());
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();

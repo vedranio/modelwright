@@ -2,9 +2,11 @@ import { randomUUID } from 'node:crypto';
 import {
   CoreError,
   DESIGN_CHANGE_CHANNEL,
+  DEV_SERVER_CHANNEL,
   IPC_ARGS,
   type Core,
   type DesignChangeEvent,
+  type DevServerEventMessage,
   type HostState,
   type InvokeMethod,
   type PreviewLayout,
@@ -18,7 +20,7 @@ export interface IpcSender {
   id: number;
   /** The sending frame's URL, which must be modelwright's own page. */
   url: string;
-  send(channel: string, payload: DesignChangeEvent): void;
+  send(channel: string, payload: DesignChangeEvent | DevServerEventMessage): void;
 }
 
 /** The desktop host's own calls, which need Electron (dialogs, menus, windows). */
@@ -91,6 +93,18 @@ export function createIpcHandlers(
     readyToClose: async (sender) => host.readyToClose(sender),
     setPreview: async (sender, layout: PreviewLayout | null) => host.setPreview(sender, layout),
     snapshotPreview: (sender) => host.snapshotPreview(sender),
+    devServerState: (_, path: string) => core.devServerState(path),
+    startDevServer: (_, path: string, approve: boolean) => core.startDevServer(path, approve),
+    stopDevServer: (_, path: string) => core.stopDevServer(path),
+    async watchDevServer(sender, path: string) {
+      const id = randomUUID();
+      const stop = await core.watchDevServer(path, (event) =>
+        sender.send(DEV_SERVER_CHANNEL, { id, event }),
+      );
+      watches.set(id, { owner: sender.id, stop });
+      return id;
+    },
+    unwatchDevServer: (sender, id: string) => methods.unwatchDesign(sender, id as never),
   };
 
   return {

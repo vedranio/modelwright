@@ -41,6 +41,7 @@ export const CreateArgs = z.object({
   git: z.boolean().optional(),
 });
 export const PreviewArgs = z.object({ url: z.string() });
+export const StartDevServerArgs = z.object({ path: z.string(), approve: z.boolean().optional() });
 export const DesignKindArg = z.enum(DESIGN_KINDS);
 
 const Rect = z.strictObject({
@@ -98,4 +99,10 @@ export const IPC_ARGS = {
   setPreview: z.tuple([PreviewLayout.nullable()]),
   /** A picture of the preview as it is, to stand in for it while something covers it. */
   snapshotPreview: z.tuple([]),
+  // The project's dev server. Start takes no command: the core reads it from config.json.
+  devServerState: z.tuple([z.string()]),
+  startDevServer: z.tuple([z.string(), z.boolean()]),
+  stopDevServer: z.tuple([z.string()]),
+  watchDevServer: z.tuple([z.string()]),
+  unwatchDevServer: z.tuple([z.string()]),
 } as const;

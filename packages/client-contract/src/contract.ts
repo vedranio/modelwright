@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   ProjectClientError,
   type DesignChange,
+  type DevServerEvent,
   type ProjectClient,
 } from '../../../apps/web/src/platform/ProjectClient';
 
@@ -21,9 +22,22 @@ export interface ContractHarness {
   readText(project: string, kind: string): Promise<string>;
   /** Writes a design file from outside modelwright, as a text editor would. */
   writeText(project: string, kind: string, text: string): Promise<void>;
+  /** A dev command that prints `ready` and keeps running. */
+  devCommand: string;
 }
 
 const settle = () => new Promise((r) => setTimeout(r, 400));
+
+async function until(check: () => boolean, ms = 5000): Promise<void> {
+  const end = Date.now() + ms;
+  while (!check()) {
+    if (Date.now() > end) throw new Error('timed out');
+    await new Promise((r) => setTimeout(r, 25));
+  }
+}
+
+const loggedLines = (events: DevServerEvent[]) =>
+  events.flatMap((e) => (e.type === 'state' ? [] : e.lines));
 
 async function failure(promise: Promise<unknown>): Promise<ProjectClientError> {
   try {
@@ -136,6 +150,57 @@ export function runProjectClientContract(name: string, h: ContractHarness): void
       await h.writeText(dir, 'flows', `${await h.readText(dir, 'flows')}\n`);
       await settle();
       expect(seen).toEqual([{ kind: 'flows' }]);
+    });
+
+    describe('the dev server', () => {
+      async function withDevCommand(command: string): Promise<string> {
+        const dir = await h.notesProject();
+        const config = JSON.parse(await h.readText(dir, 'config'));
+        config.preview.devCommand = command;
+        await h.writeText(dir, 'config', JSON.stringify(config));
+        return dir;
+      }
+
+      it('runs config.json’s command once approved, streams its output, and stops it', async () => {
+        const client = h.client();
+        const dir = await withDevCommand(h.devCommand);
+        expect(await client.devServer.start(dir, false)).toEqual({
+          status: 'needs-approval',
+          command: h.devCommand,
+          cwd: dir,
+        });
+        expect((await client.devServer.state(dir)).status).toBe('idle');
+
+        const events: DevServerEvent[] = [];
+        const unwatch = client.devServer.watch(dir, (e) => events.push(e));
+        const started = await client.devServer.start(dir, true);
+        expect(started.status).toBe('started');
+        await until(() => loggedLines(events).includes('ready'));
+        expect((await client.devServer.state(dir)).status).toBe('running');
+
+        expect((await client.devServer.stop(dir)).status).toBe('exited');
+        await until(() => events.some((e) => e.type === 'state' && e.state.status === 'exited'));
+        unwatch();
+      });
+
+      it('remembers an approval, and asks again when the command changes', async () => {
+        const client = h.client();
+        const dir = await withDevCommand(h.devCommand);
+        await client.devServer.start(dir, true);
+        await client.devServer.stop(dir);
+        expect((await client.devServer.start(dir, false)).status).toBe('started');
+        await client.devServer.stop(dir);
+        const changed = `${h.devCommand} # changed`;
+        const config = JSON.parse(await h.readText(dir, 'config'));
+        config.preview.devCommand = changed;
+        await h.writeText(dir, 'config', JSON.stringify(config));
+        expect((await client.devServer.start(dir, false)).status).toBe('needs-approval');
+      });
+
+      it('refuses a project without a dev command with 409', async () => {
+        const err = await failure(h.client().devServer.start(await h.notesProject(), true));
+        expect(err.status).toBe(409);
+      });
     });
   });
 }

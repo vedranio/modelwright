@@ -6,11 +6,13 @@ import {
   CreateArgs,
   DesignKindArg,
   DesignWatcher,
+  DevServers,
   InitArgs,
   PathArgs,
   PREVIEW_TIMEOUT_MS,
   PreviewArgs,
   STATUS_FOR_CODE,
+  StartDevServerArgs,
   createCore,
 } from '@modelwright/core';
 import type { DesignKind } from '@modelwright/schema';
@@ -36,6 +38,8 @@ export interface AppOptions {
   heartbeatMs?: number;
   /** The demo project's template, offered once per install; none (tests) offers no demo. */
   demoTemplate?: string;
+  /** Runs projects' dev servers. The real server passes its own, to stop them on exit. */
+  devServers?: DevServers;
 }
 
 /** The web app's origin when a request doesn't say (curl, tests). */
@@ -66,6 +70,7 @@ export function createApp({
   watcher,
   heartbeatMs = 25_000,
   demoTemplate,
+  devServers,
 }: AppOptions) {
   const core = createCore({
     homeDir,
@@ -73,6 +78,7 @@ export function createApp({
     ...(now !== undefined && { now }),
     ...(watcher !== undefined && { watcher }),
     ...(demoTemplate !== undefined && { demoTemplate }),
+    ...(devServers !== undefined && { devServers }),
     toolPorts,
     previewTimeoutMs,
   });
@@ -152,6 +158,42 @@ export function createApp({
     const path = await core.resolveProjectDir(c.req.query('path'));
     await core.writeDesign(path, kind, await readJson(c));
     return c.body(null, 204);
+  });
+
+  // The project's dev server. Start takes no command: the core reads it from config.json.
+  app.get('/dev-server', async (c) => c.json(await core.devServerState(c.req.query('path') ?? '')));
+
+  app.post('/dev-server/start', async (c) => {
+    const body = await readBody(c, StartDevServerArgs);
+    return c.json(await core.startDevServer(body.path, body.approve ?? false));
+  });
+
+  app.post('/dev-server/stop', async (c) => {
+    const body = await readBody(c, PathArgs);
+    return c.json(await core.stopDevServer(body.path));
+  });
+
+  // Server-sent events: `dev-server` with a snapshot first, then state changes and output.
+  app.get('/dev-server/events', async (c) => {
+    let stream: SSEStreamingApi | undefined;
+    const pending: string[] = [];
+    const unsubscribe = await core.watchDevServer(c.req.query('path') ?? '', (event) => {
+      const data = JSON.stringify(event);
+      if (stream) void stream.writeSSE({ event: 'dev-server', data });
+      else pending.push(data);
+    });
+    return streamSSE(
+      c,
+      async (s) => {
+        stream = s;
+        for (const data of pending.splice(0)) await s.writeSSE({ event: 'dev-server', data });
+        const heartbeat = setInterval(() => void s.write(': keep-alive\n\n'), heartbeatMs);
+        await new Promise<void>((resolve) => s.onAbort(resolve));
+        clearInterval(heartbeat);
+        unsubscribe();
+      },
+      async () => unsubscribe(),
+    );
   });
 
   app.post('/preview/check', async (c) => {

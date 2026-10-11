@@ -10,9 +10,12 @@ export {
   type DesignChange,
   type DesignDoc,
   type DesignKind,
+  type DevServerEvent,
+  type DevServerState,
   type PreviewCheck,
   type ProjectClient,
   type ProjectSummary,
+  type StartDevServerResult,
 } from './ProjectClient';
 export { ProjectClientProvider, useProjectClient } from './context';
 export { desktopApi } from './desktop';
