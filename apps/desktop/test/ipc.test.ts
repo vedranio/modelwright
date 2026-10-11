@@ -120,7 +120,7 @@ describe('watches', () => {
 describe('the preload API', () => {
   function channel() {
     const invoke = vi.fn<RendererChannel['invoke']>(async () => ({ ok: true, value: 'w1' }));
-    const listeners: ((event: unknown, change: DesignChangeEvent) => void)[] = [];
+    const listeners: ((event: unknown, payload: unknown) => void)[] = [];
     const ipc: RendererChannel = { invoke, on: (_, l) => listeners.push(l) };
     return {
       ipc,

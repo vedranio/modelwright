@@ -4,6 +4,7 @@ import {
   SHORTCUTS,
   comboMatches,
   onPlatform,
+  shortcutAvailable,
   scopesOverlap,
   shortcutHint,
   shortcutMatches,
@@ -44,29 +45,51 @@ describe('shortcut registry', () => {
   });
 
   for (const mac of [true, false]) {
-    it(`never gives one key two shortcuts in overlapping scopes (${mac ? 'macOS' : 'other'})`, () => {
-      const clashes: string[] = [];
-      for (const [i, a] of all.entries()) {
-        for (const b of all.slice(i + 1)) {
-          if (!scopesOverlap(a.scope, b.scope)) continue;
-          for (const ca of a.combos.filter((c) => onPlatform(c, mac))) {
-            for (const cb of b.combos.filter((c) => onPlatform(c, mac))) {
-              if (collide(ca, cb)) clashes.push(`${a.id} / ${b.id}`);
+    for (const desktop of [false, true]) {
+      it(`never gives one key two shortcuts in overlapping scopes (${mac ? 'macOS' : 'other'}, ${desktop ? 'desktop' : 'web'})`, () => {
+        const clashes: string[] = [];
+        for (const [i, a] of all.entries()) {
+          for (const b of all.slice(i + 1)) {
+            if (!scopesOverlap(a.scope, b.scope)) continue;
+            for (const ca of a.combos.filter((c) => onPlatform(c, mac, desktop))) {
+              for (const cb of b.combos.filter((c) => onPlatform(c, mac, desktop))) {
+                if (collide(ca, cb)) clashes.push(`${a.id} / ${b.id}`);
+              }
             }
           }
         }
-      }
-      expect(clashes).toEqual([]);
-    });
+        expect(clashes).toEqual([]);
+      });
+    }
   }
 
-  it('gives every shortcut an overlay entry: a label, a group and a hint', () => {
+  it('gives every shortcut an overlay entry: a label, a group and a hint in the desktop app', () => {
     for (const s of all) {
       expect(s.label.length, s.id).toBeGreaterThan(0);
       expect(SCOPE_TITLES[s.scope], s.id).toBeDefined();
-      expect(shortcutHint(s.id as never, true).length, s.id).toBeGreaterThan(0);
-      expect(shortcutHint(s.id as never, false).length, s.id).toBeGreaterThan(0);
+      expect(shortcutHint(s.id as never, true, true).length, s.id).toBeGreaterThan(0);
+      expect(shortcutHint(s.id as never, false, true).length, s.id).toBeGreaterThan(0);
     }
+  });
+
+  it('has no hint in the web build for a shortcut only the desktop app has (the hint rule)', () => {
+    const desktopOnly = all.filter((s) =>
+      (s.combos as readonly { host?: string }[]).every((c) => c.host === 'desktop'),
+    );
+    expect(desktopOnly.map((s) => s.id).sort()).toEqual(
+      ['close-project', 'new-project', 'open-project', 'reload-design', 'reload-preview'].sort(),
+    );
+    for (const s of desktopOnly) {
+      expect(shortcutHint(s.id as never, true, false), s.id).toBe('');
+      expect(shortcutAvailable(s.id as never, { mac: true, desktop: false }), s.id).toBe(false);
+    }
+    expect(shortcutHint('reload-design', true, true)).toBe('⌘R');
+  });
+
+  it('adds ⌘1–3 for the views in the desktop app only', () => {
+    expect(shortcutHint('view-erd', true, false)).toBe('1');
+    expect(shortcutHint('view-erd', true, true)).toBe('1 / ⌘1');
+    expect(onPlatform({ code: 'Digit1', mod: true, host: 'desktop' }, true, false)).toBe(false);
   });
 
   it('matches the command modifier per platform', () => {

@@ -17,9 +17,9 @@ test('the renderer has no Node access, and only the narrow API', async () => {
     await window.evaluate(() => [
       typeof (globalThis as Record<string, unknown>)['require'],
       typeof (globalThis as Record<string, unknown>)['process'],
-      Object.keys((globalThis as Record<string, object>)['modelwright'] ?? {}).sort(),
+      Object.keys((globalThis as unknown as Record<string, object>)['modelwright'] ?? {}).sort(),
     ]),
-  ).toEqual(['undefined', 'undefined', ['invoke', 'watchDesign']]);
+  ).toEqual(['undefined', 'undefined', ['invoke', 'onCommand', 'watchDesign']]);
 });
 
 test('malformed IPC calls are rejected in main', async () => {
@@ -70,6 +70,8 @@ test('an external edit to erd.json updates the canvas', async () => {
   const { window } = run;
   const dir = await run.notesProject();
   await openByPath(window, dir);
+  // Watching starts asynchronously once the project is open (an IPC round trip, then fs.watch).
+  await window.waitForTimeout(500);
   const file = path.join(dir, '.design', 'erd.json');
   const erd = JSON.parse(await readFile(file, 'utf8'));
   erd.entities[0].name = 'Editor';

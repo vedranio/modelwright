@@ -19,6 +19,9 @@ export const INVOKE_METHODS = [
   'checkPreview',
   'watchDesign',
   'unwatchDesign',
+  'chooseFolder',
+  'setHostState',
+  'readyToClose',
 ] as const;
 export type InvokeMethod = (typeof INVOKE_METHODS)[number];
 
@@ -28,6 +31,27 @@ export function invokeChannel(method: InvokeMethod): string {
 
 /** Main → renderer: a watched project's file changed, `{ id, kind }`. */
 export const DESIGN_CHANGE_CHANNEL = 'mw:design-change';
+
+/** Main → renderer: a command from the application menu, the Dock or the OS. */
+export const HOST_COMMAND_CHANNEL = 'mw:command';
+
+/**
+ * What main asks the renderer to do. `id` is a shortcut id from the registry (the menu item for
+ * a shortcut runs the shortcut) or one of the host's own commands.
+ */
+export interface HostCommand {
+  id: string;
+  /** For `open-path`: the project folder to open. */
+  path?: string;
+  /** For `theme`. */
+  theme?: 'system' | 'light' | 'dark';
+}
+
+/** What main needs to know about the renderer: it enables menu items and sets the native theme. */
+export interface HostState {
+  projectOpen: boolean;
+  theme: 'system' | 'light' | 'dark';
+}
 
 /** An IPC call's outcome. Errors are values: thrown errors lose their shape crossing IPC. */
 export type IpcResult<T> = { ok: true; value: T } | { ok: false; error: SerialisedError };
@@ -47,4 +71,6 @@ export interface DesktopApi {
   ): Promise<IpcResult<unknown>>;
   /** Watches a project; `onChange` gets each change's kind. Returns the function that stops it. */
   watchDesign(path: string, onChange: (kind: string) => void): () => void;
+  /** Listens for menu, Dock and OS commands. Returns the function that stops listening. */
+  onCommand(listener: (command: HostCommand) => void): () => void;
 }

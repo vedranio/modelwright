@@ -1121,3 +1121,35 @@ Settled in the phase 7 interview. The brief's "Decisions this brief makes" stand
 - **Tests:**
   - Vitest: malformed arguments for every method are rejected with no core call, untrusted senders are refused, previews are checked with `framing: false`, watch ownership holds, and the preload forwards only known methods.
   - Playwright Electron (`pnpm e2e:desktop`, against `out/`): no `require` or `process` in the renderer and only `invoke`/`watchDesign` on the API; malformed calls are rejected; a project opens, an entity rename reaches `erd.json`, and every view shows; an external edit to `erd.json` updates the canvas. Each run gets a temp `MODELWRIGHT_HOME`.
+
+## 2026-10-11 — Phase 7 milestone 2: native integration
+
+- **Folder dialogs:**
+  - `ProjectClient` gains `capabilities.folderDialog` and `chooseFolder('open' | 'location', defaultPath?)`. `httpClient` reports no dialog, and its `chooseFolder` rejects, so the web picker is unchanged.
+  - In the desktop app, "Open an existing project…" (⌘O) opens the dialog, and "or paste a path" opens the old field. Location gets "Choose…", which starts at the typed location with `~` expanded.
+- **The menu is data:** `apps/web/src/menuSpec.ts`, beside the registry it references. Main imports it (the desktop app already builds from apps/web's source) and builds the native menu from it (`apps/desktop/src/main/menu.ts`).
+  - The menus are File (New Project ⌘N, Open… ⌘O, Open Recent, Close Project ⌘W); Edit (Undo, Redo, Cut/Copy/Paste as native roles, Select All, Duplicate ⌘D, Delete); View (ERD/Flows/UI ⌘1–3, Reload Design ⌘R, Reload Preview ⇧⌘R, zoom, Fit, Theme, full screen, Developer Tools); Window; and Help (How modelwright Works, Keyboard Shortcuts).
+- **One dispatch path:**
+  - A menu item for a registry shortcut sends that shortcut's id to the renderer, which runs it as its key would: a synthetic keydown, so the same handlers and scopes apply.
+  - Items with ⌘ own their key, so the page ignores the real keydown for it (`deliveredByMenu`) and nothing runs twice. Plain keys (1–3, E, +, ?) are shown in the menu but not registered, so they stay typeable in fields.
+  - "Anywhere" shortcuts from the menu work from any focus, as menu commands do in Mac apps. The rest go where the focus is, and Undo, Redo and Select All go to a focused field's own editing.
+  - A test checks that every accelerator in the menu is a registry combo, and the reverse: every shortcut with a ⌘ key on desktop is in the menu, except `field-undo`, which Edit ▸ Undo routes to.
+- **Registry:**
+  - Combos can be `host: 'desktop'`. The new desktop-only shortcuts are reload-design (⌘R), reload-preview (⇧⌘R), new-project, open-project and close-project, and the views gain ⌘1–3.
+  - Hints follow the hint rule per build: the web build shows no ⌘R and lists none of these in the overlay, and the desktop app shows "Reload ⌘R" and "1 / ⌘1".
+  - ⌘D was never dropped from the web build (phase 5 verified it), so on desktop it simply becomes a menu item.
+- **Host commands** (`apps/web/src/platform/host.ts`, `hostCommands.ts`): main sends menu, Dock and OS commands, and the renderer reports `{ projectOpen, theme }`. That state enables the project items, checks the theme, sets `nativeTheme.themeSource` and flushes commands queued before the renderer was ready, such as a folder dropped on the Dock at launch.
+- **Opening another project** from the menu, Open Recent or the Dock saves the current one first (as Close does), then opens the folder. A folder with no `.design/` lands in the picker's Initialise panel.
+- **Quitting or closing the window** with a project open:
+  - Main holds the quit or close, and the renderer saves (`saveOrAsk('Quit')`), asking only if a save fails, then says `readyToClose`.
+  - Quitting keeps the project to reopen next launch. Close Project still clears it.
+  - The renderer's `beforeunload` guard is off in the desktop app, where it would silently cancel the close. Main also ignores `will-prevent-unload` once the renderer has saved.
+- **Window state** is kept in `~/.modelwright/desktop/window.json` (normal bounds and whether maximised), saved 300 ms after a move or resize. It's restored only if at least 160×80 of the window is on a current display, and never below the 900×600 minimum. The last view was already remembered.
+- **Title bar:** `hiddenInset`, with the traffic lights centred on the 44px header (`trafficLightPosition` 16, 15). `html[data-host='desktop']` gives the header an 80px `--titlebar-inset` and makes it the drag region with its controls `no-drag`. Behind the picker, the backdrop drags the window.
+- **Dock:**
+  - Its menu lists up to 10 recent projects. Menus rebuild at once from the last known recents, then again after reading them, so the app never shows Electron's default menu.
+  - `open-file` opens a dropped folder, and a second launch focuses the window. The `Info.plist` folder type that makes the Dock icon accept folders comes with packaging (M4).
+- **Tests:**
+  - Vitest covers the menu against the registry, the menu's state and commands, and window-state restoring. Registry tests cover host combos (overlaps checked for web and desktop, and the hint rule).
+  - Playwright Electron runs 15 tests, stable over three runs: the dialog stubbed in main to open and to choose a location; File ▸ Open… replacing a project; the View menu; Edit ▸ Undo/Redo on the canvas and in a text field; Reload Design and its ⌘R hint; View ▸ Theme setting the page and native theme; project items disabled in the picker; Open Recent; window bounds saved; `open-file` opening a project; and quitting within the autosave pause saving the edit and reopening the project.
+  - Synthetic clicks can't press real keys through the native menu, so the accelerators themselves are hand checks.

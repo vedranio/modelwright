@@ -10,7 +10,7 @@ let nextSenderId = 1;
  */
 export function fakeChannel(handlers: IpcHandlers, url = 'app://modelwright/index.html') {
   const id = nextSenderId++;
-  const listeners = new Map<string, ((event: unknown, payload: DesignChangeEvent) => void)[]>();
+  const listeners = new Map<string, ((event: unknown, payload: unknown) => void)[]>();
   const renderer: RendererChannel = {
     async invoke(channel, ...args) {
       const method = channel.replace(/^mw:/, '') as InvokeMethod;

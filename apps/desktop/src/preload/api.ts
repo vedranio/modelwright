@@ -1,16 +1,19 @@
 import {
   DESIGN_CHANGE_CHANNEL,
+  HOST_COMMAND_CHANNEL,
   INVOKE_METHODS,
   invokeChannel,
   type DesignChangeEvent,
   type DesktopApi,
+  type HostCommand,
   type IpcResult,
 } from '@modelwright/core/ipc';
 
 /** The part of `ipcRenderer` the API uses, so tests can drive it over a fake channel. */
 export interface RendererChannel {
   invoke(channel: string, ...args: unknown[]): Promise<unknown>;
-  on(channel: string, listener: (event: unknown, payload: DesignChangeEvent) => void): void;
+  /** Payloads arrive untyped, as from any IPC channel. */
+  on(channel: string, listener: (event: unknown, payload: unknown) => void): void;
 }
 
 /**
@@ -19,7 +22,14 @@ export interface RendererChannel {
  */
 export function createDesktopApi(ipc: RendererChannel): DesktopApi {
   const listeners = new Map<string, (kind: string) => void>();
-  ipc.on(DESIGN_CHANGE_CHANNEL, (_event, change) => listeners.get(change.id)?.(change.kind));
+  ipc.on(DESIGN_CHANGE_CHANNEL, (_event, payload) => {
+    const change = payload as DesignChangeEvent;
+    listeners.get(change.id)?.(change.kind);
+  });
+  const commandListeners = new Set<(command: HostCommand) => void>();
+  ipc.on(HOST_COMMAND_CHANNEL, (_event, payload) => {
+    for (const listener of commandListeners) listener(payload as HostCommand);
+  });
 
   return {
     invoke(method, ...args) {
@@ -50,6 +60,11 @@ export function createDesktopApi(ipc: RendererChannel): DesktopApi {
         listeners.delete(id);
         void ipc.invoke(invokeChannel('unwatchDesign'), id);
       };
+    },
+
+    onCommand(listener) {
+      commandListeners.add(listener);
+      return () => commandListeners.delete(listener);
     },
   };
 }

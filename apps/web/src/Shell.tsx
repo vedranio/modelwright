@@ -11,15 +11,17 @@ import { useDesign } from './useDesign';
 import { ErdView } from './views/ErdView';
 import { FlowsView } from './views/FlowsView';
 import { UiView } from './views/UiView';
-import { useProjectClient, type DesignKind, type ProjectSummary } from './platform';
+import { desktopHost, useProjectClient, type DesignKind, type ProjectSummary } from './platform';
+import { useHostCommand } from './hostCommands';
+import type { PickerIntent } from './ProjectPicker';
 import { loadPref, savePref } from './storage';
 import { Icon } from './Icon';
 import { HelpOverlay, type HelpTab } from './HelpOverlay';
 import { ThemeMenu } from './ThemeMenu';
 import { useShortcut } from './shortcuts';
-import { shortcutHint } from './shortcutRegistry';
+import { shortcutAvailable, shortcutHint } from './shortcutRegistry';
 import { ToastProvider, useToasts } from './Toast';
-import { Dot, Logo, ReloadGlyph } from './ui';
+import { Dot, Kbd, Logo, ReloadGlyph } from './ui';
 
 const VIEWS = [
   { id: 'erd', label: 'ERD', file: 'erd' },
@@ -37,7 +39,8 @@ function initialView(): ViewId {
 
 interface Props {
   project: ProjectSummary;
-  onClose: () => void;
+  /** Closes the project; `next` is what the picker does then (open another project). */
+  onClose: (next?: PickerIntent) => void | Promise<void>;
 }
 
 export function Shell({ project, onClose }: Props) {
@@ -167,24 +170,58 @@ export function Shell({ project, onClose }: Props) {
     config.apply(() => next.config, { saveNow: true });
   }
 
-  /** Saves before closing; if that fails, asks before throwing the edits away. */
-  async function close() {
+  /**
+   * Saves every unsaved edit. If that fails, asks before throwing the edits away. Resolves to
+   * whether it's fine to go on (close the project, or quit).
+   */
+  async function saveOrAsk(action: 'Close' | 'Quit'): Promise<boolean> {
     const [erdSaved, flowsSaved, configSaved] = await Promise.all([
       erd.flush(),
       flows.flush(),
       config.flush(),
     ]);
-    if (!erdSaved || !flowsSaved || !configSaved) {
-      const failed = listed([!erdSaved && 'ERD', !flowsSaved && 'Flows', !configSaved && 'UI']);
-      const closeAnyway = await confirm({
-        title: 'Close without saving?',
-        message: `Your latest ${failed} changes couldn’t be saved and will be lost.`,
-        confirmLabel: 'Close anyway',
-      });
-      if (!closeAnyway) return;
-    }
-    onClose();
+    if (erdSaved && flowsSaved && configSaved) return true;
+    const failed = listed([!erdSaved && 'ERD', !flowsSaved && 'Flows', !configSaved && 'UI']);
+    return confirm({
+      title: `${action} without saving?`,
+      message: `Your latest ${failed} changes couldn’t be saved and will be lost.`,
+      confirmLabel: `${action} anyway`,
+    });
   }
+
+  /** Saves before closing; if that fails, asks before throwing the edits away. */
+  async function close(next?: PickerIntent) {
+    if (await saveOrAsk('Close')) await onClose(next);
+  }
+
+  // The desktop app's File menu, Dock and quit. Their keys only exist there.
+  useShortcut('close-project', (e) => {
+    e.preventDefault();
+    void close();
+  });
+  useShortcut('new-project', (e) => {
+    e.preventDefault();
+    void close({ kind: 'new' });
+  });
+  useShortcut('open-project', (e) => {
+    e.preventDefault();
+    void (async () => {
+      const path = await client.chooseFolder('open');
+      if (path && path !== project.path) await close({ kind: 'open-path', path });
+    })();
+  });
+  useHostCommand('open-path', ({ path }) => {
+    if (path && path !== project.path) void close({ kind: 'open-path', path });
+  });
+  // Quitting keeps the project open for next time: it only has to be saved.
+  useHostCommand('close-for-quit', () => {
+    void saveOrAsk('Quit').then((ok) => ok && desktopHost()?.readyToClose());
+  });
+  useHostCommand('how-it-works', () => setHelp('guide'));
+  useShortcut('reload-design', (e) => {
+    e.preventDefault();
+    void reloadFromDisk();
+  });
 
   const onReload = () => void reloadFromDisk();
   const viewFile = VIEWS.find((v) => v.id === view)?.file ?? 'erd';
@@ -258,6 +295,7 @@ export function Shell({ project, onClose }: Props) {
             <button type="button" className="btn btn-quiet btn-tight" onClick={onReload}>
               <ReloadGlyph />
               Reload
+              {shortcutAvailable('reload-design') && <Kbd>{shortcutHint('reload-design')}</Kbd>}
             </button>
             <span className="divider" aria-hidden="true" />
             <button

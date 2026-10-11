@@ -56,4 +56,10 @@ export const IPC_ARGS = {
   checkPreview: z.tuple([z.string()]),
   watchDesign: z.tuple([z.string()]),
   unwatchDesign: z.tuple([z.string()]),
+  // The desktop host's own calls, beside ProjectClient's.
+  chooseFolder: z.tuple([z.enum(['open', 'location']), z.string().optional()]),
+  setHostState: z.tuple([
+    z.strictObject({ projectOpen: z.boolean(), theme: z.enum(['system', 'light', 'dark']) }),
+  ]),
+  readyToClose: z.tuple([]),
 } as const;

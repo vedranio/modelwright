@@ -41,6 +41,18 @@ export interface ProjectClient {
    * on disk, other than by this client's own writes. Returns a function that stops watching.
    */
   watchDesign(path: string, onChange: (change: DesignChange) => void): () => void;
+  /** What this build can do beyond the methods every client has. */
+  readonly capabilities: ClientCapabilities;
+  /**
+   * Shows a native folder dialog: `open` for an existing project, `location` for where a new one
+   * goes. Resolves to the chosen folder, or null if cancelled. Only when `folderDialog` is true.
+   */
+  chooseFolder(purpose: 'open' | 'location', defaultPath?: string): Promise<string | null>;
+}
+
+export interface ClientCapabilities {
+  /** Native folder dialogs (the desktop app). A browser can't hand back an absolute path. */
+  folderDialog: boolean;
 }
 
 /** A design file (or `build.json`, as `'build'`) changed on disk, outside modelwright. */

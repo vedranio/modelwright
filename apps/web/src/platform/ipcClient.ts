@@ -24,6 +24,8 @@ export function createIpcClient(api: DesktopApi): ProjectClient {
     writeDesign: (path, file, doc) => call('writeDesign', path, file, doc),
     readBuildRecord: (path) => call('readBuildRecord', path),
     checkPreview: (url) => call('checkPreview', url),
+    capabilities: { folderDialog: true },
+    chooseFolder: (purpose, defaultPath) => call('chooseFolder', purpose, defaultPath),
     watchDesign(path, onChange) {
       return api.watchDesign(path, (kind) => {
         if (isDesignKind(kind) || kind === 'build') onChange({ kind });

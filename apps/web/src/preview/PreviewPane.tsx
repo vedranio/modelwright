@@ -6,6 +6,7 @@ import { pickDevice, resolveDevices } from './devices';
 import { PreviewToolbar } from './PreviewToolbar';
 import { CheckingState, InvalidUrl, NothingRunning, RefusesEmbedding } from './PreviewStates';
 import { usePreviewCheck } from './usePreviewCheck';
+import { useShortcut } from '../shortcuts';
 
 interface Props {
   projectPath: string;
@@ -31,6 +32,20 @@ export function PreviewPane({ projectPath, config, url, visible, onSetUrl }: Pro
   };
   const [reloads, setReloads] = useState(0);
   const [scale, setScale] = useState(1);
+  const reloadPreview = () => {
+    setReloads((n) => n + 1);
+    recheck();
+  };
+  // View ▸ Reload Preview in the desktop app; otherwise the check retries by itself.
+  useShortcut(
+    'reload-preview',
+    (e) => {
+      e.preventDefault();
+      if (result?.status === 'ok') reloadPreview();
+      else recheck();
+    },
+    visible,
+  );
 
   if (!result) return slow ? <CheckingState url={url} /> : null;
 
@@ -64,10 +79,7 @@ export function PreviewPane({ projectPath, config, url, visible, onSetUrl }: Pro
             scale={scale}
             url={url}
             onSetUrl={onSetUrl}
-            onReload={() => {
-              setReloads((n) => n + 1);
-              recheck();
-            }}
+            onReload={reloadPreview}
           />
           <DeviceFrame
             device={device}

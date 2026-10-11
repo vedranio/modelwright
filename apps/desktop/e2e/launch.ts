@@ -15,6 +15,8 @@ export interface Launched {
   /** A temp folder holding modelwright's home and the test's projects. */
   root: string;
   notesProject(name?: string): Promise<string>;
+  /** Launches again with the same home, after the app has quit. */
+  relaunch(): Promise<void>;
   close(): Promise<void>;
 }
 
@@ -25,31 +27,61 @@ export interface Launched {
 export async function launch(): Promise<Launched> {
   const root = await mkdtemp(path.join(os.tmpdir(), 'modelwright-e2e-'));
   const packaged = process.env['MODELWRIGHT_APP'];
-  const app = await electron.launch({
-    ...(packaged ? { executablePath: packaged, args: [] } : { args: [MAIN] }),
-    env: { ...process.env, MODELWRIGHT_HOME: path.join(root, 'home') } as Record<string, string>,
-  });
-  const window = await app.firstWindow();
-  return {
+  const start = () =>
+    electron.launch({
+      ...(packaged ? { executablePath: packaged, args: [] } : { args: [MAIN] }),
+      env: { ...process.env, MODELWRIGHT_HOME: path.join(root, 'home') } as Record<string, string>,
+    });
+  const app = await start();
+  const run: Launched = {
     app,
-    window,
+    window: await app.firstWindow(),
     root,
+    async relaunch() {
+      run.app = await start();
+      run.window = await run.app.firstWindow();
+    },
     async notesProject(name = 'notes') {
       const dir = path.join(root, name);
       await cp(NOTES_FIXTURE, path.join(dir, '.design'), { recursive: true });
       return dir;
     },
     async close() {
-      await app.close();
+      await run.app.close().catch(() => {});
       await rm(root, { recursive: true, force: true });
     },
   };
+  return run;
 }
 
-/** Opens a project through the picker's pasted-path field. */
+/** Opens a project through the picker's pasted-path field, the fallback to the dialog. */
 export async function openByPath(window: Page, dir: string): Promise<void> {
-  await window.getByRole('button', { name: /Open an existing project/ }).click();
+  await window.getByRole('button', { name: 'or paste a path' }).click();
   await window.getByLabel('Project folder').fill(dir);
   await window.getByLabel('Project folder').press('Enter');
   await window.getByRole('tablist', { name: 'View' }).waitFor();
+}
+
+/** Clicks an application menu item by its labels, e.g. `['View', 'Flows']`. */
+export async function clickMenu(app: ElectronApplication, labels: string[]): Promise<void> {
+  await app.evaluate(({ Menu }, path) => {
+    let items = Menu.getApplicationMenu()?.items ?? [];
+    for (const [i, label] of path.entries()) {
+      const item = items.find((m) => m.label === label);
+      if (!item) throw new Error(`No menu item ${path.slice(0, i + 1).join(' ▸ ')}`);
+      if (i === path.length - 1) {
+        if (!item.enabled) throw new Error(`${label} is disabled`);
+        (item.click as () => void)();
+        return;
+      }
+      items = item.submenu?.items ?? [];
+    }
+  }, labels);
+}
+
+/** Makes the next native folder dialog choose `folder`, as if picked by hand. */
+export async function stubFolderDialog(app: ElectronApplication, folder: string): Promise<void> {
+  await app.evaluate(({ dialog }, chosen) => {
+    dialog.showOpenDialog = (async () => ({ canceled: false, filePaths: [chosen] })) as never;
+  }, folder);
 }

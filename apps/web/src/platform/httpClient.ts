@@ -73,6 +73,10 @@ export function createHttpClient(
       });
       return () => events.close();
     },
+    capabilities: { folderDialog: false },
+    async chooseFolder() {
+      throw new ProjectClientError('Folder dialogs need the desktop app', 0);
+    },
   };
 }
 

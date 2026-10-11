@@ -1,4 +1,4 @@
-import type { DesktopApi } from '@modelwright/core/ipc';
+import { desktopApi } from './desktop';
 import { createHttpClient } from './httpClient';
 import { createIpcClient } from './ipcClient';
 import type { ProjectClient } from './ProjectClient';
@@ -6,6 +6,7 @@ import type { ProjectClient } from './ProjectClient';
 export {
   ProjectClientError,
   type BuildRead,
+  type ClientCapabilities,
   type DesignChange,
   type DesignDoc,
   type DesignKind,
@@ -14,11 +15,8 @@ export {
   type ProjectSummary,
 } from './ProjectClient';
 export { ProjectClientProvider, useProjectClient } from './context';
-
-/** The desktop app's preload API, when running inside it. */
-export function desktopApi(): DesktopApi | undefined {
-  return (globalThis as { modelwright?: DesktopApi }).modelwright;
-}
+export { desktopApi } from './desktop';
+export { desktopHost, type Host, type HostCommand, type HostState } from './host';
 
 /** The client for this build: IPC inside the desktop app, HTTP to apps/server otherwise. */
 export function createDefaultClient(): ProjectClient {

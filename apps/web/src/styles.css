@@ -669,6 +669,22 @@ button {
   justify-content: center;
 }
 
+.picker-paste-toggle {
+  align-self: center;
+  margin-top: var(--space-2);
+}
+
+/* The Location field and, in the desktop app, its Choose… button. */
+.picker-location {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.picker-location .input {
+  flex: 1;
+  min-width: 0;
+}
+
 /* Creating a project, on the left. */
 .picker-create {
   display: flex;
@@ -1705,4 +1721,24 @@ button {
   mask-position: center;
   mask-size: contain;
   mask-repeat: no-repeat;
+}
+
+/*
+ * The desktop app's window has no title bar: the traffic lights sit in the header, which
+ * drags the window. Its controls stay clickable. While the picker is up, the backdrop drags.
+ */
+html[data-host='desktop'] .shell-header {
+  padding-left: var(--titlebar-inset);
+  -webkit-app-region: drag;
+}
+
+html[data-host='desktop']
+  .shell-header
+  :is(button, a, input, select, textarea, [role='tablist'], .editable, .project-path),
+html[data-host='desktop'] .scrim > * {
+  -webkit-app-region: no-drag;
+}
+
+html[data-host='desktop'] .scrim {
+  -webkit-app-region: drag;
 }

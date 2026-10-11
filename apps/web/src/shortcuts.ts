@@ -1,5 +1,16 @@
 import { useEffect, useRef } from 'react';
-import { shortcutMatches, type ShortcutId } from './shortcutRegistry';
+import { menuOwnedCombos } from './menuSpec';
+import { ENV, comboMatches, shortcutMatches, type ShortcutId } from './shortcutRegistry';
+
+/**
+ * In the desktop app, keys with ⌘ that have a menu item reach the page through the menu, as a
+ * command (see hostCommands.ts). A real keydown for one is ignored here, so nothing runs twice.
+ */
+const MENU_OWNED = ENV.desktop ? menuOwnedCombos({ mac: ENV.mac, desktop: true }) : [];
+
+export function deliveredByMenu(event: KeyboardEvent): boolean {
+  return event.isTrusted && MENU_OWNED.some(({ combo }) => comboMatches(combo, event));
+}
 
 /**
  * True when a key event comes from somewhere the user is typing. App shortcuts never fire there;
@@ -34,7 +45,7 @@ export function useKeydown(
   useEffect(() => {
     if (!enabled) return;
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.defaultPrevented || isTextTarget(event.target)) return;
+      if (event.defaultPrevented || isTextTarget(event.target) || deliveredByMenu(event)) return;
       if (latest.current.match(event)) latest.current.handler(event);
     };
     window.addEventListener('keydown', onKeyDown);

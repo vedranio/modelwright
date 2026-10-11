@@ -5,6 +5,7 @@ import {
   IPC_ARGS,
   type Core,
   type DesignChangeEvent,
+  type HostState,
   type InvokeMethod,
   type IpcResult,
   type SerialisedError,
@@ -19,11 +20,24 @@ export interface IpcSender {
   send(channel: string, payload: DesignChangeEvent): void;
 }
 
+/** The desktop host's own calls, which need Electron (dialogs, menus, windows). */
+export interface HostCalls {
+  chooseFolder(
+    sender: IpcSender,
+    purpose: 'open' | 'location',
+    defaultPath?: string,
+  ): Promise<string | null>;
+  setHostState(sender: IpcSender, state: HostState): void;
+  /** The renderer has saved (or the user chose to discard) and the pending close or quit can go ahead. */
+  readyToClose(sender: IpcSender): void;
+}
+
 export interface IpcHandlerOptions {
   /** Whether a frame URL is modelwright's own renderer. Anything else is refused. */
   isTrusted(url: string): boolean;
   /** The renderer's origin, which a preview URL may not be. */
   toolOrigin: string;
+  host?: HostCalls;
 }
 
 /**
@@ -31,7 +45,10 @@ export interface IpcHandlerOptions {
  * modelwright's own page, the arguments match the method's schema) before the core sees it,
  * and every outcome is a value: `{ ok, value }` or a serialised error. No project logic here.
  */
-export function createIpcHandlers(core: Core, { isTrusted, toolOrigin }: IpcHandlerOptions) {
+export function createIpcHandlers(
+  core: Core,
+  { isTrusted, toolOrigin, host = NO_HOST }: IpcHandlerOptions,
+) {
   /** Active watches by id, with the renderer that owns each. */
   const watches = new Map<string, { owner: number; stop: () => void }>();
 
@@ -64,6 +81,10 @@ export function createIpcHandlers(core: Core, { isTrusted, toolOrigin }: IpcHand
       watches.delete(id);
       watch.stop();
     },
+    chooseFolder: (sender, purpose: 'open' | 'location', defaultPath?: string) =>
+      host.chooseFolder(sender, purpose, defaultPath),
+    setHostState: async (sender, state: HostState) => host.setHostState(sender, state),
+    readyToClose: async (sender) => host.readyToClose(sender),
   };
 
   return {
@@ -117,6 +138,13 @@ export function createIpcHandlers(core: Core, { isTrusted, toolOrigin }: IpcHand
 }
 
 export type IpcHandlers = ReturnType<typeof createIpcHandlers>;
+
+/** Without a host (tests of the core's methods), the host's calls do nothing. */
+const NO_HOST: HostCalls = {
+  chooseFolder: async () => null,
+  setHostState: () => {},
+  readyToClose: () => {},
+};
 
 function failure(error: SerialisedError): IpcResult<never> {
   return { ok: false, error };
