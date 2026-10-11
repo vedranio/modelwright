@@ -5,6 +5,9 @@ import {
   stringifyDesign,
   type BuildRead,
   type Config,
+  type DevServerEvent,
+  type DevServerState,
+  type StartDevServerResult,
   type DesignDoc,
   type DesignKind,
   type PreviewCheck,
@@ -23,6 +26,7 @@ import { createProject, initialise, isInitialised, summarise } from './projects'
 import { demoDir, offerDemo } from './demo';
 import { Recents } from './recents';
 import { DesignWatcher, type DesignChangeListener } from './watcher';
+import { DevServers } from './devServer';
 
 export interface CoreOptions {
   /** modelwright's own state directory (recents, the demo). */
@@ -39,6 +43,8 @@ export interface CoreOptions {
   watcher?: DesignWatcher;
   /** The demo project's template, offered once per install; none (tests) offers no demo. */
   demoTemplate?: string;
+  /** Runs projects' dev servers; tests pass one with a plain shell. */
+  devServers?: DevServers;
 }
 
 export interface PreviewCheckContext {
@@ -64,6 +70,7 @@ export function createCore({
   previewTimeoutMs = PREVIEW_TIMEOUT_MS,
   watcher = new DesignWatcher(),
   demoTemplate,
+  devServers = new DevServers({ homeDir }),
 }: CoreOptions) {
   const recents = new Recents(homeDir, now);
   // Offered before the first listing, once per process; offerDemo itself remembers per install.
@@ -171,6 +178,42 @@ export function createCore({
       const dir = await resolveProjectDir(path);
       await requireDesignDir(dir);
       return watcher.subscribe(dir, onChange);
+    },
+
+    async devServerState(path: string): Promise<DevServerState> {
+      return devServers.state(await resolveProjectDir(path));
+    },
+
+    /**
+     * Starts the project's dev server: the `preview.devCommand` in its `config.json`, read here
+     * and never taken from the caller, so only a command the project names can run. A command
+     * not yet approved for this project runs only with `approve`.
+     */
+    async startDevServer(path: string, approve = false): Promise<StartDevServerResult> {
+      const dir = await resolveProjectDir(path);
+      const text = await readTextOrNull(designFile(dir, 'config'));
+      const parsed = text === null ? null : parseDesignJson('config', text);
+      if (!parsed?.ok) {
+        throw new CoreError('conflict', `.design/config.json is missing or invalid in ${dir}`);
+      }
+      const command = parsed.doc.preview.devCommand?.trim();
+      if (!command) throw new CoreError('conflict', 'This project has no dev command');
+      return devServers.start(dir, command, approve);
+    },
+
+    /** Stops the project's dev server and everything it started. */
+    async stopDevServer(path: string): Promise<DevServerState> {
+      return devServers.stop(await resolveProjectDir(path));
+    },
+
+    /** A snapshot of the dev server, then its changes and output. */
+    async watchDevServer(path: string, listener: (event: DevServerEvent) => void) {
+      return devServers.watch(await resolveProjectDir(path), listener);
+    },
+
+    /** Stops every dev server, synchronously, for shutdown. */
+    stopAllDevServers(): void {
+      devServers.stopAll();
     },
   };
 }

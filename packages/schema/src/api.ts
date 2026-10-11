@@ -42,3 +42,35 @@ export type BuildRead =
   | { status: 'none' }
   | { status: 'ok'; record: BuildRecord }
   | { status: 'invalid'; issues: Issue[] };
+
+/**
+ * A project's dev server as modelwright started it. `running` only means the process is alive;
+ * whether the preview URL answers is the preview check's business.
+ */
+export interface DevServerState {
+  status: 'idle' | 'running' | 'exited';
+  /** The command it runs (or ran), from `config.json`'s `preview.devCommand`. */
+  command?: string;
+  pid?: number;
+  /** ISO timestamp. */
+  startedAt?: string;
+  /** Set once it has exited: the exit code, or the signal that ended it. */
+  exitCode?: number | null;
+  signal?: string | null;
+  /** Why it couldn't start at all, e.g. the shell wasn't found. */
+  error?: string;
+}
+
+/** What a dev server watcher hears: a snapshot first, then changes and new output lines. */
+export type DevServerEvent =
+  | { type: 'snapshot'; state: DevServerState; lines: string[] }
+  | { type: 'state'; state: DevServerState }
+  | { type: 'output'; lines: string[] };
+
+/**
+ * Starting a dev server: it runs only once its exact command has been approved for the
+ * project. Until then, start says what it would run, and where, and runs nothing.
+ */
+export type StartDevServerResult =
+  | { status: 'needs-approval'; command: string; cwd: string }
+  | { status: 'started'; state: DevServerState };

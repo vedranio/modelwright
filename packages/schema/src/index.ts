@@ -34,4 +34,12 @@ export {
   stringifyBuildRecord,
   type BuildRecordResult,
 } from './build';
-export type { ApiErrorBody, BuildRead, PreviewCheck, ProjectSummary } from './api';
+export type {
+  ApiErrorBody,
+  BuildRead,
+  DevServerEvent,
+  DevServerState,
+  PreviewCheck,
+  ProjectSummary,
+  StartDevServerResult,
+} from './api';

@@ -13,3 +13,4 @@ export { allows, embeddingVerdict, type EmbeddingVerdict } from './frameHeaders'
 export { resolveParentDir, resolveProjectDir, tildify } from './paths';
 export { Recents, RECENTS_LIMIT, type RecentEntry } from './recents';
 export * from './ipc';
+export { DevServers, LOGIN_SHELL, announcedUrls, stripAnsi, type Shell } from './devServer';
