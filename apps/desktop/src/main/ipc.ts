@@ -7,6 +7,7 @@ import {
   type DesignChangeEvent,
   type HostState,
   type InvokeMethod,
+  type PreviewLayout,
   type IpcResult,
   type SerialisedError,
 } from '@modelwright/core';
@@ -30,6 +31,9 @@ export interface HostCalls {
   setHostState(sender: IpcSender, state: HostState): void;
   /** The renderer has saved (or the user chose to discard) and the pending close or quit can go ahead. */
   readyToClose(sender: IpcSender): void;
+  setPreview(sender: IpcSender, layout: PreviewLayout | null): void;
+  /** A PNG data URL of the preview, or null when there's none. */
+  snapshotPreview(sender: IpcSender): Promise<string | null>;
 }
 
 export interface IpcHandlerOptions {
@@ -85,6 +89,8 @@ export function createIpcHandlers(
       host.chooseFolder(sender, purpose, defaultPath),
     setHostState: async (sender, state: HostState) => host.setHostState(sender, state),
     readyToClose: async (sender) => host.readyToClose(sender),
+    setPreview: async (sender, layout: PreviewLayout | null) => host.setPreview(sender, layout),
+    snapshotPreview: (sender) => host.snapshotPreview(sender),
   };
 
   return {
@@ -144,6 +150,8 @@ const NO_HOST: HostCalls = {
   chooseFolder: async () => null,
   setHostState: () => {},
   readyToClose: () => {},
+  setPreview: () => {},
+  snapshotPreview: async () => null,
 };
 
 function failure(error: SerialisedError): IpcResult<never> {

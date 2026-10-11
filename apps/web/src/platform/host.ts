@@ -1,7 +1,8 @@
+import type { PreviewLayout } from '@modelwright/core/contract';
 import type { HostCommand, HostState } from '@modelwright/core/ipc';
 import { desktopApi } from './desktop';
 
-export type { HostCommand, HostState };
+export type { HostCommand, HostState, PreviewLayout };
 
 /**
  * The desktop app around the page: its menu, Dock and windows. None in the web build, where
@@ -14,6 +15,10 @@ export interface Host {
   setState(state: HostState): void;
   /** The project's edits are saved (or knowingly dropped): a pending close or quit can go ahead. */
   readyToClose(): void;
+  /** Places the native preview over the UI view's device screen, or removes it (null). */
+  setPreview(layout: PreviewLayout | null): void;
+  /** A picture of the preview, to stand in for it while something covers it. */
+  snapshotPreview(): Promise<string | null>;
 }
 
 let cached: Host | null | undefined;
@@ -27,5 +32,10 @@ export function desktopHost(): Host | null {
     onCommand: (listener) => api.onCommand(listener),
     setState: (state) => void api.invoke('setHostState', state),
     readyToClose: () => void api.invoke('readyToClose'),
+    setPreview: (layout) => void api.invoke('setPreview', layout),
+    snapshotPreview: async () => {
+      const result = await api.invoke('snapshotPreview');
+      return result.ok ? (result.value as string | null) : null;
+    },
   });
 }

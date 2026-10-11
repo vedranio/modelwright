@@ -33,6 +33,10 @@ export async function launch(): Promise<Launched> {
       env: { ...process.env, MODELWRIGHT_HOME: path.join(root, 'home') } as Record<string, string>,
     });
   const app = await start();
+  if (process.env['MODELWRIGHT_E2E_LOGS']) {
+    app.process().stdout?.on('data', (d) => process.stdout.write(`[main] ${d}`));
+    app.process().stderr?.on('data', (d) => process.stderr.write(`[main] ${d}`));
+  }
   const run: Launched = {
     app,
     window: await app.firstWindow(),

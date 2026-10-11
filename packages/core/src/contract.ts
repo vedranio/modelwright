@@ -43,6 +43,38 @@ export const CreateArgs = z.object({
 export const PreviewArgs = z.object({ url: z.string() });
 export const DesignKindArg = z.enum(DESIGN_KINDS);
 
+const Rect = z.strictObject({
+  x: z.number().finite(),
+  y: z.number().finite(),
+  width: z.number().finite().nonnegative(),
+  height: z.number().finite().nonnegative(),
+});
+
+/**
+ * The desktop preview as the renderer lays it out: where it sits in the window, which device
+ * it emulates and at what scale. Only http(s) pages are ever loaded into it.
+ */
+export const PreviewLayout = z.strictObject({
+  url: z.url({ protocol: /^https?$/ }),
+  /** Bumped by Reload preview: the page loads again. */
+  reload: z.number().int().nonnegative(),
+  /** The preview's screen, in window coordinates (CSS pixels), already scaled. */
+  bounds: Rect,
+  /** The viewport the page lays out in, before scaling. */
+  viewport: z.strictObject({
+    width: z.number().int().positive().max(10_000),
+    height: z.number().int().positive().max(10_000),
+  }),
+  /** A phone: mobile user agent, touch and a high device scale factor. */
+  mobile: z.boolean(),
+  scale: z.number().positive().max(1),
+  /** The screen's corner radius as drawn (scaled), so the page's corners match the frame. */
+  radius: z.number().nonnegative().max(200),
+  /** False while the UI view is hidden, or something modelwright shows covers the preview. */
+  visible: z.boolean(),
+});
+export type PreviewLayout = z.infer<typeof PreviewLayout>;
+
 /** Each IPC method's arguments, as the tuple the preload sends. Validated in main before any handler runs. */
 export const IPC_ARGS = {
   openProject: z.tuple([z.string()]),
@@ -62,4 +94,8 @@ export const IPC_ARGS = {
     z.strictObject({ projectOpen: z.boolean(), theme: z.enum(['system', 'light', 'dark']) }),
   ]),
   readyToClose: z.tuple([]),
+  /** The preview's layout, or null to remove it. */
+  setPreview: z.tuple([PreviewLayout.nullable()]),
+  /** A picture of the preview as it is, to stand in for it while something covers it. */
+  snapshotPreview: z.tuple([]),
 } as const;

@@ -42,9 +42,10 @@ Run `modelwright-design status`:
 
 - If the repo already has app code, or its `CLAUDE.md` names a stack, use that.
 - Otherwise ask the user which stack to use. Offer one sensible default for this design, with a sentence on why. Prefer a typed language, a data layer with migrations, and a dev server with hot reload.
-- The app runs inside modelwright's preview iframe:
-  - Its dev server must allow being framed by `http://localhost:4300` and `http://127.0.0.1:4300`, so it must send no `X-Frame-Options` header and no `frame-ancestors` that excludes them. Most dev servers allow framing by default.
-  - It must not use ports 4300 or 4301, which are modelwright's own.
+- The app runs in modelwright's preview:
+  - In the modelwright desktop app, the preview is a page of its own, so framing headers don't matter.
+  - In modelwright's web build, the preview is an iframe. There the dev server must allow being framed by `http://localhost:4300` and `http://127.0.0.1:4300`, so it must send no `X-Frame-Options` header and no `frame-ancestors` that excludes them. Most dev servers allow framing by default. Ask which the user runs only if the stack's dev server blocks framing.
+  - It must not use ports 4300 to 4302, which are modelwright's own.
   - A desktop app (Electron, Tauri and the like) can't be framed itself. Give it a browser dev server for its renderer, e.g. `npm run dev:web`, and point the preview there. Where the renderer calls native APIs, give the browser build stubs with plausible data so every screen still renders.
 
 Once the stack is settled, record in the project's `CLAUDE.md` (create it if needed):

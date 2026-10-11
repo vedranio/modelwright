@@ -1377,6 +1377,19 @@ button {
   color-scheme: light dark;
 }
 
+/* The desktop app's preview is a native view over this element; it only holds the place, and a
+   snapshot while one of modelwright's overlays covers the view. */
+.native-screen {
+  position: relative;
+  background: var(--color-surface);
+}
+
+.native-screen-snapshot {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
 .scale-chip {
   height: var(--chip-h);
   display: flex;

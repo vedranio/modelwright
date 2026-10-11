@@ -22,6 +22,7 @@ import {
 } from '@modelwright/core';
 import { createIpcHandlers, type HostCalls, type IpcHandlers } from './ipc';
 import { buildMenuTemplate, recentItems, type MenuContext } from './menu';
+import { Preview } from './preview';
 import { APP_ORIGIN, isExternalWebUrl, isOnOrigin } from './origin';
 import { DESKTOP_DATA, MODELWRIGHT_HOME, PRELOAD_FILE, RENDERER_DIR, demoTemplate } from './paths';
 import { registerAppScheme, serveRenderer } from './protocol';
@@ -90,6 +91,17 @@ function openPath(folder: string): void {
   send({ id: 'open-path', path: path.resolve(folder) });
 }
 
+/** The preview needs the app to be ready (its session), so it's made on first use. */
+let previewInstance: Preview | null = null;
+const preview = {
+  get(): Preview {
+    previewInstance ??= new Preview(() => mainWindow, openExternal);
+    return previewInstance;
+  },
+  remove(): void {
+    previewInstance?.remove();
+  },
+};
 let handlers: IpcHandlers;
 let core: ReturnType<typeof createCore>;
 
@@ -132,10 +144,17 @@ const host: HostCalls = {
     void refreshMenus();
   },
 
+  setPreview(_sender, layout) {
+    void preview.get().set(layout);
+  },
+
+  snapshotPreview: () => preview.get().snapshot(),
+
   readyToClose() {
     const action = pendingClose;
     pendingClose = null;
     closeAllowed = true;
+    preview.remove();
     if (action === 'quit') app.quit();
     else mainWindow?.close();
   },
@@ -186,9 +205,11 @@ function harden(contents: WebContents): void {
   contents.on('did-start-navigation', ({ isMainFrame, isSameDocument }) => {
     if (!isMainFrame || isSameDocument) return;
     handlers.releaseSender(contents.id);
+    preview.remove();
     rendererReady = false;
   });
-  contents.on('render-process-gone', () => {
+  contents.on('render-process-gone', (_event, details) => {
+    console.error('modelwright: renderer gone', details);
     rendererReady = false;
   });
   contents.on('destroyed', () => handlers.releaseSender(contents.id));
@@ -244,13 +265,18 @@ function createWindow(): BrowserWindow {
 
   // Closing the window with a project open saves it first, as Close Project does.
   win.on('close', (event) => {
-    if (closeAllowed || !hostState.projectOpen || !rendererReady) return;
+    if (closeAllowed || !hostState.projectOpen || !rendererReady) {
+      // The preview's view goes first; left attached, it can hold the window open.
+      preview.remove();
+      return;
+    }
     event.preventDefault();
     pendingClose = 'close';
     send({ id: 'close-for-quit' });
   });
   win.on('closed', () => {
     clearTimeout(saveTimer);
+    preview.remove();
     if (mainWindow === win) mainWindow = null;
     closeAllowed = false;
     rendererReady = false;
@@ -270,7 +296,10 @@ app.on('second-instance', () => send({ id: 'focus' }));
 
 // Quitting with a project open saves it first, or asks, as closing it does.
 app.on('before-quit', (event) => {
-  if (closeAllowed || !mainWindow || !hostState.projectOpen || !rendererReady) return;
+  if (closeAllowed || !mainWindow || !hostState.projectOpen || !rendererReady) {
+    preview.remove();
+    return;
+  }
   event.preventDefault();
   pendingClose = 'quit';
   send({ id: 'close-for-quit' });

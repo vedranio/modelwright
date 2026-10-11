@@ -22,6 +22,8 @@ export const INVOKE_METHODS = [
   'chooseFolder',
   'setHostState',
   'readyToClose',
+  'setPreview',
+  'snapshotPreview',
 ] as const;
 export type InvokeMethod = (typeof INVOKE_METHODS)[number];
 

@@ -1153,3 +1153,27 @@ Settled in the phase 7 interview. The brief's "Decisions this brief makes" stand
   - Vitest covers the menu against the registry, the menu's state and commands, and window-state restoring. Registry tests cover host combos (overlaps checked for web and desktop, and the hint rule).
   - Playwright Electron runs 15 tests, stable over three runs: the dialog stubbed in main to open and to choose a location; File ▸ Open… replacing a project; the View menu; Edit ▸ Undo/Redo on the canvas and in a text field; Reload Design and its ⌘R hint; View ▸ Theme setting the page and native theme; project items disabled in the picker; Open Recent; window bounds saved; `open-file` opening a project; and quitting within the autosave pause saving the edit and reopening the project.
   - Synthetic clicks can't press real keys through the native menu, so the accelerators themselves are hand checks.
+
+## 2026-10-11 — Phase 7 milestone 3: the preview in the desktop app
+
+- **A `WebContentsView` over the device screen.**
+  - In the desktop app, `DeviceFrame` draws the same frame but renders `NativeScreen` where the iframe was. That element keeps the screen's place and tells main its window rect (after the frame's scale), the viewport, Mobile or not, the scale, the screen's corner radius and whether it's visible (`setPreview`, validated by `PreviewLayout`).
+  - Main (`apps/desktop/src/main/preview.ts`) owns one view in the `persist:preview` session, so the previewed app's storage never mixes with modelwright's.
+  - The view is placed in whole pixels covering the rect, with matching rounded corners. It's hidden while the UI view is, and removed with the preview (a stopped server, a closed project, a renderer reload, the window closing).
+  - Only http(s) URLs are accepted: the schema refuses `file:`, `javascript:` and `app:`, and navigation inside the view stays on the web. New windows open in the default browser, and permission requests are denied.
+- **Emulation through the DevTools protocol** (`webContents.debugger`), worked out by a pure `emulationFor`:
+  - **Mobile:** `setDeviceMetricsOverride` with the device's viewport, `mobile: true`, a device scale factor of 3 and the fit scale; a current iPhone Safari user agent; touch with 5 points; and mouse as touch.
+  - **Desktop:** the viewport only, at the display's scale factor, with Electron's user agent minus its Electron and app tokens (plain Chrome), and no touch.
+  - The scale is applied by the emulation, so the toolbar's percentage is still true.
+- **Switching device** resizes in place within Mobile or within Desktop (as in the web build). Switching between them loads the page again, because a page reads its user agent and touch support when it loads.
+- **Found while testing: emulating a view that hasn't rendered anything yet segfaults Electron's main process.** Each new view first loads `about:blank`, and emulation waits for it.
+  - Updates run one at a time in order, so a page never loads before its emulation.
+  - The preview view is removed as soon as a close or quit goes ahead. Left attached, it held the app open on quit.
+- **Overlays:** a native view sits above the page, so `NativeScreen` watches for modelwright's overlays (dialogs, the picker, the theme menu, the build popover, toasts) overlapping the screen. While one does, it takes a snapshot (`capturePage`), shows it in the screen's place and hides the view, then restores the view when the overlay goes.
+- **Framing:** the preview is a top-level page, so `X-Frame-Options` and `frame-ancestors` don't apply. The desktop check passes `framing: false`, so "refuses to be embedded" is web-only.
+  - SKILL.md step 3 now says framing headers only matter in the web build, and that ports 4300 to 4302 are modelwright's. The built CLI is unchanged.
+- **View ▸ Reload Preview (⇧⌘R)** reloads the preview, or re-checks while it's down.
+- **Tests:**
+  - Vitest covers emulation for both presets, the user-agent clean-up, whole-pixel bounds, and the layout schema refusing non-web URLs, upscaling, unknown keys and absurd sizes.
+  - Playwright Electron runs a local server sending `X-Frame-Options: DENY` and `frame-ancestors 'none'` whose page reports what it sees. At Mobile: a 390px viewport, DPR 3, touch with 5 points and an iPhone user agent. At Desktop: 1280px, no touch and a Chrome user agent with no Electron in it. Back to Mobile is a phone again. The view tracks the screen to the pixel, hides with the UI view and goes with the project, and the help overlay swaps in a snapshot.
+  - `CDP.setDeviceMetricsOverride` before the first render was what broke Playwright's connection; it was the crash, not a clash.

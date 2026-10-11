@@ -85,6 +85,8 @@ export function PreviewPane({ projectPath, config, url, visible, onSetUrl }: Pro
             device={device}
             url={url}
             frameKey={`${url}#${reloads}`}
+            reload={reloads}
+            visible={visible}
             onScale={setScale}
           />
         </div>
