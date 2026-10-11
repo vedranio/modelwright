@@ -125,3 +125,12 @@ test('an overlay over the preview swaps in a snapshot', async () => {
   await run.window.keyboard.press('Escape');
   await expect.poll(visible).toBe(true);
 });
+
+test('quitting after the preview has shown exits (it held the app open once)', async () => {
+  await openWithPreview();
+  await expect.poll(seen, { timeout: 10_000 }).not.toBeNull();
+  await run.window.getByRole('tab', { name: 'ERD' }).click();
+  const exited = new Promise<void>((resolve) => run.app.once('close', () => resolve()));
+  await run.app.evaluate(({ app }) => app.quit());
+  await exited;
+});

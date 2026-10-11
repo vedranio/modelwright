@@ -4,3 +4,5 @@ packages:
 allowBuilds:
   electron: true
   esbuild: true
+  # Windows installers only; modelwright builds for macOS.
+  electron-winstaller: false

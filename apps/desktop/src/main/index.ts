@@ -101,6 +101,13 @@ const preview = {
   remove(): void {
     previewInstance?.remove();
   },
+  /** For good, while the window closes or the app quits. */
+  shutDown(): void {
+    previewInstance?.shutDown();
+  },
+  reopen(): void {
+    previewInstance?.reopen();
+  },
 };
 let handlers: IpcHandlers;
 let core: ReturnType<typeof createCore>;
@@ -154,7 +161,7 @@ const host: HostCalls = {
     const action = pendingClose;
     pendingClose = null;
     closeAllowed = true;
-    preview.remove();
+    preview.shutDown();
     if (action === 'quit') app.quit();
     else mainWindow?.close();
   },
@@ -216,6 +223,7 @@ function harden(contents: WebContents): void {
 }
 
 function createWindow(): BrowserWindow {
+  preview.reopen();
   const stateFile = windowStateFile(DESKTOP_DATA);
   const win = new BrowserWindow({
     width: 1280,
@@ -267,7 +275,7 @@ function createWindow(): BrowserWindow {
   win.on('close', (event) => {
     if (closeAllowed || !hostState.projectOpen || !rendererReady) {
       // The preview's view goes first; left attached, it can hold the window open.
-      preview.remove();
+      preview.shutDown();
       return;
     }
     event.preventDefault();
@@ -276,7 +284,7 @@ function createWindow(): BrowserWindow {
   });
   win.on('closed', () => {
     clearTimeout(saveTimer);
-    preview.remove();
+    preview.shutDown();
     if (mainWindow === win) mainWindow = null;
     closeAllowed = false;
     rendererReady = false;
@@ -297,7 +305,7 @@ app.on('second-instance', () => send({ id: 'focus' }));
 // Quitting with a project open saves it first, or asks, as closing it does.
 app.on('before-quit', (event) => {
   if (closeAllowed || !mainWindow || !hostState.projectOpen || !rendererReady) {
-    preview.remove();
+    preview.shutDown();
     return;
   }
   event.preventDefault();

@@ -1177,3 +1177,23 @@ Settled in the phase 7 interview. The brief's "Decisions this brief makes" stand
   - Vitest covers emulation for both presets, the user-agent clean-up, whole-pixel bounds, and the layout schema refusing non-web URLs, upscaling, unknown keys and absurd sizes.
   - Playwright Electron runs a local server sending `X-Frame-Options: DENY` and `frame-ancestors 'none'` whose page reports what it sees. At Mobile: a 390px viewport, DPR 3, touch with 5 points and an iPhone user agent. At Desktop: 1280px, no touch and a Chrome user agent with no Electron in it. Back to Mobile is a phone again. The view tracks the screen to the pixel, hides with the UI view and goes with the project, and the help overlay swaps in a snapshot.
   - `CDP.setDeviceMetricsOverride` before the first render was what broke Playwright's connection; it was the crash, not a clash.
+
+## 2026-10-12 — Phase 7 milestone 4: the packaged app
+
+- **`pnpm package`** runs `electron-vite build`, then `electron-builder --mac --arm64` (26.17.0, the newest past the release-age policy). It produces `apps/desktop/dist/mac-arm64/modelwright.app` and `apps/desktop/dist/modelwright-0.1.0-arm64.dmg` (123 MB), with the usual Applications link.
+  - **Identity:** `dev.modelwright.app`, named modelwright, version 0.1.0 from `apps/desktop/package.json`, in the developer-tools category.
+  - **Icon:** `brand/modelwright.icns`, byte for byte.
+- **Ad-hoc signed** (`identity: '-'`), not notarised, no hardened runtime. `codesign --verify --deep --strict` passes on the app and on the copy inside the `.dmg`.
+  - A `.dmg` built on this Mac has no quarantine flag, so it should open without Gatekeeper's prompt. If macOS does block it, the fix is System Settings ▸ Privacy & Security ▸ Open Anyway, once.
+- **Nothing but `out/` ships:**
+  - Every package `apps/desktop` uses is bundled by electron-vite, so they're all devDependencies, and electron-builder finds no node_modules to copy. `app.asar` holds `out/main/index.js`, `out/preload/index.cjs`, `out/renderer/` and `package.json`.
+  - The demo template goes to `Resources/demo/todo` (`extraResources`).
+  - `Info.plist` declares folders (`public.folder`, role Viewer, rank Alternate), so a project folder can be dropped on the Dock icon or opened with modelwright from Finder.
+- **`electron-winstaller`'s build script is declined** in `allowBuilds`. It builds Windows installers only.
+- **Found by the smoke test: quitting after the preview had shown hung the app** after `will-quit`. The renderer sends one more layout while it saves on quit, and main made a new preview view, debugger and all, mid-shutdown.
+  - The preview now shuts down for good once a close or quit goes ahead, makes no view until a new window opens, and detaches its debugger before closing the view.
+  - The milestone 3 tests missed it because Playwright's own teardown closes differently. A new test quits after the preview has shown and checks that the app exits.
+- **Writing outside `.design/` and `~/.modelwright`:** the only other file a run creates is `~/Library/Preferences/dev.modelwright.app.plist`, AppKit's per-app defaults (text direction and similar). Every Mac app gets one, and an app can't opt out. Chromium's profile, window state and storage are all in `~/.modelwright/desktop`.
+- **Tests:**
+  - `pnpm e2e:desktop` runs the 21 Playwright Electron tests against `out/`.
+  - `pnpm --filter @modelwright/desktop e2e:packaged` runs them against the packaged binary (`MODELWRIGHT_APP`). All pass both ways. They include the brief's smoke test (`e2e/smoke.spec.ts`): launch, the demo from the app's resources, open a temp project, rename an entity and see `erd.json` and `spec.md` change, switch views, quit.

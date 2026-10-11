@@ -17,6 +17,8 @@ export class Preview {
   private loaded: string | null = null;
   private emulation: string | null = null;
   private mobile: boolean | null = null;
+  /** Set while the window closes or the app quits: no new view may be made then. */
+  private closing = false;
   /** Settles once the new view has rendered its first (blank) page. */
   private ready: Promise<void> = Promise.resolve();
 
@@ -73,6 +75,20 @@ export class Preview {
     return image.isEmpty() ? null : image.toDataURL();
   }
 
+  /**
+   * Removes the view for good while the window closes or the app quits. The renderer can still
+   * send layouts as it saves, and a view made then held the app open after `will-quit`.
+   */
+  shutDown(): void {
+    this.closing = true;
+    this.remove();
+  }
+
+  /** Allows a view again, for a new window. */
+  reopen(): void {
+    this.closing = false;
+  }
+
   remove(): void {
     const view = this.view;
     if (!view) return;
@@ -80,11 +96,16 @@ export class Preview {
     this.loaded = this.emulation = null;
     this.mobile = null;
     this.window()?.contentView.removeChildView(view);
-    if (!view.webContents.isDestroyed()) view.webContents.close();
+    const contents = view.webContents;
+    if (contents.isDestroyed()) return;
+    // An attached debugger keeps the view's contents alive, and with them the app on quit.
+    if (contents.debugger.isAttached()) contents.debugger.detach();
+    contents.close();
   }
 
   private ensure(): WebContentsView | null {
     if (this.view) return this.view;
+    if (this.closing) return null;
     const win = this.window();
     if (!win) return null;
     const view = new WebContentsView({

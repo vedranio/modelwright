@@ -1,0 +1,40 @@
+# The macOS app: `pnpm package` at the repo root builds dist/modelwright-<version>-arm64.dmg.
+appId: dev.modelwright.app
+productName: modelwright
+copyright: Copyright © 2026 Vedran Arnautovic
+
+directories:
+  output: dist
+
+# Everything the app runs is bundled into out/ by electron-vite, so no node_modules ship.
+files:
+  - out/**
+  - package.json
+extraResources:
+  # The demo project's template, offered once per install.
+  - from: ../../packages/core/demo
+    to: demo
+
+mac:
+  target:
+    - target: dmg
+      arch: arm64
+  icon: ../../brand/modelwright.icns
+  category: public.app-category.developer-tools
+  # Ad-hoc signed for this Mac, not notarised (docs/decisions.md, phase 7 planning).
+  identity: '-'
+  hardenedRuntime: false
+  gatekeeperAssess: false
+  notarize: false
+  extendInfo:
+    # Folders can be dropped on the Dock icon, or opened with modelwright from Finder.
+    CFBundleDocumentTypes:
+      - CFBundleTypeName: Folder
+        CFBundleTypeRole: Viewer
+        LSHandlerRank: Alternate
+        LSItemContentTypes:
+          - public.folder
+
+dmg:
+  artifactName: modelwright-${version}-arm64.${ext}
+  title: modelwright ${version}
