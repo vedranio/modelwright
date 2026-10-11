@@ -127,6 +127,10 @@ export const SHORTCUTS = [
     ],
   },
   { id: 'select-all', label: 'Select all', scope: 'canvas', combos: [{ key: 'a', mod: true }] },
+  // Handled as the page's copy, cut and paste events (canvas/useCardClipboard.ts), not keydowns.
+  { id: 'cut', label: 'Cut selection', scope: 'canvas', combos: [{ key: 'x', mod: true }] },
+  { id: 'copy', label: 'Copy selection', scope: 'canvas', combos: [{ key: 'c', mod: true }] },
+  { id: 'paste', label: 'Paste', scope: 'canvas', combos: [{ key: 'v', mod: true }] },
   {
     id: 'duplicate',
     label: 'Duplicate selection',

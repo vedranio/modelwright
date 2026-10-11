@@ -44,8 +44,14 @@ function menuItem(item: MenuItemSpec, ctx: MenuContext): MenuItemConstructorOpti
   switch (item.kind) {
     case 'separator':
       return { type: 'separator' };
-    case 'role':
-      return { role: item.role, ...(item.label && { label: item.label }) };
+    case 'role': {
+      const shown = item.shortcut ? menuCombo(item.shortcut) : null;
+      return {
+        role: item.role,
+        ...(item.label && { label: item.label }),
+        ...(shown && { accelerator: toAccelerator(shown.combo) }),
+      };
+    }
     case 'recent':
       return { label: item.label, submenu: recentItems(ctx) };
     case 'theme':

@@ -1227,3 +1227,27 @@ Settled in the phase 7 interview. The brief's "Decisions this brief makes" stand
   - **Quitting with unsaved edits:** saves them (e2e), and quitting after previewing now exits.
   - **Shared recents and demo:** the web server's `/api/projects/recent` lists the projects you opened in the installed app, from the same `~/.modelwright`.
   - **Docs:** `docs/using-modelwright.md` covers installing, updating and using the app.
+
+## 2026-10-12 — Cut, copy and paste cards (ui-feedback item 24)
+
+Built at your request before the phase 7 PR, with these calls (yours to change at the hand check):
+
+- **The system clipboard, as tagged JSON text** (`{"modelwright/cards": 1, kind, project, fragment}`). Cards paste into another project, and between the desktop app and the web build, and anything else just sees JSON.
+  - Decoding checks only the shape it needs. The pasted document is validated with the schema before it's applied, and an invalid paste changes nothing and says so.
+- **A fragment is what Duplicate always copied:** the selected entities with the relationships between them, or the selected screens with the transitions between them, and their places. The positions are the placed ones, so cards shown at computed spots keep them.
+  - `entityFragment`/`pasteEntities` and `screenFragment`/`pasteScreens` are pure, and `duplicateEntities` and `duplicateScreens` are now built on them, so Duplicate and Paste can't drift apart.
+- **Kinds stay apart.** Entities paste into an ERD and screens into Flows. The other canvas says where they belong ("Those are entities: paste them in the ERD").
+- **Entity references:** a screen's `entities` list names its own project's entities, so it's kept when pasting in the same project and dropped in another.
+- **Where pastes land** (`pasteShift`):
+  - In the same project, one grid step (16) down and right, like Duplicate, plus a step for each card already sitting exactly where the first would land, so repeated pastes cascade.
+  - In another project, in place unless that exact spot is taken.
+  - If the cards would land outside the view, they're centred in it.
+  - The pasted cards and their links are selected.
+- **Undo:** a paste is one step. Cut is one step too, with an Undo toast worded like a delete's ("Cut 'User' and 1 relationship"), and it removes links to the cards left behind, as a delete does.
+- **Triggered by the page's copy, cut and paste events, not keydowns** (`canvas/useCardClipboard.ts`). The browser's ⌘C/⌘X/⌘V and the desktop app's native Edit roles (`webContents.copy()` and so on) both fire them, so one path serves both builds.
+  - Cards are only handled when no text field has focus, no text is selected and no dialog is open. Otherwise text copies and pastes exactly as before.
+- **Registry and menu:** `cut`, `copy` and `paste` are canvas-scope registry shortcuts (⌘X/⌘C/⌘V), so the overlay lists them under "ERD and Flows". The Edit menu's native Cut, Copy and Paste name them (`shortcut` on a role item) and show their keys from the registry. The menu test now covers role items too.
+- **Tests:**
+  - Vitest covers the fragments, pasting (fresh ids, internal links only, valid documents, entity references at home and away), encoding and decoding, and where pastes land.
+  - Playwright Electron covers copy and paste and undo; cut with its toast and the link coming back; a text field copying its text; entities refused in Flows; and screens pasted into another project without entity references. Those tests save and restore the system clipboard.
+  - In the web build's browser pane, a copy event produced the tagged JSON and a paste event added the entity.

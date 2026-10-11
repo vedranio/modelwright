@@ -27,7 +27,7 @@ const registryAccelerators = new Map(
 
 describe('the application menu and the shortcut registry', () => {
   it('gives every accelerator in the menu to a registry shortcut with that combo', () => {
-    const withAccelerators = items.filter((item) => item.accelerator && !item.role);
+    const withAccelerators = items.filter((item) => item.accelerator);
     expect(withAccelerators.length).toBeGreaterThan(10);
     const all = [...registryAccelerators.values()].flat();
     for (const item of withAccelerators) {
@@ -73,6 +73,12 @@ describe('the application menu and the shortcut registry', () => {
     expect(accel('UI')).toBe('CommandOrControl+3');
     expect(accel('Undo')).toBe('CommandOrControl+Z');
     expect(accel('Redo')).toBe('CommandOrControl+Shift+Z');
+    const role = (r: string) => items.find((i) => i.role === r)?.accelerator;
+    expect([role('cut'), role('copy'), role('paste')]).toEqual([
+      'CommandOrControl+X',
+      'CommandOrControl+C',
+      'CommandOrControl+V',
+    ]);
   });
 
   it('has a menu item id for every shortcut it names', () => {

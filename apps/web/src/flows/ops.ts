@@ -450,18 +450,44 @@ export function moveCta(
 }
 
 /**
- * Copies the screens with fresh ids (states and CTAs included), one grid step down and right
- * of the originals, keeping their names. A transition is copied only when both its ends are
- * copied screens, so a copy's CTAs have no transitions out of the copied set. Returns the
- * copies' ids in order.
+ * Some screens lifted out of a Flows document, for the clipboard or Duplicate: the screens,
+ * the transitions between two of them (not ones to screens left behind) and their positions.
  */
-export function duplicateScreens(
-  flows: Flows,
-  screenIds: Iterable<string>,
-): { flows: Flows; ids: string[] } {
+export interface ScreenFragment {
+  screens: Screen[];
+  transitions: Transition[];
+  layout: Layout;
+}
+
+export function screenFragment(flows: Flows, screenIds: Iterable<string>): ScreenFragment {
   const chosen = new Set(screenIds);
-  const originals = flows.screens.filter((s) => chosen.has(s.id));
-  if (originals.length === 0) return { flows, ids: [] };
+  const screens = flows.screens.filter((s) => chosen.has(s.id));
+  const kept = new Set(screens.map((s) => s.id));
+  return {
+    screens,
+    transitions: flows.transitions.filter(
+      (t) => kept.has(t.from.screenId) && kept.has(t.to.screenId),
+    ),
+    layout: Object.fromEntries(
+      screens.flatMap((s) => (flows.layout[s.id] ? [[s.id, flows.layout[s.id] as Position]] : [])),
+    ),
+  };
+}
+
+/**
+ * Adds copies of a fragment's screens with fresh ids (states and CTAs included), keeping their
+ * names and moved by `shift`, with copies of the transitions between them, so a copy's CTAs
+ * have no transitions out of the copied set. Returns the copies' ids in order. A fragment from
+ * another project loses its screens' entity references (`keepEntities: false`), which name
+ * that project's entities.
+ */
+export function pasteScreens(
+  flows: Flows,
+  fragment: ScreenFragment,
+  shift: Position,
+  { keepEntities = true }: { keepEntities?: boolean } = {},
+): { flows: Flows; ids: string[] } {
+  if (fragment.screens.length === 0) return { flows, ids: [] };
 
   const taken = idsIn(flows);
   const fresh = (prefix: 'scr' | 'st' | 'cta' | 'tr') => {
@@ -476,13 +502,15 @@ export function duplicateScreens(
   const key = (...parts: string[]) => parts.join('\u0000');
 
   const layout: Layout = { ...flows.layout };
-  const copies = originals.map((s): Screen => {
+  const copies = fragment.screens.map((original): Screen => {
+    const { entities, ...s } = original;
     const id = fresh('scr');
     screenCopy.set(s.id, id);
-    const at = flows.layout[s.id];
-    if (at) layout[id] = { x: at.x + DUPLICATE_OFFSET, y: at.y + DUPLICATE_OFFSET };
+    const at = fragment.layout[s.id];
+    if (at) layout[id] = { x: at.x + shift.x, y: at.y + shift.y };
     return {
       ...s,
+      ...(keepEntities && entities !== undefined && { entities }),
       id,
       states: s.states.map((st) => {
         const stateId = fresh('st');
@@ -506,7 +534,7 @@ export function duplicateScreens(
     };
   });
 
-  const transitions = flows.transitions.flatMap((t): Transition[] => {
+  const transitions = fragment.transitions.flatMap((t): Transition[] => {
     const fromScreen = screenCopy.get(t.from.screenId);
     const toScreen = screenCopy.get(t.to.screenId);
     const fromState = stateCopy.get(key(t.from.screenId, t.from.stateId));
@@ -534,6 +562,22 @@ export function duplicateScreens(
       layout,
     },
   };
+}
+
+/**
+ * Copies the screens with fresh ids (states and CTAs included), one grid step down and right
+ * of the originals, keeping their names. A transition is copied only when both its ends are
+ * copied screens, so a copy's CTAs have no transitions out of the copied set. Returns the
+ * copies' ids in order.
+ */
+export function duplicateScreens(
+  flows: Flows,
+  screenIds: Iterable<string>,
+): { flows: Flows; ids: string[] } {
+  return pasteScreens(flows, screenFragment(flows, screenIds), {
+    x: DUPLICATE_OFFSET,
+    y: DUPLICATE_OFFSET,
+  });
 }
 
 // Helpers

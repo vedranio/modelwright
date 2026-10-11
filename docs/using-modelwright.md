@@ -96,11 +96,17 @@ The project you were in reopens when you start modelwright again. One window sho
 **The menu bar** has every command, with its shortcut:
 
 - **File:** New Project ⌘N, Open… ⌘O, Open Recent, Close Project ⌘W.
-- **Edit:** Undo ⌘Z and Redo ⇧⌘Z (in a text field they undo your typing; elsewhere the last edit on the canvas), Cut, Copy, Paste, Select All, Duplicate ⌘D, Delete.
+- **Edit:** Undo ⌘Z and Redo ⇧⌘Z (in a text field they undo your typing; elsewhere the last edit on the canvas), Cut ⌘X, Copy ⌘C, Paste ⌘V, Select All, Duplicate ⌘D, Delete.
 - **View:** ERD, Flows and UI (⌘1–3, or just 1–3), Reload Design ⌘R (reads the files from disk again), Reload Preview ⇧⌘R, zoom, Fit, Theme, full screen.
 - **Help:** how modelwright works, and the keyboard shortcuts (or press `?`).
 
-Cut, copy and paste work on text, not yet on cards.
+**Cut, copy and paste** work on text in a field, as always, and on selected cards on the canvas:
+
+- Copied entities bring the relationships between them, and copied screens bring the transitions between them, as Duplicate does.
+- Entities paste into an ERD and screens into Flows, in this project or another.
+- A paste in the same project lands one grid step down and right, further for each repeat. In another project it lands in place, or in the middle of the view if that place is off-screen.
+- Screens pasted into another project lose the entity names they used, which belong to the project they came from.
+- Cut is one step, with an Undo toast, and so is a paste (⌘Z).
 
 **The Dock.** Right-click modelwright's Dock icon for your recent projects. Drop a project folder on the icon to open it.
 

@@ -22,8 +22,12 @@ export type MenuItemSpec =
       /** Disabled while no project is open. */
       needsProject?: boolean;
     }
-  /** Electron's built-in items: cut, copy and paste work in text fields only through these. */
-  | { kind: 'role'; role: NativeRole; label?: string }
+  /**
+   * Electron's built-in items. Cut, copy and paste work in text fields only through these; on a
+   * canvas, the copy, cut and paste events they fire carry cards. `shortcut` names the registry
+   * entry whose key the item shows.
+   */
+  | { kind: 'role'; role: NativeRole; label?: string; shortcut?: ShortcutId }
   | { kind: 'separator' }
   /** File ▸ Open Recent: the recent projects. */
   | { kind: 'recent'; label: string }
@@ -72,9 +76,9 @@ export const MENU: readonly MenuSection[] = [
       command('undo', 'Undo'),
       command('redo', 'Redo'),
       separator,
-      { kind: 'role', role: 'cut' },
-      { kind: 'role', role: 'copy' },
-      { kind: 'role', role: 'paste' },
+      { kind: 'role', role: 'cut', shortcut: 'cut' },
+      { kind: 'role', role: 'copy', shortcut: 'copy' },
+      { kind: 'role', role: 'paste', shortcut: 'paste' },
       command('select-all', 'Select All'),
       separator,
       command('duplicate', 'Duplicate', true),
@@ -120,6 +124,7 @@ export function menuShortcutIds(menu: readonly MenuSection[] = MENU): ShortcutId
   for (const section of menu) {
     for (const item of section.items) {
       if (item.kind === 'command' && isShortcutId(item.id)) ids.push(item.id);
+      if (item.kind === 'role' && item.shortcut) ids.push(item.shortcut);
     }
   }
   return ids;

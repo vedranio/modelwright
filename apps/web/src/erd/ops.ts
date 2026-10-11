@@ -271,18 +271,39 @@ export function moveAttribute(
 }
 
 /**
- * Copies the entities with fresh ids (attributes included), one grid step down and right of
- * the originals, keeping their names. Relationships between two copied entities are copied
- * too; ones to entities outside the selection aren't. Returns the copies' ids in order.
+ * Some entities lifted out of an ERD, for the clipboard or Duplicate: the entities, the
+ * relationships between two of them (not ones to entities left behind) and their positions.
  */
-export function duplicateEntities(
-  erd: Erd,
-  entityIds: Iterable<string>,
-): { erd: Erd; ids: string[] } {
-  const chosen = new Set(entityIds);
-  const originals = erd.entities.filter((e) => chosen.has(e.id));
-  if (originals.length === 0) return { erd, ids: [] };
+export interface EntityFragment {
+  entities: Entity[];
+  relationships: Erd['relationships'];
+  layout: Layout;
+}
 
+export function entityFragment(erd: Erd, entityIds: Iterable<string>): EntityFragment {
+  const chosen = new Set(entityIds);
+  const entities = erd.entities.filter((e) => chosen.has(e.id));
+  const kept = new Set(entities.map((e) => e.id));
+  return {
+    entities,
+    relationships: erd.relationships.filter((r) => kept.has(r.from) && kept.has(r.to)),
+    layout: Object.fromEntries(
+      entities.flatMap((e) => (erd.layout[e.id] ? [[e.id, erd.layout[e.id] as Position]] : [])),
+    ),
+  };
+}
+
+/**
+ * Adds copies of a fragment's entities with fresh ids (attributes included), keeping their
+ * names and moved by `shift`, with copies of the relationships between them. Returns the
+ * copies' ids in order. The fragment can come from another project.
+ */
+export function pasteEntities(
+  erd: Erd,
+  fragment: EntityFragment,
+  shift: Position,
+): { erd: Erd; ids: string[] } {
+  if (fragment.entities.length === 0) return { erd, ids: [] };
   const taken = idsIn(erd);
   const fresh = (prefix: 'ent' | 'attr' | 'rel') => {
     const id = newId(prefix, taken);
@@ -291,14 +312,14 @@ export function duplicateEntities(
   };
   const copyOf = new Map<string, string>();
   const layout: Layout = { ...erd.layout };
-  const copies = originals.map((e): Entity => {
+  const copies = fragment.entities.map((e): Entity => {
     const id = fresh('ent');
     copyOf.set(e.id, id);
-    const at = erd.layout[e.id];
-    if (at) layout[id] = { x: at.x + DUPLICATE_OFFSET, y: at.y + DUPLICATE_OFFSET };
+    const at = fragment.layout[e.id];
+    if (at) layout[id] = { x: at.x + shift.x, y: at.y + shift.y };
     return { ...e, id, attributes: e.attributes.map((a) => ({ ...a, id: fresh('attr') })) };
   });
-  const relationships = erd.relationships.flatMap((r) => {
+  const relationships = fragment.relationships.flatMap((r) => {
     const from = copyOf.get(r.from);
     const to = copyOf.get(r.to);
     return from && to ? [{ ...r, id: fresh('rel'), from, to }] : [];
@@ -312,4 +333,19 @@ export function duplicateEntities(
       layout,
     },
   };
+}
+
+/**
+ * Copies the entities with fresh ids (attributes included), one grid step down and right of
+ * the originals, keeping their names. Relationships between two copied entities are copied
+ * too; ones to entities outside the selection aren't. Returns the copies' ids in order.
+ */
+export function duplicateEntities(
+  erd: Erd,
+  entityIds: Iterable<string>,
+): { erd: Erd; ids: string[] } {
+  return pasteEntities(erd, entityFragment(erd, entityIds), {
+    x: DUPLICATE_OFFSET,
+    y: DUPLICATE_OFFSET,
+  });
 }
