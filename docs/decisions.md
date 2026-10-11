@@ -1197,3 +1197,33 @@ Settled in the phase 7 interview. The brief's "Decisions this brief makes" stand
 - **Tests:**
   - `pnpm e2e:desktop` runs the 21 Playwright Electron tests against `out/`.
   - `pnpm --filter @modelwright/desktop e2e:packaged` runs them against the packaged binary (`MODELWRIGHT_APP`). All pass both ways. They include the brief's smoke test (`e2e/smoke.spec.ts`): launch, the demo from the app's resources, open a temp project, rename an entity and see `erd.json` and `spec.md` change, switch views, quit.
+
+## 2026-10-12 — Phase 7 milestone 5: docs, and the done-means walk
+
+- **Docs:**
+  - `docs/using-modelwright.md` now covers installing the app (build with `pnpm package`, install from the `.dmg`, the first launch), updating it, what's kept where, using it (the picker's dialogs, the menu, the Dock, saving, theme), the preview's Mobile emulation, and the web build as the development harness with how it differs.
+  - `README.md` puts the app first. `CLAUDE.md` has the new architecture (core, client contract, desktop), the platform boundary's two clients, desktop security, the shortcut registry and menu, and how to run, test and package.
+- **New end-to-end tests for phases 2–6's editing features in the app:**
+  - a delete shows a toast whose Undo restores the entity
+  - after the CLI records a build, the indicator counts one change, and Revert all puts the design back
+  - an outside edit during unsaved edits shows the conflict banner, and Keep mine wins
+- **The walk:**
+  - **Checks:** `pnpm test` (814 tests), `pnpm typecheck` and `pnpm lint` pass. The 24 Playwright Electron tests pass against the packaged app, smoke test included.
+  - **Server tests:** unchanged since the phase began (`git diff 7904153 -- apps/server/test` is empty). The contract suite passes against both clients.
+  - **`pnpm dev`:** still serves the web build at http://127.0.0.1:4300. In the browser pane:
+    - the picker has no dialog and no ⌘O
+    - the header shows "Reload" with no ⌘R
+    - the overlay lists no desktop-only shortcuts, and the views show 1–3
+    - the UI view is the iframe
+    - an edit through the HTTP server reached `erd.json` and `spec.md`
+    The scratch project was removed from recents and disk afterwards.
+  - **Installed and opened from the Dock:** confirmed by you at gate 4.
+  - **Dialogs and the pasted path:** e2e tests, with the dialog stubbed in main, and your hand check at gate 3.
+  - **Editing features from phases 2–6:** e2e covers ERD, Flows, undo/redo, toasts, the outside edit, the conflict banner, the build indicator and Revert all.
+  - **Menu shortcuts:** the menu's items are tested; your hand check at gate 3 found every shortcut working, apart from canvas cut, copy and paste, which never existed (logged as ui-feedback item 24).
+  - **Mobile user agent, phone viewport and `DENY` servers:** e2e tests, plus PhotoBackup and the `DENY` server at gate 3.
+  - **Writes:** nothing outside `.design/` and `~/.modelwright` except creating a project, plus macOS's own `~/Library/Preferences/dev.modelwright.app.plist`, which every Mac app gets.
+  - **IPC and Node access:** malformed IPC calls are rejected, and the renderer has no `require` or `process` (e2e, evaluated in the renderer as the devtools console would).
+  - **Quitting with unsaved edits:** saves them (e2e), and quitting after previewing now exits.
+  - **Shared recents and demo:** the web server's `/api/projects/recent` lists the projects you opened in the installed app, from the same `~/.modelwright`.
+  - **Docs:** `docs/using-modelwright.md` covers installing, updating and using the app.
