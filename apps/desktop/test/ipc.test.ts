@@ -20,6 +20,11 @@ function spyCore() {
     readBuildRecord: vi.fn(async () => ({ status: 'none' })),
     checkPreview: vi.fn(async () => ({ status: 'ok' })),
     watchDesign: vi.fn(async () => unwatch),
+    devServerState: vi.fn(async () => ({ status: 'idle' })),
+    startDevServer: vi.fn(async () => ({ status: 'started', state: { status: 'running' } })),
+    stopDevServer: vi.fn(async () => ({ status: 'exited' })),
+    watchDevServer: vi.fn(async () => unwatch),
+    stopAllDevServers: vi.fn(),
   };
   return { core, unwatch, asCore: core as unknown as Core };
 }
@@ -52,6 +57,14 @@ describe('IPC argument validation', () => {
     ['checkPreview', [['http://x']]],
     ['watchDesign', [undefined]],
     ['unwatchDesign', [1]],
+    // The renderer can't name a command: start takes a path and an approval, nothing else.
+    ['startDevServer', ['/a', 'rm -rf ~']],
+    ['startDevServer', ['/a', true, 'rm -rf ~']],
+    ['startDevServer', [{ path: '/a', command: 'x' }, true]],
+    ['stopDevServer', []],
+    ['devServerState', [7]],
+    ['watchDevServer', [null]],
+    ['unwatchDevServer', [{}]],
   ];
 
   it.each(malformed)('rejects %s(%j) before it reaches the core', async (method, args) => {
@@ -100,6 +113,22 @@ describe('IPC argument validation', () => {
 
   it('has a schema for every method', () => {
     expect(Object.keys(IPC_ARGS).sort()).toEqual([...INVOKE_METHODS].sort());
+  });
+});
+
+describe('the dev server over IPC', () => {
+  it('starts with only the path and the approval', async () => {
+    const { handlers, sender, core } = setup();
+    expect((await handlers.handle('startDevServer', sender(), ['/a', true])).ok).toBe(true);
+    expect(core.startDevServer).toHaveBeenCalledWith('/a', true);
+  });
+
+  it('releases dev server watches with their renderer', async () => {
+    const { handlers, sender, unwatch } = setup();
+    const result = await handlers.handle('watchDevServer', sender(3), ['/a']);
+    expect(result.ok).toBe(true);
+    handlers.releaseSender(3);
+    expect(unwatch).toHaveBeenCalledOnce();
   });
 });
 

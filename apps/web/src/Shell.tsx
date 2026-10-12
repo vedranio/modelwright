@@ -191,7 +191,10 @@ export function Shell({ project, onClose }: Props) {
 
   /** Saves before closing; if that fails, asks before throwing the edits away. */
   async function close(next?: PickerIntent) {
-    if (await saveOrAsk('Close')) await onClose(next);
+    if (!(await saveOrAsk('Close'))) return;
+    // A dev server modelwright started goes with its project.
+    void client.devServer.stop(project.path).catch(() => {});
+    await onClose(next);
   }
 
   // The desktop app's File menu, Dock and quit. Their keys only exist there.

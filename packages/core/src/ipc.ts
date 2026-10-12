@@ -1,3 +1,4 @@
+import type { DevServerEvent } from '@modelwright/schema';
 import type { SerialisedError } from './contract';
 
 /**
@@ -24,6 +25,11 @@ export const INVOKE_METHODS = [
   'readyToClose',
   'setPreview',
   'snapshotPreview',
+  'devServerState',
+  'startDevServer',
+  'stopDevServer',
+  'watchDevServer',
+  'unwatchDevServer',
 ] as const;
 export type InvokeMethod = (typeof INVOKE_METHODS)[number];
 
@@ -33,6 +39,15 @@ export function invokeChannel(method: InvokeMethod): string {
 
 /** Main → renderer: a watched project's file changed, `{ id, kind }`. */
 export const DESIGN_CHANGE_CHANNEL = 'mw:design-change';
+
+/** Main → renderer: a watched dev server's event, `{ id, event }`. */
+export const DEV_SERVER_CHANNEL = 'mw:dev-server';
+
+export interface DevServerEventMessage {
+  /** The subscription it belongs to. */
+  id: string;
+  event: DevServerEvent;
+}
 
 /** Main → renderer: a command from the application menu, the Dock or the OS. */
 export const HOST_COMMAND_CHANNEL = 'mw:command';
@@ -68,11 +83,16 @@ export interface DesignChangeEvent {
 export interface DesktopApi {
   /** Calls one ProjectClient method in main. Arguments are validated there. */
   invoke(
-    method: Exclude<InvokeMethod, 'watchDesign' | 'unwatchDesign'>,
+    method: Exclude<
+      InvokeMethod,
+      'watchDesign' | 'unwatchDesign' | 'watchDevServer' | 'unwatchDevServer'
+    >,
     ...args: unknown[]
   ): Promise<IpcResult<unknown>>;
   /** Watches a project; `onChange` gets each change's kind. Returns the function that stops it. */
   watchDesign(path: string, onChange: (kind: string) => void): () => void;
+  /** Watches a project's dev server: a snapshot, then changes. Returns the function that stops. */
+  watchDevServer(path: string, onEvent: (event: DevServerEvent) => void): () => void;
   /** Listens for menu, Dock and OS commands. Returns the function that stops listening. */
   onCommand(listener: (command: HostCommand) => void): () => void;
 }

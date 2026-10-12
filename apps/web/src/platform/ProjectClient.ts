@@ -1,13 +1,25 @@
 import type {
   BuildRead,
+  DevServerEvent,
+  DevServerState,
   DesignDoc,
   DesignKind,
   Issue,
   PreviewCheck,
   ProjectSummary,
+  StartDevServerResult,
 } from '@modelwright/schema';
 
-export type { BuildRead, DesignDoc, DesignKind, PreviewCheck, ProjectSummary };
+export type {
+  BuildRead,
+  DesignDoc,
+  DesignKind,
+  DevServerEvent,
+  DevServerState,
+  PreviewCheck,
+  ProjectSummary,
+  StartDevServerResult,
+};
 
 /**
  * Everything the UI needs from disk. The web build talks HTTP to apps/server; Electron will
@@ -48,6 +60,22 @@ export interface ProjectClient {
    * goes. Resolves to the chosen folder, or null if cancelled. Only when `folderDialog` is true.
    */
   chooseFolder(purpose: 'open' | 'location', defaultPath?: string): Promise<string | null>;
+  /** The project's dev server, started and stopped by modelwright. */
+  readonly devServer: DevServerClient;
+}
+
+/**
+ * Runs the project's `preview.devCommand`. The command is never passed in: the host reads it
+ * from `config.json`, and runs it only once it's been approved for the project.
+ */
+export interface DevServerClient {
+  state(path: string): Promise<DevServerState>;
+  /** Starts it, or says what it would run. `approve` approves the command first. */
+  start(path: string, approve: boolean): Promise<StartDevServerResult>;
+  /** Stops it and everything it started; resolves once they've gone. */
+  stop(path: string): Promise<DevServerState>;
+  /** A snapshot of its state and log, then changes. Returns the function that stops watching. */
+  watch(path: string, onEvent: (event: DevServerEvent) => void): () => void;
 }
 
 export interface ClientCapabilities {

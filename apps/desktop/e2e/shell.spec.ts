@@ -19,7 +19,7 @@ test('the renderer has no Node access, and only the narrow API', async () => {
       typeof (globalThis as Record<string, unknown>)['process'],
       Object.keys((globalThis as unknown as Record<string, object>)['modelwright'] ?? {}).sort(),
     ]),
-  ).toEqual(['undefined', 'undefined', ['invoke', 'onCommand', 'watchDesign']]);
+  ).toEqual(['undefined', 'undefined', ['invoke', 'onCommand', 'watchDesign', 'watchDevServer']]);
 });
 
 test('malformed IPC calls are rejected in main', async () => {

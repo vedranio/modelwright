@@ -2,8 +2,8 @@ import type { Config } from '@modelwright/schema';
 
 /*
  * Pure edits to config.json, following the ERD and Flows conventions: an unchanged edit
- * returns the same object, and a blank optional removes its key. `devCommand` and `devices`
- * aren't editable from the UI and pass through untouched.
+ * returns the same object, and a blank optional removes its key. `devices` isn't editable from
+ * the UI and passes through untouched.
  */
 
 /** A blank name is refused (the schema requires one): the config comes back unchanged. */

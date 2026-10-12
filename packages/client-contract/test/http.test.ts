@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach } from 'vitest';
-import { DesignWatcher } from '@modelwright/core';
+import { DesignWatcher, DevServers } from '@modelwright/core';
 import { createApp } from '../../../apps/server/src/app';
 import { createHttpClient } from '../../../apps/web/src/platform/httpClient';
 import { runProjectClientContract } from '../src/contract';
@@ -15,17 +15,25 @@ const NOTES = fileURLToPath(new URL('../../schema/test/fixtures/notes', import.m
 let root = '';
 let app: ReturnType<typeof createApp>;
 let watcher: DesignWatcher;
+let devServers: DevServers;
+/** A dev command that prints `ready` and keeps running, run through a plain shell in tests. */
+const DEV_COMMAND = `${JSON.stringify(process.execPath)} -e "console.log('ready'); setInterval(() => {}, 1000)"`;
+const SH = { file: '/bin/sh', args: (command: string) => ['-c', command] };
+
 const sources: SseSource[] = [];
 
 beforeEach(async () => {
   root = await mkdtemp(path.join(os.tmpdir(), 'modelwright-contract-http-'));
   watcher = new DesignWatcher(40);
-  app = createApp({ homeDir: path.join(root, '.modelwright'), userHome: root, watcher });
+  const homeDir = path.join(root, '.modelwright');
+  devServers = new DevServers({ homeDir, shell: SH });
+  app = createApp({ homeDir, userHome: root, watcher, devServers });
 });
 
 afterEach(async () => {
   for (const s of sources.splice(0)) s.close();
   watcher.close();
+  devServers.stopAll(500);
   await rm(root, { recursive: true, force: true });
 });
 
@@ -108,6 +116,7 @@ runProjectClientContract('httpClient', {
     return dir;
   },
   home: () => root,
+  devCommand: DEV_COMMAND,
   readText: (project, kind) => readFile(path.join(project, '.design', `${kind}.json`), 'utf8'),
   writeText: (project, kind, text) =>
     writeFile(path.join(project, '.design', `${kind}.json`), text),

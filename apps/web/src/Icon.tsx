@@ -1,14 +1,19 @@
 import close from '@material-symbols/svg-400/outlined/close.svg';
 import contrast from '@material-symbols/svg-400/outlined/contrast.svg';
 import darkMode from '@material-symbols/svg-400/outlined/dark_mode.svg';
+import keyboardArrowDown from '@material-symbols/svg-400/outlined/keyboard_arrow_down.svg';
+import keyboardArrowUp from '@material-symbols/svg-400/outlined/keyboard_arrow_up.svg';
 import keyboardReturn from '@material-symbols/svg-400/outlined/keyboard_return.svg';
 import lightMode from '@material-symbols/svg-400/outlined/light_mode.svg';
 import openInBrowser from '@material-symbols/svg-400/outlined/open_in_browser.svg';
+import playArrow from '@material-symbols/svg-400/outlined/play_arrow.svg';
 import questionMark from '@material-symbols/svg-400/outlined/question_mark.svg';
 import redo from '@material-symbols/svg-400/outlined/redo.svg';
 import refresh from '@material-symbols/svg-400/outlined/refresh.svg';
 import shift from '@material-symbols/svg-400/outlined/shift.svg';
+import stop from '@material-symbols/svg-400/outlined/stop.svg';
 import syncAlt from '@material-symbols/svg-400/outlined/sync_alt.svg';
+import terminal from '@material-symbols/svg-400/outlined/terminal.svg';
 import undo from '@material-symbols/svg-400/outlined/undo.svg';
 
 /**
@@ -20,14 +25,19 @@ const ICONS = {
   close,
   contrast,
   dark_mode: darkMode,
+  keyboard_arrow_down: keyboardArrowDown,
+  keyboard_arrow_up: keyboardArrowUp,
   keyboard_return: keyboardReturn,
   light_mode: lightMode,
   open_in_browser: openInBrowser,
+  play_arrow: playArrow,
   question_mark: questionMark,
   redo,
   refresh,
   shift,
+  stop,
   sync_alt: syncAlt,
+  terminal,
   undo,
 } as const;
 

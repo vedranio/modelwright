@@ -40,7 +40,8 @@ modelwright/
   packages/spec/        # spec.md generation and the design diff
   packages/project/     # project rules and .design/ file I/O (shared with the CLI)
   packages/core/        # every project operation, transport-free: open, init, create,
-                        #   recents, read/write, build record, preview check, watch, demo
+                        #   recents, read/write, build record, preview check, watch, demo,
+                        #   and projects' dev servers (devServer.ts: approval, process groups, log)
     src/contract.ts     # pure: error codes, argument schemas (zod), preview layout
     src/ipc.ts          # pure: IPC channels and the preload's DesktopApi type
   packages/cli/         # modelwright-design, bundled into plugins/modelwright/bin/

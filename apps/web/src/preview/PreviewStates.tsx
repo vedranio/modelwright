@@ -1,4 +1,4 @@
-import { CommandSnippet } from '../CommandSnippet';
+import type { ReactNode } from 'react';
 import { EmptyCard } from '../views/common';
 import { EditableUrl, UrlField } from './UrlField';
 import { Icon } from '../Icon';
@@ -16,12 +16,13 @@ export function CheckingState({ url }: { url: string }) {
 export function NothingRunning({
   url,
   detail,
-  devCommand,
+  devServer,
   onSetUrl,
 }: {
   url: string;
   detail?: string;
-  devCommand?: string;
+  /** Starting the dev server from here: Start, its progress, or setting its command. */
+  devServer?: ReactNode;
   onSetUrl: (url: string) => void;
 }) {
   return (
@@ -29,7 +30,7 @@ export function NothingRunning({
       <EditableUrl className="state-url" url={url} onCommit={onSetUrl} />
       {detail && <p className="state-detail">{detail}</p>}
       <p className="state-step">Start your project’s dev server.</p>
-      {devCommand && <CommandSnippet command={devCommand} />}
+      {devServer}
       <p className="state-waiting" role="status">
         Checking again…
       </p>

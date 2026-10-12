@@ -73,6 +73,28 @@ export function createHttpClient(
       });
       return () => events.close();
     },
+    devServer: {
+      async state(path) {
+        return (await send('GET', `/dev-server${query(path)}`)).json();
+      },
+      async start(path, approve) {
+        return (await send('POST', '/dev-server/start', { path, approve })).json();
+      },
+      async stop(path) {
+        return (await send('POST', '/dev-server/stop', { path })).json();
+      },
+      watch(path, onEvent) {
+        const events = new transport.EventSource(`${baseUrl}/dev-server/events${query(path)}`);
+        events.addEventListener('dev-server', (event) => {
+          try {
+            onEvent(JSON.parse((event as MessageEvent<string>).data));
+          } catch {
+            // A malformed event is skipped; the next snapshot catches up.
+          }
+        });
+        return () => events.close();
+      },
+    },
     capabilities: { folderDialog: false },
     async chooseFolder() {
       throw new ProjectClientError('Folder dialogs need the desktop app', 0);

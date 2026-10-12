@@ -1251,3 +1251,38 @@ Built at your request before the phase 7 PR, with these calls (yours to change a
   - Vitest covers the fragments, pasting (fresh ids, internal links only, valid documents, entity references at home and away), encoding and decoding, and where pastes land.
   - Playwright Electron covers copy and paste and undo; cut with its toast and the link coming back; a text field copying its text; entities refused in Flows; and screens pasted into another project without entity references. Those tests save and restore the system clipboard.
   - In the web build's browser pane, a copy event produced the tagged JSON and a paste event added the entity.
+
+## 2026-10-12 — Starting the project's dev server from modelwright
+
+The phase 7 brief's "obvious next convenience". Settled with you: both builds through the core; it runs only on a click, with a new or changed command confirmed first; it stops with the project; and it has a log panel.
+
+- **The core owns it** (`packages/core/src/devServer.ts`, `DevServers`, one per process).
+  - **The command is always read from disk.** `startDevServer(path, approve)` reads `preview.devCommand` from the project's `config.json` itself. Neither transport takes a command, so a compromised renderer or page can only run what the project already names. IPC tests check that a command argument is rejected.
+- **Approval:**
+  - An unapproved command returns `needs-approval` with the command and folder, and runs nothing.
+  - `approve` records `{ project, command }` in `~/.modelwright/approvals.json` (serialised and atomic; a corrupt file approves nothing).
+  - Approval is per project and per exact command text, so an edit by Claude Code or a teammate asks again.
+- **Running it:**
+  - `$SHELL -ilc '<command>'` in the project folder: a login, interactive shell, so a Dock-launched app gets your PATH and nvm. That was checked with a Dock-like minimal environment.
+  - It runs in its own process group (`detached`), with `BROWSER=none` so dev servers don't open a browser of their own.
+- **Output** is kept as the last 500 lines, with ANSI codes stripped. "Ready" isn't tracked: the preview check already knows when the URL answers.
+- **Stopping:**
+  - SIGTERM to the whole group, waiting for the group (not just the shell) to go, then SIGKILL after 5 s. Tests include a grandchild that ignores SIGTERM.
+  - `stopAll()` is synchronous (SIGTERM, up to 1.5 s, then SIGKILL) for shutdown.
+- **Lifetime:**
+  - Closing a project stops its server (`Shell.close`).
+  - The desktop app stops all servers in `will-quit` and when its window closes. The web build's server stops them on SIGINT, SIGTERM and SIGHUP, so stopping `pnpm dev` takes them too. Closing a browser tab doesn't stop a server.
+- **Transports:**
+  - HTTP: `GET /api/dev-server`, `POST /api/dev-server/start` and `/stop`, and SSE on `/api/dev-server/events` (a snapshot first).
+  - IPC: invoke channels plus `watchDevServer`/`unwatchDevServer`, with events on `mw:dev-server`, sharing the preload's subscribe helper with `watchDesign`.
+  - `ProjectClient.devServer` hides which is which, and the contract suite runs the same three dev-server cases against both clients.
+- **UI:**
+  - The "Nothing running" card has **Start dev server** (or **Start again** after a crash, with the exit code), with the command still shown to copy. With no command, it has a **Dev command** field (`setDevCommand`, so `devCommand` is now editable from the UI).
+  - The approval is the app's confirm dialog: "Run this command?", the command, the folder, and "Run".
+  - A **Dev server** strip runs along the bottom of the UI view whenever a server has run. It has its status, the command, Stop or Start, and **Use this URL** when the server announces another loopback address (`announcedUrls`, in `@modelwright/project/rules`).
+  - It opens into the log while a server starts and after a crash, and folds away once the preview is up. A toggle by hand holds until that changes.
+- **The preview re-checks when the server starts or stops.** A live preview isn't polled (a phase 4 decision), so without this a stopped server left its dead page on screen. That was found in the browser pane.
+- **Tests:**
+  - Vitest covers the core (approval, output, cap, exit codes, process groups, stopAll, no command, `stripAnsi`, `announcedUrls`), three contract cases on both clients, and IPC validation.
+  - Playwright Electron, through the real login shell, covers: approve, the preview shows the page, Stop and the process gone, start again with no dialog; closing the project and quitting each stop it (by pid); and a crash showing exit 2, its output and Start again.
+  - In the web build's browser pane: Start, the dialog, the preview, the log, Stop with the card back, start again with no dialog, and close stopping the server.
