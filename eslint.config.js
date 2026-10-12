@@ -4,15 +4,15 @@ import reactHooks from 'eslint-plugin-react-hooks';
 import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
-  { ignores: ['**/dist/**', '**/node_modules/**', 'plugins/modelwright/bin/**'] },
+  { ignores: ['**/dist/**', '**/out/**', '**/node_modules/**', 'plugins/modelwright/bin/**'] },
   js.configs.recommended,
   ...tseslint.configs.strict,
   {
-    files: ['packages/**/*.ts', 'apps/server/**/*.ts', '*.config.{js,ts}'],
+    files: ['packages/**/*.ts', 'apps/server/**/*.ts', 'apps/desktop/**/*.ts', '*.config.{js,ts}'],
     languageOptions: { globals: globals.node },
   },
   {
-    files: ['apps/web/**/*.{ts,tsx}'],
+    files: ['apps/web/**/*.{ts,tsx}', 'apps/web/public/**/*.js'],
     languageOptions: { globals: globals.browser },
     plugins: { 'react-hooks': reactHooks },
     rules: reactHooks.configs.recommended.rules,
@@ -39,8 +39,15 @@ export default tseslint.config(
           patterns: [
             { group: ['node:*', 'fs', 'fs/*', 'path'], message: 'No Node APIs in the web app.' },
             {
-              group: ['**/platform/httpClient'],
-              message: 'Depend on ProjectClient, not httpClient.',
+              group: ['**/platform/httpClient', '**/platform/ipcClient'],
+              message: 'Depend on ProjectClient, not a client implementation.',
+            },
+          ],
+          paths: [
+            {
+              name: '@modelwright/core',
+              message:
+                'The core runs in Node. Use @modelwright/core/contract or /ipc for shared types.',
             },
           ],
         },

@@ -2,15 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { isNotFound } from '@modelwright/project/node';
 
-/** A failure that maps directly onto an HTTP response. */
-export class HttpError extends Error {
-  constructor(
-    readonly status: 400 | 403 | 404 | 409 | 415,
-    message: string,
-  ) {
-    super(message);
-  }
-}
+import { CoreError } from './errors';
 
 /**
  * Validates a project path from a request: it must be an absolute path to an existing directory.
@@ -18,15 +10,15 @@ export class HttpError extends Error {
  */
 export async function resolveProjectDir(raw: unknown): Promise<string> {
   if (typeof raw !== 'string' || raw.trim() === '') {
-    throw new HttpError(400, 'A project path is required');
+    throw new CoreError('invalid-argument', 'A project path is required');
   }
   if (!path.isAbsolute(raw)) {
-    throw new HttpError(400, `Project path must be absolute: ${raw}`);
+    throw new CoreError('invalid-argument', `Project path must be absolute: ${raw}`);
   }
   const dir = path.resolve(raw);
   const stat = await statOrNull(dir);
-  if (!stat) throw new HttpError(404, `No folder at ${dir}`);
-  if (!stat.isDirectory()) throw new HttpError(400, `Not a folder: ${dir}`);
+  if (!stat) throw new CoreError('not-found', `No folder at ${dir}`);
+  if (!stat.isDirectory()) throw new CoreError('invalid-argument', `Not a folder: ${dir}`);
   return dir;
 }
 
@@ -36,7 +28,7 @@ export async function resolveProjectDir(raw: unknown): Promise<string> {
  */
 export async function resolveParentDir(raw: unknown, home: string): Promise<string> {
   if (typeof raw !== 'string' || raw.trim() === '') {
-    throw new HttpError(400, 'Choose where the project goes');
+    throw new CoreError('invalid-argument', 'Choose where the project goes');
   }
   const typed = raw.trim();
   const expanded =

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { parseDesign, type Issue } from '@modelwright/schema';
-import { ProjectClientError, useProjectClient, type DesignDoc } from '../platform';
+import { ProjectClientError, desktopHost, useProjectClient, type DesignDoc } from '../platform';
 import type { DocState } from '../docState';
 import {
   applyEdit,
@@ -234,9 +234,10 @@ export function useEditableDoc<K extends EditableKind>(
     setState(initialEditableState<K>());
   }, []);
 
-  // Warn before the page unloads with edits that aren't on disk.
+  // Warn before the page unloads with edits that aren't on disk. The desktop app has no page
+  // unload to guard: closing its window or quitting saves first, or asks (Shell's saveOrAsk).
   useEffect(() => {
-    if (!state.dirty) return;
+    if (!state.dirty || desktopHost()) return;
     const onBeforeUnload = (event: BeforeUnloadEvent) => event.preventDefault();
     window.addEventListener('beforeunload', onBeforeUnload);
     return () => window.removeEventListener('beforeunload', onBeforeUnload);

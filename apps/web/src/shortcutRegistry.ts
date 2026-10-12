@@ -11,6 +11,17 @@ export const IS_MAC =
   typeof navigator !== 'undefined' &&
   /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
 
+/** Inside the desktop app, where the application menu owns keys a browser would keep. */
+export const IS_DESKTOP = typeof globalThis === 'object' && 'modelwright' in globalThis;
+
+/** Where the shortcuts run: the platform, and whether it's the desktop app. */
+export interface Env {
+  mac: boolean;
+  desktop: boolean;
+}
+
+export const ENV: Env = { mac: IS_MAC, desktop: IS_DESKTOP };
+
 /**
  * One key combination. `key` matches `KeyboardEvent.key` case-insensitively; `code` matches the
  * physical key, for digits whose character depends on the layout and Shift. Modifiers not
@@ -25,6 +36,8 @@ export interface Combo {
   alt?: boolean;
   /** Only on macOS, or only elsewhere. */
   platform?: 'mac' | 'other';
+  /** Only in the desktop app: a browser keeps this key for itself. */
+  host?: 'desktop';
 }
 
 /**
@@ -47,9 +60,54 @@ const arrows = (extra: Partial<Combo>): Combo[] =>
 
 export const SHORTCUTS = [
   // Anywhere outside a text field
-  { id: 'view-erd', label: 'Switch to ERD', scope: 'global', combos: [{ code: 'Digit1' }] },
-  { id: 'view-flows', label: 'Switch to Flows', scope: 'global', combos: [{ code: 'Digit2' }] },
-  { id: 'view-ui', label: 'Switch to UI', scope: 'global', combos: [{ code: 'Digit3' }] },
+  {
+    id: 'view-erd',
+    label: 'Switch to ERD',
+    scope: 'global',
+    combos: [{ code: 'Digit1' }, { code: 'Digit1', mod: true, host: 'desktop' }],
+  },
+  {
+    id: 'view-flows',
+    label: 'Switch to Flows',
+    scope: 'global',
+    combos: [{ code: 'Digit2' }, { code: 'Digit2', mod: true, host: 'desktop' }],
+  },
+  {
+    id: 'view-ui',
+    label: 'Switch to UI',
+    scope: 'global',
+    combos: [{ code: 'Digit3' }, { code: 'Digit3', mod: true, host: 'desktop' }],
+  },
+  {
+    id: 'reload-design',
+    label: 'Reload the design from disk',
+    scope: 'global',
+    combos: [{ key: 'r', mod: true, host: 'desktop' }],
+  },
+  {
+    id: 'reload-preview',
+    label: 'Reload the preview',
+    scope: 'global',
+    combos: [{ key: 'r', mod: true, shift: true, host: 'desktop' }],
+  },
+  {
+    id: 'new-project',
+    label: 'New project',
+    scope: 'global',
+    combos: [{ key: 'n', mod: true, host: 'desktop' }],
+  },
+  {
+    id: 'open-project',
+    label: 'Open a project',
+    scope: 'global',
+    combos: [{ key: 'o', mod: true, host: 'desktop' }],
+  },
+  {
+    id: 'close-project',
+    label: 'Close the project',
+    scope: 'global',
+    combos: [{ key: 'w', mod: true, host: 'desktop' }],
+  },
   {
     id: 'shortcuts',
     label: 'Show keyboard shortcuts',
@@ -69,6 +127,10 @@ export const SHORTCUTS = [
     ],
   },
   { id: 'select-all', label: 'Select all', scope: 'canvas', combos: [{ key: 'a', mod: true }] },
+  // Handled as the page's copy, cut and paste events (canvas/useCardClipboard.ts), not keydowns.
+  { id: 'cut', label: 'Cut selection', scope: 'canvas', combos: [{ key: 'x', mod: true }] },
+  { id: 'copy', label: 'Copy selection', scope: 'canvas', combos: [{ key: 'c', mod: true }] },
+  { id: 'paste', label: 'Paste', scope: 'canvas', combos: [{ key: 'v', mod: true }] },
   {
     id: 'duplicate',
     label: 'Duplicate selection',
@@ -173,9 +235,20 @@ export const SCOPE_TITLES: Record<Scope, string> = {
   field: 'While editing a field',
 };
 
-/** Whether a combo applies on this platform. */
-export function onPlatform(combo: Combo, mac = IS_MAC): boolean {
+/** Whether a combo applies on this platform, and in this build (browser or desktop). */
+export function onPlatform(combo: Combo, mac = IS_MAC, desktop = IS_DESKTOP): boolean {
+  if (combo.host === 'desktop' && !desktop) return false;
   return combo.platform === undefined || (combo.platform === 'mac') === mac;
+}
+
+/** The combos of a shortcut that work here. A shortcut with none has no hint (the hint rule). */
+export function availableCombos(id: ShortcutId, env: Env = ENV): Combo[] {
+  return shortcut(id).combos.filter((c) => onPlatform(c, env.mac, env.desktop));
+}
+
+/** Whether a shortcut works here at all. */
+export function shortcutAvailable(id: ShortcutId, env: Env = ENV): boolean {
+  return availableCombos(id, env).length > 0;
 }
 
 /** Whether a key event is this combo. */
@@ -218,11 +291,12 @@ export function renderCombo(combo: Combo, mac = IS_MAC): string {
   return parts.filter(Boolean).join('+');
 }
 
-/** The hint for a shortcut, e.g. "⇧1" or "E". */
-export function shortcutHint(id: ShortcutId, mac = IS_MAC): string {
+/** The hint for a shortcut, e.g. "⇧1" or "E", or "" when it doesn't work here. */
+export function shortcutHint(id: ShortcutId, mac = IS_MAC, desktop = IS_DESKTOP): string {
   const def = shortcut(id);
+  const combos = availableCombos(id, { mac, desktop });
+  if (combos.length === 0) return '';
   if (def.display) return mac ? def.display.mac : def.display.other;
-  const combos = def.combos.filter((c) => onPlatform(c, mac));
   return combos.map((c) => renderCombo(c, mac)).join(' / ');
 }
 

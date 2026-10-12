@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useSyncExternalStore } from 'react';
 import type { IconName } from './Icon';
 import { loadPref, savePref } from './storage';
 
@@ -29,13 +29,29 @@ export function applyTheme(theme: ThemeSetting): void {
   else root.setAttribute('data-theme', theme);
 }
 
+// One setting for the whole page, so the header's menu and the desktop app's View ▸ Theme agree.
+let current: ThemeSetting | null = null;
+const subscribers = new Set<() => void>();
+
+export function getTheme(): ThemeSetting {
+  current ??= loadTheme();
+  return current;
+}
+
+/** Applies, saves and announces a theme setting. */
+export function setTheme(next: ThemeSetting): void {
+  applyTheme(next);
+  savePref(KEY, next === 'system' ? null : next);
+  current = next;
+  for (const notify of subscribers) notify();
+}
+
+function subscribe(notify: () => void): () => void {
+  subscribers.add(notify);
+  return () => subscribers.delete(notify);
+}
+
 /** The remembered theme setting, and a setter that applies and saves it. */
 export function useTheme(): [ThemeSetting, (theme: ThemeSetting) => void] {
-  const [theme, setThemeState] = useState(loadTheme);
-  const setTheme = useCallback((next: ThemeSetting) => {
-    applyTheme(next);
-    savePref(KEY, next === 'system' ? null : next);
-    setThemeState(next);
-  }, []);
-  return [theme, setTheme];
+  return [useSyncExternalStore(subscribe, getTheme), setTheme];
 }

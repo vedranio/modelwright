@@ -4,20 +4,22 @@ A local design tool for apps that Claude Code builds. You design the data model 
 
 modelwright only reads and writes a project's `.design/` folder. Each app lives in its own repo, never in this one.
 
-- **[Using modelwright](docs/using-modelwright.md):** install the plugin, start modelwright, and the design → build → check loop.
+- **[Using modelwright](docs/using-modelwright.md):** install the plugin and the app, and the design → build → check loop.
 - [Decisions](docs/decisions.md): why things are the way they are.
 
 ## Quick start
+
+modelwright is a macOS app (Apple silicon) that you build from this repo:
 
 ```bash
 pnpm install
 ```
 
 ```bash
-pnpm dev
+pnpm package
 ```
 
-Then open http://127.0.0.1:4300, and install the plugin in Claude Code:
+Open `apps/desktop/dist/modelwright-<version>-arm64.dmg` and drag **modelwright** onto **Applications**. Then install the plugin in Claude Code:
 
 ```bash
 claude plugin marketplace add vedranio/modelwright
@@ -29,4 +31,15 @@ claude plugin install modelwright@modelwright --scope user
 
 ## Development
 
-pnpm workspaces, TypeScript throughout. `pnpm test`, `pnpm typecheck` and `pnpm lint` run across the repo. `pnpm build:plugin` rebuilds the bundled CLI in `plugins/modelwright/bin/`, which is committed; a test checks it matches the source. See `CLAUDE.md` for the architecture and conventions.
+pnpm workspaces, TypeScript throughout. The app is an Electron shell (`apps/desktop`) around the web UI (`apps/web`). The same UI also runs in a browser against a small local server, which is the development and test harness:
+
+```bash
+pnpm dev
+```
+
+Then open http://127.0.0.1:4300. `pnpm dev:desktop` runs the desktop app from source with hot reload (quit the installed app first).
+
+- **Checks:** `pnpm test`, `pnpm typecheck` and `pnpm lint` run across the repo. `pnpm e2e:desktop` drives the desktop app with Playwright, and `pnpm e2e:packaged` drives the packaged one.
+- **The plugin's CLI:** `pnpm build:plugin` rebuilds the bundled CLI in `plugins/modelwright/bin/`, which is committed; a test checks it matches the source.
+
+See `CLAUDE.md` for the architecture and conventions.

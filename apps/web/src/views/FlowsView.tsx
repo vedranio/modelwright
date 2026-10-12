@@ -1,11 +1,13 @@
 import { useCallback, useLayoutEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
 import type { NodeChange, OnConnectEnd, ReactFlowInstance, XYPosition } from '@xyflow/react';
-import type { Flows, TransitionFrom } from '@modelwright/schema';
+import { parseDesign, type Flows, type TransitionFrom } from '@modelwright/schema';
 import { Canvas } from '../canvas/Canvas';
 import { anchorCard, cardRects, nodeUnderPoint, revealCard } from '../canvas/cards';
 import { besideAnchor, nudgeClear } from '../canvas/freeSpot';
 import { placeNodes } from '../canvas/placement';
+import { decodeCards, encodeCards, pasteShift } from '../canvas/cardClipboard';
 import { UndoRedoButtons } from '../canvas/UndoRedoButtons';
+import { useCardClipboard, viewInFlow } from '../canvas/useCardClipboard';
 import { useCanvasShortcuts } from '../canvas/useCanvasShortcuts';
 import { useMeasurements } from '../canvas/useMeasurements';
 import { useSelection } from '../canvas/useSelection';
@@ -27,13 +29,16 @@ import {
   deleteTransitions,
   duplicateScreens,
   moveScreens,
+  pasteScreens,
   retargetTransition,
+  screenFragment,
 } from '../flows/ops';
 import { ScreenNode, type Highlight, type ScreenNodeType } from '../flows/ScreenNode';
 import { TransitionEdge, type TransitionEdgeType } from '../flows/TransitionEdge';
 import '../flows/flows.css';
 import { useShortcut } from '../shortcuts';
 import { shortcutHint } from '../shortcutRegistry';
+import { useToast } from '../Toast';
 import { Kbd } from '../ui';
 import type { DocState } from '../useDesign';
 import { DocStateView } from './DocStateView';
@@ -381,6 +386,65 @@ function FlowsCanvas({
           ),
         { coalesce },
       );
+    },
+  });
+
+  // ⌘C, ⌘X and ⌘V: the selected screens, and the transitions between them.
+  const toast = useToast();
+  const selectedScreens = () =>
+    flows.screens.filter((sc) => selection.selectedNodes.has(sc.id)).map((sc) => sc.id);
+  const copyCards = (): string | null => {
+    const chosen = selectedScreens();
+    if (chosen.length === 0) return null;
+    const fragment = screenFragment(withPlacement(flows), chosen);
+    return encodeCards({ kind: 'flows', project: projectPath, fragment });
+  };
+  useCardClipboard({
+    copy: copyCards,
+    cut: () => {
+      const text = copyCards();
+      if (text === null) return null;
+      const screenIds = new Set(selectedScreens());
+      remove(
+        (doc) => deleteScreens(doc, screenIds),
+        (doc) => deletionSummary(doc, screenIds, new Set())?.replace(/^Deleted/, 'Cut') ?? null,
+      );
+      selection.clear();
+      return text;
+    },
+    paste: (text) => {
+      const cards = decodeCards(text);
+      if (!cards) return false;
+      if (cards.kind !== 'flows') {
+        toast.show({ message: 'Those are entities: paste them in the ERD' });
+        return true;
+      }
+      const sameProject = cards.project === projectPath;
+      let copies: string[] = [];
+      let links: string[] = [];
+      let invalid = false;
+      apply((doc) => {
+        const shift = pasteShift(
+          cards.fragment.layout,
+          doc.layout,
+          sameProject,
+          viewInFlow(instance.current, container.current),
+        );
+        // Entity references name the source project's entities, so they only survive at home.
+        const result = pasteScreens(doc, cards.fragment, shift, { keepEntities: sameProject });
+        if (!parseDesign('flows', result.flows).ok) {
+          invalid = true;
+          return doc;
+        }
+        copies = result.ids;
+        links = result.flows.transitions
+          .filter((t) => copies.includes(t.from.screenId))
+          .map((t) => t.id);
+        return result.flows;
+      });
+      if (invalid) toast.show({ message: 'Couldn’t paste: the copied screens aren’t valid' });
+      else selection.select(copies, links);
+      return true;
     },
   });
 

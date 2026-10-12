@@ -1,7 +1,9 @@
 import { useLayoutEffect, useRef, useState } from 'react';
 import type { Device } from '@modelwright/schema';
 import { tokenNumber } from '../canvas/tokens';
+import { desktopHost } from '../platform';
 import { isNarrow } from './devices';
+import { NativeScreen } from './NativeScreen';
 import { fitScale, type Area, type Chrome } from './scale';
 
 /** Real apps need scripts, storage, forms, popups, dialogs and downloads. See the URL rules in packages/project. */
@@ -15,6 +17,10 @@ interface Props {
   frameKey: string;
   /** Told the frame's scale whenever it changes, for the toolbar. */
   onScale: (scale: number) => void;
+  /** Bumped by Reload preview. */
+  reload: number;
+  /** Whether the UI view is showing. */
+  visible: boolean;
 }
 
 /**
@@ -22,7 +28,8 @@ interface Props {
  * (never up) to fit whole. A narrow device gets a phone-like bezel, a wide one a window bar.
  * Both share one element tree, so switching device only resizes the iframe.
  */
-export function DeviceFrame({ device, url, frameKey, onScale }: Props) {
+export function DeviceFrame({ device, url, frameKey, onScale, reload, visible }: Props) {
+  const host = desktopHost();
   const stage = useRef<HTMLDivElement>(null);
   const [area, setArea] = useState<Area>({ width: 0, height: 0 });
 
@@ -66,14 +73,28 @@ export function DeviceFrame({ device, url, frameKey, onScale }: Props) {
             <span />
           </div>
           <div className="device-screen">
-            <iframe
-              key={frameKey}
-              className="device-iframe"
-              src={url}
-              title={`Preview of ${url}`}
-              sandbox={SANDBOX}
-              style={{ width: fit.viewportWidth, height: fit.viewportHeight }}
-            />
+            {host ? (
+              // The desktop app: a native view with real device emulation, over this place.
+              <NativeScreen
+                host={host}
+                url={url}
+                reload={reload}
+                width={fit.viewportWidth}
+                height={fit.viewportHeight}
+                mobile={narrow}
+                scale={fit.scale}
+                visible={visible && area.width > 0}
+              />
+            ) : (
+              <iframe
+                key={frameKey}
+                className="device-iframe"
+                src={url}
+                title={`Preview of ${url}`}
+                sandbox={SANDBOX}
+                style={{ width: fit.viewportWidth, height: fit.viewportHeight }}
+              />
+            )}
           </div>
         </div>
       </div>

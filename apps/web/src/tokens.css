@@ -65,6 +65,8 @@
 
   /* Size */
   --header-h: 44px;
+  /* Desktop app: room for the window's traffic lights, which sit inside the header. */
+  --titlebar-inset: 80px;
   --control-h: 28px;
   --control-h-lg: 36px;
   --segment-h: 24px;

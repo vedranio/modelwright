@@ -1065,3 +1065,189 @@ The rest of the UI feedback from the dry run is logged above (commits A–K).
   - Flows with states, primary actions and labelled transitions
   - the UI preview framing a running app at mobile width
   - the light theme
+
+## 2026-10-08 — Phase 7 planning decisions
+
+Settled in the phase 7 interview. The brief's "Decisions this brief makes" stand: Electron with electron-vite; the web build stays as the development and test harness on 4300/4301; one core, two transports; macOS on Apple silicon only; manual updates; one window, one project; starting the project's dev server stays out of scope. These settle or change the rest:
+
+- **Where the Electron docs differ from the brief (the docs win):**
+  - The docs advise against `<webview>` and point to `iframe` or `WebContentsView`.
+  - A `WebContentsView` shows the preview as a top-level page, where `X-Frame-Options` and `frame-ancestors` don't apply. So the desktop app strips no headers. The brief's "preview header filtering" test becomes "the desktop preview check never reports `refuses-embedding`" (`checkPreview(url, { framing: false })`).
+- **The preview is a `WebContentsView`** in its own session partition (`persist:preview`). Mobile emulates the viewport and device scale factor (`enableDeviceEmulation`), a mobile user agent (`setUserAgent`) and touch (CDP through `webContents.debugger`). Desktop clears all three. The view is a native layer above the page, so main keeps its bounds in step with the preview area. While a menu, dialog, toast or the help overlay covers it, a snapshot stands in for it.
+- **Title bar: `hiddenInset`.** The header is the drag region and its controls are `no-drag`. A desktop-only token clears the traffic lights.
+- **Signing: ad-hoc, not notarised.** It runs on this Mac after a one-time "Open anyway".
+- **The core is a new `packages/core`.** `packages/project` stays the small rules-and-fs layer the CLI uses.
+- **Packaging uses electron-builder,** as electron-vite's docs and templates do. All workspace code is bundled into the main process, so the `.app` ships no `node_modules`.
+- **Electron's profile lives in `~/.modelwright/desktop`** (`app.setPath('userData')`). That keeps "writes nothing outside `.design/` and `~/.modelwright`" literally true.
+- **One instance.** A second launch, or a folder dropped on the Dock icon, opens in the existing window.
+- **⌘1–3 are desktop-only extra combos** for the views. Plain 1–3 keep working everywhere.
+- **The desktop renderer's dev server uses port 4302.** The packaged app opens no ports.
+- **Quitting with unsaved edits** behaves as Close project does in the web build.
+- **`brand/` was already committed,** contrary to the brief, so there was nothing to add.
+
+## 2026-10-08 — Phase 7 milestone 0: the core
+
+- **`packages/core`** holds every project operation, from `createCore({ homeDir, userHome, now, toolPorts, previewTimeoutMs, watcher, demoTemplate })`.
+  - The operations are `openProject`, `initProject`, `createProject`, `listRecent`, `removeRecent`, `readDesign`, `writeDesign`, `readBuildRecord`, `checkPreview` and `watchDesign`, plus `resolveProjectDir`.
+  - Projects, recents, the watcher, the preview check, frame-header matching, paths and the demo moved there from `apps/server/src` unchanged, apart from their error type.
+- **Errors are `CoreError`s** with a `code`: `invalid-argument`, `not-found`, `conflict` or `invalid-design`. An invalid design carries the file's `DesignError`.
+  - `@modelwright/core/contract` is the pure part both transports and the web clients share: the codes, `STATUS_FOR_CODE` (400/404/409/422), `SerialisedError` and the zod argument schemas.
+- **The Hono app is an adapter.** It keeps the guard, body parsing (415 and malformed JSON stay HTTP errors), SSE, and the mapping from `CoreError` to status. Its tests pass unchanged. `watcher.ts`, `demo.ts` and `frameHeaders.ts` remain in `apps/server/src` as one-line re-exports, because the tests import them by those paths.
+  - A PUT still checks the folder before reading the body, so a missing project is a 404 whatever the body.
+- **The demo template moved to `packages/core/demo/todo`.** `DEMO_TEMPLATE` looks for it beside the source, or in `demo/` beside a bundle. The server's tsup build copies it there.
+- **`checkPreview` takes `framing`.** With `false` (the desktop app), frame-blocking headers aren't read.
+- **The `ProjectClient` contract suite** lives in `packages/client-contract`, a test-only package typechecked with both DOM and Node types. It holds the same cases for every client: opening, recents, init, create, read/write with 404/400/409/422 statuses and issues, the build record, the preview check, and watching (external changes reported, own writes not, nothing after unsubscribe). It runs against `httpClient` with requests sent straight into the app, through a small `EventSource` shim over its SSE stream.
+- **`createHttpClient(baseUrl, transport)`** takes its `fetch` and `EventSource`, the browser's by default.
+
+## 2026-10-08 — Phase 7 milestone 1: the desktop shell
+
+- **electron-vite 5 with Vite 7, in `apps/desktop` only** (settled with you). electron-vite's stable release supports Vite up to 7, and only its 6.0 beta supports Vite 8. The desktop app builds apps/web's source with Vite 7 and `@vitejs/plugin-react` 5, and the web build stays on Vite 8. Move to electron-vite 6 once it's stable.
+- **Versions:** Electron 44.5.1 and Playwright 1.63.0, the newest that pass pnpm's release-age policy. pnpm had quietly added an exemption to `pnpm-workspace.yaml` for Electron 44.7.0 (a day old). That's undone. `allowBuilds` gains `electron`, so its install script can fetch the binary.
+- **Bundling:** main and preload are built with `externalizeDeps: false`, so the workspace packages (TypeScript source) and zod are bundled. Main's only imports are `electron` and Node built-ins. The preload is one CommonJS file (sandboxed preloads must be CJS) that requires only `electron`.
+- **The window:**
+  - `contextIsolation`, `sandbox`, no `nodeIntegration`, no `webviewTag`.
+  - `will-navigate` to anything but modelwright's own origin is cancelled, and new windows are denied. Web links go to the default browser.
+  - `will-attach-webview` is refused, and every permission request is denied.
+  - Watches are released when the renderer navigates or is destroyed.
+- **Served from `app://modelwright`** (privileged as standard and secure) in the built app, from `out/renderer` only, with a CSP: `script-src 'self'`; `style-src 'self' 'unsafe-inline'` (React Flow positions nodes with inline styles); no frames, objects or form actions. In development the renderer comes from electron-vite's dev server on 4302, with HMR and no CSP.
+- **The theme script before first paint** moved from an inline `<script>` to `public/theme-init.js`, so the CSP needs no `unsafe-inline` for scripts. It's the same code in both builds.
+- **IPC:**
+  - `@modelwright/core/ipc` (types and constants only) names the channels (`mw:<method>`), `IpcResult`, and the `DesktopApi` the preload exposes as `window.modelwright`: `invoke(method, …args)` for a whitelist of methods, plus `watchDesign(path, onChange) → stop`.
+  - `IPC_ARGS` in the contract holds each method's argument tuple as zod.
+  - `createIpcHandlers(core, { isTrusted, toolOrigin })` (`apps/desktop/src/main/ipc.ts`) checks the sending frame's origin, validates the arguments, calls the core, and returns values, never throws. Unexpected errors are `internal` (500).
+  - Watches have ids, belong to the renderer that made them, and a stop that comes before the watch has started still unwatches.
+- **`ipcClient`** maps serialised errors to `ProjectClientError` with the same HTTP-style statuses, so the UI can't tell the clients apart. `createDefaultClient()` picks it when `window.modelwright` exists. The web app's lint now forbids importing `@modelwright/core` itself (it's Node) or either client implementation.
+- **The preload's logic is `createDesktopApi(channel)`,** so the contract suite drives the real preload and main handlers over a fake channel that structured-clones like IPC. The contract passes against both clients.
+- **Tests:**
+  - Vitest: malformed arguments for every method are rejected with no core call, untrusted senders are refused, previews are checked with `framing: false`, watch ownership holds, and the preload forwards only known methods.
+  - Playwright Electron (`pnpm e2e:desktop`, against `out/`): no `require` or `process` in the renderer and only `invoke`/`watchDesign` on the API; malformed calls are rejected; a project opens, an entity rename reaches `erd.json`, and every view shows; an external edit to `erd.json` updates the canvas. Each run gets a temp `MODELWRIGHT_HOME`.
+
+## 2026-10-11 — Phase 7 milestone 2: native integration
+
+- **Folder dialogs:**
+  - `ProjectClient` gains `capabilities.folderDialog` and `chooseFolder('open' | 'location', defaultPath?)`. `httpClient` reports no dialog, and its `chooseFolder` rejects, so the web picker is unchanged.
+  - In the desktop app, "Open an existing project…" (⌘O) opens the dialog, and "or paste a path" opens the old field. Location gets "Choose…", which starts at the typed location with `~` expanded.
+- **The menu is data:** `apps/web/src/menuSpec.ts`, beside the registry it references. Main imports it (the desktop app already builds from apps/web's source) and builds the native menu from it (`apps/desktop/src/main/menu.ts`).
+  - The menus are File (New Project ⌘N, Open… ⌘O, Open Recent, Close Project ⌘W); Edit (Undo, Redo, Cut/Copy/Paste as native roles, Select All, Duplicate ⌘D, Delete); View (ERD/Flows/UI ⌘1–3, Reload Design ⌘R, Reload Preview ⇧⌘R, zoom, Fit, Theme, full screen, Developer Tools); Window; and Help (How modelwright Works, Keyboard Shortcuts).
+- **One dispatch path:**
+  - A menu item for a registry shortcut sends that shortcut's id to the renderer, which runs it as its key would: a synthetic keydown, so the same handlers and scopes apply.
+  - Items with ⌘ own their key, so the page ignores the real keydown for it (`deliveredByMenu`) and nothing runs twice. Plain keys (1–3, E, +, ?) are shown in the menu but not registered, so they stay typeable in fields.
+  - "Anywhere" shortcuts from the menu work from any focus, as menu commands do in Mac apps. The rest go where the focus is, and Undo, Redo and Select All go to a focused field's own editing.
+  - A test checks that every accelerator in the menu is a registry combo, and the reverse: every shortcut with a ⌘ key on desktop is in the menu, except `field-undo`, which Edit ▸ Undo routes to.
+- **Registry:**
+  - Combos can be `host: 'desktop'`. The new desktop-only shortcuts are reload-design (⌘R), reload-preview (⇧⌘R), new-project, open-project and close-project, and the views gain ⌘1–3.
+  - Hints follow the hint rule per build: the web build shows no ⌘R and lists none of these in the overlay, and the desktop app shows "Reload ⌘R" and "1 / ⌘1".
+  - ⌘D was never dropped from the web build (phase 5 verified it), so on desktop it simply becomes a menu item.
+- **Host commands** (`apps/web/src/platform/host.ts`, `hostCommands.ts`): main sends menu, Dock and OS commands, and the renderer reports `{ projectOpen, theme }`. That state enables the project items, checks the theme, sets `nativeTheme.themeSource` and flushes commands queued before the renderer was ready, such as a folder dropped on the Dock at launch.
+- **Opening another project** from the menu, Open Recent or the Dock saves the current one first (as Close does), then opens the folder. A folder with no `.design/` lands in the picker's Initialise panel.
+- **Quitting or closing the window** with a project open:
+  - Main holds the quit or close, and the renderer saves (`saveOrAsk('Quit')`), asking only if a save fails, then says `readyToClose`.
+  - Quitting keeps the project to reopen next launch. Close Project still clears it.
+  - The renderer's `beforeunload` guard is off in the desktop app, where it would silently cancel the close. Main also ignores `will-prevent-unload` once the renderer has saved.
+- **Window state** is kept in `~/.modelwright/desktop/window.json` (normal bounds and whether maximised), saved 300 ms after a move or resize. It's restored only if at least 160×80 of the window is on a current display, and never below the 900×600 minimum. The last view was already remembered.
+- **Title bar:** `hiddenInset`, with the traffic lights centred on the 44px header (`trafficLightPosition` 16, 15). `html[data-host='desktop']` gives the header an 80px `--titlebar-inset` and makes it the drag region with its controls `no-drag`. Behind the picker, the backdrop drags the window.
+- **Dock:**
+  - Its menu lists up to 10 recent projects. Menus rebuild at once from the last known recents, then again after reading them, so the app never shows Electron's default menu.
+  - `open-file` opens a dropped folder, and a second launch focuses the window. The `Info.plist` folder type that makes the Dock icon accept folders comes with packaging (M4).
+- **Tests:**
+  - Vitest covers the menu against the registry, the menu's state and commands, and window-state restoring. Registry tests cover host combos (overlaps checked for web and desktop, and the hint rule).
+  - Playwright Electron runs 15 tests, stable over three runs: the dialog stubbed in main to open and to choose a location; File ▸ Open… replacing a project; the View menu; Edit ▸ Undo/Redo on the canvas and in a text field; Reload Design and its ⌘R hint; View ▸ Theme setting the page and native theme; project items disabled in the picker; Open Recent; window bounds saved; `open-file` opening a project; and quitting within the autosave pause saving the edit and reopening the project.
+  - Synthetic clicks can't press real keys through the native menu, so the accelerators themselves are hand checks.
+
+## 2026-10-11 — Phase 7 milestone 3: the preview in the desktop app
+
+- **A `WebContentsView` over the device screen.**
+  - In the desktop app, `DeviceFrame` draws the same frame but renders `NativeScreen` where the iframe was. That element keeps the screen's place and tells main its window rect (after the frame's scale), the viewport, Mobile or not, the scale, the screen's corner radius and whether it's visible (`setPreview`, validated by `PreviewLayout`).
+  - Main (`apps/desktop/src/main/preview.ts`) owns one view in the `persist:preview` session, so the previewed app's storage never mixes with modelwright's.
+  - The view is placed in whole pixels covering the rect, with matching rounded corners. It's hidden while the UI view is, and removed with the preview (a stopped server, a closed project, a renderer reload, the window closing).
+  - Only http(s) URLs are accepted: the schema refuses `file:`, `javascript:` and `app:`, and navigation inside the view stays on the web. New windows open in the default browser, and permission requests are denied.
+- **Emulation through the DevTools protocol** (`webContents.debugger`), worked out by a pure `emulationFor`:
+  - **Mobile:** `setDeviceMetricsOverride` with the device's viewport, `mobile: true`, a device scale factor of 3 and the fit scale; a current iPhone Safari user agent; touch with 5 points; and mouse as touch.
+  - **Desktop:** the viewport only, at the display's scale factor, with Electron's user agent minus its Electron and app tokens (plain Chrome), and no touch.
+  - The scale is applied by the emulation, so the toolbar's percentage is still true.
+- **Switching device** resizes in place within Mobile or within Desktop (as in the web build). Switching between them loads the page again, because a page reads its user agent and touch support when it loads.
+- **Found while testing: emulating a view that hasn't rendered anything yet segfaults Electron's main process.** Each new view first loads `about:blank`, and emulation waits for it.
+  - Updates run one at a time in order, so a page never loads before its emulation.
+  - The preview view is removed as soon as a close or quit goes ahead. Left attached, it held the app open on quit.
+- **Overlays:** a native view sits above the page, so `NativeScreen` watches for modelwright's overlays (dialogs, the picker, the theme menu, the build popover, toasts) overlapping the screen. While one does, it takes a snapshot (`capturePage`), shows it in the screen's place and hides the view, then restores the view when the overlay goes.
+- **Framing:** the preview is a top-level page, so `X-Frame-Options` and `frame-ancestors` don't apply. The desktop check passes `framing: false`, so "refuses to be embedded" is web-only.
+  - SKILL.md step 3 now says framing headers only matter in the web build, and that ports 4300 to 4302 are modelwright's. The built CLI is unchanged.
+- **View ▸ Reload Preview (⇧⌘R)** reloads the preview, or re-checks while it's down.
+- **Tests:**
+  - Vitest covers emulation for both presets, the user-agent clean-up, whole-pixel bounds, and the layout schema refusing non-web URLs, upscaling, unknown keys and absurd sizes.
+  - Playwright Electron runs a local server sending `X-Frame-Options: DENY` and `frame-ancestors 'none'` whose page reports what it sees. At Mobile: a 390px viewport, DPR 3, touch with 5 points and an iPhone user agent. At Desktop: 1280px, no touch and a Chrome user agent with no Electron in it. Back to Mobile is a phone again. The view tracks the screen to the pixel, hides with the UI view and goes with the project, and the help overlay swaps in a snapshot.
+  - `CDP.setDeviceMetricsOverride` before the first render was what broke Playwright's connection; it was the crash, not a clash.
+
+## 2026-10-12 — Phase 7 milestone 4: the packaged app
+
+- **`pnpm package`** runs `electron-vite build`, then `electron-builder --mac --arm64` (26.17.0, the newest past the release-age policy). It produces `apps/desktop/dist/mac-arm64/modelwright.app` and `apps/desktop/dist/modelwright-0.1.0-arm64.dmg` (123 MB), with the usual Applications link.
+  - **Identity:** `dev.modelwright.app`, named modelwright, version 0.1.0 from `apps/desktop/package.json`, in the developer-tools category.
+  - **Icon:** `brand/modelwright.icns`, byte for byte.
+- **Ad-hoc signed** (`identity: '-'`), not notarised, no hardened runtime. `codesign --verify --deep --strict` passes on the app and on the copy inside the `.dmg`.
+  - A `.dmg` built on this Mac has no quarantine flag, so it should open without Gatekeeper's prompt. If macOS does block it, the fix is System Settings ▸ Privacy & Security ▸ Open Anyway, once.
+- **Nothing but `out/` ships:**
+  - Every package `apps/desktop` uses is bundled by electron-vite, so they're all devDependencies, and electron-builder finds no node_modules to copy. `app.asar` holds `out/main/index.js`, `out/preload/index.cjs`, `out/renderer/` and `package.json`.
+  - The demo template goes to `Resources/demo/todo` (`extraResources`).
+  - `Info.plist` declares folders (`public.folder`, role Viewer, rank Alternate), so a project folder can be dropped on the Dock icon or opened with modelwright from Finder.
+- **`electron-winstaller`'s build script is declined** in `allowBuilds`. It builds Windows installers only.
+- **Found by the smoke test: quitting after the preview had shown hung the app** after `will-quit`. The renderer sends one more layout while it saves on quit, and main made a new preview view, debugger and all, mid-shutdown.
+  - The preview now shuts down for good once a close or quit goes ahead, makes no view until a new window opens, and detaches its debugger before closing the view.
+  - The milestone 3 tests missed it because Playwright's own teardown closes differently. A new test quits after the preview has shown and checks that the app exits.
+- **Writing outside `.design/` and `~/.modelwright`:** the only other file a run creates is `~/Library/Preferences/dev.modelwright.app.plist`, AppKit's per-app defaults (text direction and similar). Every Mac app gets one, and an app can't opt out. Chromium's profile, window state and storage are all in `~/.modelwright/desktop`.
+- **Tests:**
+  - `pnpm e2e:desktop` runs the 21 Playwright Electron tests against `out/`.
+  - `pnpm --filter @modelwright/desktop e2e:packaged` runs them against the packaged binary (`MODELWRIGHT_APP`). All pass both ways. They include the brief's smoke test (`e2e/smoke.spec.ts`): launch, the demo from the app's resources, open a temp project, rename an entity and see `erd.json` and `spec.md` change, switch views, quit.
+
+## 2026-10-12 — Phase 7 milestone 5: docs, and the done-means walk
+
+- **Docs:**
+  - `docs/using-modelwright.md` now covers installing the app (build with `pnpm package`, install from the `.dmg`, the first launch), updating it, what's kept where, using it (the picker's dialogs, the menu, the Dock, saving, theme), the preview's Mobile emulation, and the web build as the development harness with how it differs.
+  - `README.md` puts the app first. `CLAUDE.md` has the new architecture (core, client contract, desktop), the platform boundary's two clients, desktop security, the shortcut registry and menu, and how to run, test and package.
+- **New end-to-end tests for phases 2–6's editing features in the app:**
+  - a delete shows a toast whose Undo restores the entity
+  - after the CLI records a build, the indicator counts one change, and Revert all puts the design back
+  - an outside edit during unsaved edits shows the conflict banner, and Keep mine wins
+- **The walk:**
+  - **Checks:** `pnpm test` (814 tests), `pnpm typecheck` and `pnpm lint` pass. The 24 Playwright Electron tests pass against the packaged app, smoke test included.
+  - **Server tests:** unchanged since the phase began (`git diff 7904153 -- apps/server/test` is empty). The contract suite passes against both clients.
+  - **`pnpm dev`:** still serves the web build at http://127.0.0.1:4300. In the browser pane:
+    - the picker has no dialog and no ⌘O
+    - the header shows "Reload" with no ⌘R
+    - the overlay lists no desktop-only shortcuts, and the views show 1–3
+    - the UI view is the iframe
+    - an edit through the HTTP server reached `erd.json` and `spec.md`
+    The scratch project was removed from recents and disk afterwards.
+  - **Installed and opened from the Dock:** confirmed by you at gate 4.
+  - **Dialogs and the pasted path:** e2e tests, with the dialog stubbed in main, and your hand check at gate 3.
+  - **Editing features from phases 2–6:** e2e covers ERD, Flows, undo/redo, toasts, the outside edit, the conflict banner, the build indicator and Revert all.
+  - **Menu shortcuts:** the menu's items are tested; your hand check at gate 3 found every shortcut working, apart from canvas cut, copy and paste, which never existed (logged as ui-feedback item 24).
+  - **Mobile user agent, phone viewport and `DENY` servers:** e2e tests, plus PhotoBackup and the `DENY` server at gate 3.
+  - **Writes:** nothing outside `.design/` and `~/.modelwright` except creating a project, plus macOS's own `~/Library/Preferences/dev.modelwright.app.plist`, which every Mac app gets.
+  - **IPC and Node access:** malformed IPC calls are rejected, and the renderer has no `require` or `process` (e2e, evaluated in the renderer as the devtools console would).
+  - **Quitting with unsaved edits:** saves them (e2e), and quitting after previewing now exits.
+  - **Shared recents and demo:** the web server's `/api/projects/recent` lists the projects you opened in the installed app, from the same `~/.modelwright`.
+  - **Docs:** `docs/using-modelwright.md` covers installing, updating and using the app.
+
+## 2026-10-12 — Cut, copy and paste cards (ui-feedback item 24)
+
+Built at your request before the phase 7 PR, with these calls (yours to change at the hand check):
+
+- **The system clipboard, as tagged JSON text** (`{"modelwright/cards": 1, kind, project, fragment}`). Cards paste into another project, and between the desktop app and the web build, and anything else just sees JSON.
+  - Decoding checks only the shape it needs. The pasted document is validated with the schema before it's applied, and an invalid paste changes nothing and says so.
+- **A fragment is what Duplicate always copied:** the selected entities with the relationships between them, or the selected screens with the transitions between them, and their places. The positions are the placed ones, so cards shown at computed spots keep them.
+  - `entityFragment`/`pasteEntities` and `screenFragment`/`pasteScreens` are pure, and `duplicateEntities` and `duplicateScreens` are now built on them, so Duplicate and Paste can't drift apart.
+- **Kinds stay apart.** Entities paste into an ERD and screens into Flows. The other canvas says where they belong ("Those are entities: paste them in the ERD").
+- **Entity references:** a screen's `entities` list names its own project's entities, so it's kept when pasting in the same project and dropped in another.
+- **Where pastes land** (`pasteShift`):
+  - In the same project, one grid step (16) down and right, like Duplicate, plus a step for each card already sitting exactly where the first would land, so repeated pastes cascade.
+  - In another project, in place unless that exact spot is taken.
+  - If the cards would land outside the view, they're centred in it.
+  - The pasted cards and their links are selected.
+- **Undo:** a paste is one step. Cut is one step too, with an Undo toast worded like a delete's ("Cut 'User' and 1 relationship"), and it removes links to the cards left behind, as a delete does.
+- **Triggered by the page's copy, cut and paste events, not keydowns** (`canvas/useCardClipboard.ts`). The browser's ⌘C/⌘X/⌘V and the desktop app's native Edit roles (`webContents.copy()` and so on) both fire them, so one path serves both builds.
+  - Cards are only handled when no text field has focus, no text is selected and no dialog is open. Otherwise text copies and pastes exactly as before.
+- **Registry and menu:** `cut`, `copy` and `paste` are canvas-scope registry shortcuts (⌘X/⌘C/⌘V), so the overlay lists them under "ERD and Flows". The Edit menu's native Cut, Copy and Paste name them (`shortcut` on a role item) and show their keys from the registry. The menu test now covers role items too.
+- **Tests:**
+  - Vitest covers the fragments, pasting (fresh ids, internal links only, valid documents, entity references at home and away), encoding and decoding, and where pastes land.
+  - Playwright Electron covers copy and paste and undo; cut with its toast and the link coming back; a text field copying its text; entities refused in Flows; and screens pasted into another project without entity references. Those tests save and restore the system clipboard.
+  - In the web build's browser pane, a copy event produced the tagged JSON and a paste event added the entity.

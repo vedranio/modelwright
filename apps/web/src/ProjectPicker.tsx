@@ -9,7 +9,9 @@ import {
 import { version } from '../package.json';
 import { ProjectClientError, useProjectClient, type ProjectSummary } from './platform';
 import { relativeTime } from './relativeTime';
-import { useKeydown } from './shortcuts';
+import { useHostCommand } from './hostCommands';
+import { useKeydown, useShortcut } from './shortcuts';
+import { shortcutAvailable, shortcutHint } from './shortcutRegistry';
 import { loadPref, savePref } from './storage';
 import { Icon } from './Icon';
 import { FieldError, Kbd, Logo } from './ui';
@@ -20,33 +22,41 @@ const RECENT_LIMIT = 5;
 const DEFAULT_LOCATION = '~/Code';
 const LOCATION_PREF = 'new-project-location';
 
+/** What the picker does when it appears after a project closed to make way for another. */
+export type PickerIntent = { kind: 'new' } | { kind: 'open-path'; path: string };
+
 interface Props {
   onOpen: (project: ProjectSummary) => void;
   initialError?: string | null;
+  /** A folder opened from elsewhere (the menu, the Dock) that has no `.design/` yet. */
+  initialPending?: ProjectSummary | null;
 }
 
 /**
  * The project picker, as a modal over the empty shell. It can't be dismissed: with no project
  * open there is nothing behind it to go back to. Creating a project comes first, on the left.
- * The right side lists the five most recent projects, and below them opens an existing folder
- * by its path (a native folder dialog waits for Electron).
+ * The right side lists the five most recent projects, and below them opens an existing folder:
+ * with a native folder dialog in the desktop app, or by its pasted path (always available).
  */
-export function ProjectPicker({ onOpen, initialError = null }: Props) {
+export function ProjectPicker({ onOpen, initialError = null, initialPending = null }: Props) {
   const client = useProjectClient();
+  const { folderDialog } = client.capabilities;
   const [recents, setRecents] = useState<ProjectSummary[] | null>(null);
   const [pathInput, setPathInput] = useState('');
   /** Problems opening (or initialising) an existing folder. */
   const [error, setError] = useState<string | null>(initialError);
   /** Whether "Open an existing project" has been expanded into its path field. */
-  const [openExpanded, setOpenExpanded] = useState(initialError !== null);
+  const [openExpanded, setOpenExpanded] = useState(
+    initialError !== null || initialPending !== null,
+  );
   const [newName, setNewName] = useState('');
   const [location, setLocation] = useState(() => loadPref(LOCATION_PREF) ?? DEFAULT_LOCATION);
   const [git, setGit] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   /** A folder that was opened but has no `.design/` yet. */
-  const [pending, setPending] = useState<ProjectSummary | null>(null);
-  const [nameInput, setNameInput] = useState('');
+  const [pending, setPending] = useState<ProjectSummary | null>(initialPending);
+  const [nameInput, setNameInput] = useState(initialPending?.name ?? '');
   /** The recents row chosen with ↑/↓ (or the pointer); ↵ opens it. */
   const [highlight, setHighlight] = useState<number | null>(null);
   const listRef = useRef<HTMLUListElement>(null);
@@ -119,6 +129,36 @@ export function ProjectPicker({ onOpen, initialError = null }: Props) {
       setBusy(false);
     }
   }
+
+  /** Opens an existing project chosen in the native folder dialog. */
+  async function chooseAndOpen() {
+    setError(null);
+    const path = await client.chooseFolder('open').catch(() => null);
+    if (path) await open(path);
+  }
+
+  async function chooseLocation() {
+    const path = await client
+      .chooseFolder('location', location.trim() || undefined)
+      .catch(() => null);
+    if (path) {
+      setLocation(path);
+      setCreateError(null);
+    }
+  }
+
+  // The desktop app's File ▸ Open… and Open Recent, the Dock, and a project closed to open another.
+  useShortcut('open-project', (e) => {
+    e.preventDefault();
+    if (!busy) void chooseAndOpen();
+  });
+  useShortcut('new-project', (e) => {
+    e.preventDefault();
+    document.getElementById('new-project-name')?.focus();
+  });
+  useHostCommand('open-path', ({ path }) => {
+    if (path && !busy) void open(path);
+  });
 
   function cancelInitialise() {
     setPending(null);
@@ -223,19 +263,30 @@ export function ProjectPicker({ onOpen, initialError = null }: Props) {
               <label className="field-label" htmlFor="new-project-location">
                 Location
               </label>
-              <input
-                id="new-project-location"
-                className="input input-lg"
-                type="text"
-                placeholder={DEFAULT_LOCATION}
-                value={location}
-                onChange={(e) => {
-                  setLocation(e.target.value);
-                  setCreateError(null);
-                }}
-                spellCheck={false}
-                autoComplete="off"
-              />
+              <div className="picker-location">
+                <input
+                  id="new-project-location"
+                  className="input input-lg"
+                  type="text"
+                  placeholder={DEFAULT_LOCATION}
+                  value={location}
+                  onChange={(e) => {
+                    setLocation(e.target.value);
+                    setCreateError(null);
+                  }}
+                  spellCheck={false}
+                  autoComplete="off"
+                />
+                {folderDialog && (
+                  <button
+                    type="button"
+                    className="btn btn-lg btn-outline"
+                    onClick={() => void chooseLocation()}
+                  >
+                    Choose…
+                  </button>
+                )}
+              </div>
               <p className="picker-target">
                 {target ? (
                   <>
@@ -334,7 +385,30 @@ export function ProjectPicker({ onOpen, initialError = null }: Props) {
           </div>
 
           <div className="picker-open-section">
-            {!openExpanded ? (
+            {!openExpanded && folderDialog ? (
+              <>
+                <button
+                  type="button"
+                  className="btn btn-lg btn-outline picker-open-toggle"
+                  onClick={() => void chooseAndOpen()}
+                  disabled={busy}
+                >
+                  Open an existing project…
+                  {shortcutAvailable('open-project') && <Kbd>{shortcutHint('open-project')}</Kbd>}
+                </button>
+                {error && <FieldError message={error} />}
+                <button
+                  type="button"
+                  className="btn btn-quiet picker-paste-toggle"
+                  onClick={() => {
+                    setOpenExpanded(true);
+                    requestAnimationFrame(() => pathRef.current?.focus());
+                  }}
+                >
+                  or paste a path
+                </button>
+              </>
+            ) : !openExpanded ? (
               <button
                 type="button"
                 className="btn btn-lg btn-outline picker-open-toggle"

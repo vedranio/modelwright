@@ -1,11 +1,13 @@
 import { useCallback, useMemo, useRef, useState, type MouseEvent } from 'react';
 import type { NodeChange, OnConnectEnd, ReactFlowInstance, XYPosition } from '@xyflow/react';
-import type { Erd } from '@modelwright/schema';
+import { parseDesign, type Erd } from '@modelwright/schema';
 import type { Rect } from '../canvas/edgeGeometry';
 import { Canvas } from '../canvas/Canvas';
 import { anchorCard, cardRects, nodeUnderPoint, revealCard } from '../canvas/cards';
 import { besideAnchor, nudgeClear } from '../canvas/freeSpot';
+import { decodeCards, encodeCards, pasteShift } from '../canvas/cardClipboard';
 import { UndoRedoButtons } from '../canvas/UndoRedoButtons';
+import { useCardClipboard, viewInFlow } from '../canvas/useCardClipboard';
 import { useCanvasShortcuts } from '../canvas/useCanvasShortcuts';
 import { useMeasurements } from '../canvas/useMeasurements';
 import { useSelection } from '../canvas/useSelection';
@@ -26,12 +28,15 @@ import {
   deleteEntities,
   deleteRelationships,
   duplicateEntities,
+  entityFragment,
   moveEntities,
+  pasteEntities,
 } from '../erd/ops';
 import { placeEntities } from '../erd/placement';
 import '../erd/erd.css';
 import { useShortcut } from '../shortcuts';
 import { shortcutHint } from '../shortcutRegistry';
+import { useToast } from '../Toast';
 import { Kbd } from '../ui';
 import type { DocState } from '../useDesign';
 import { DocStateView } from './DocStateView';
@@ -290,6 +295,63 @@ function ErdCanvas({
           ),
         { coalesce },
       );
+    },
+  });
+
+  // ⌘C, ⌘X and ⌘V: the selected entities, and the relationships between them.
+  const toast = useToast();
+  const selectedEntities = () =>
+    erd.entities.filter((e) => selection.selectedNodes.has(e.id)).map((e) => e.id);
+  const copyCards = (): string | null => {
+    const chosen = selectedEntities();
+    if (chosen.length === 0) return null;
+    const fragment = entityFragment(withPlacement(erd), chosen);
+    return encodeCards({ kind: 'erd', project: projectPath, fragment });
+  };
+  useCardClipboard({
+    copy: copyCards,
+    cut: () => {
+      const text = copyCards();
+      if (text === null) return null;
+      const entityIds = new Set(selectedEntities());
+      remove(
+        (doc) => deleteEntities(doc, entityIds),
+        (doc) => deletionSummary(doc, entityIds, new Set())?.replace(/^Deleted/, 'Cut') ?? null,
+      );
+      selection.clear();
+      return text;
+    },
+    paste: (text) => {
+      const cards = decodeCards(text);
+      if (!cards) return false;
+      if (cards.kind !== 'erd') {
+        toast.show({ message: 'Those are screens: paste them in Flows' });
+        return true;
+      }
+      let copies: string[] = [];
+      let links: string[] = [];
+      let invalid = false;
+      apply((doc) => {
+        const shift = pasteShift(
+          cards.fragment.layout,
+          doc.layout,
+          cards.project === projectPath,
+          viewInFlow(instance.current, container.current),
+        );
+        const result = pasteEntities(doc, cards.fragment, shift);
+        if (!parseDesign('erd', result.erd).ok) {
+          invalid = true;
+          return doc;
+        }
+        copies = result.ids;
+        links = result.erd.relationships
+          .filter((r) => copies.includes(r.from) && copies.includes(r.to))
+          .map((r) => r.id);
+        return result.erd;
+      });
+      if (invalid) toast.show({ message: 'Couldn’t paste: the copied entities aren’t valid' });
+      else selection.select(copies, links);
+      return true;
     },
   });
 

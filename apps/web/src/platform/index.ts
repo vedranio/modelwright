@@ -1,9 +1,12 @@
+import { desktopApi } from './desktop';
 import { createHttpClient } from './httpClient';
+import { createIpcClient } from './ipcClient';
 import type { ProjectClient } from './ProjectClient';
 
 export {
   ProjectClientError,
   type BuildRead,
+  type ClientCapabilities,
   type DesignChange,
   type DesignDoc,
   type DesignKind,
@@ -12,8 +15,17 @@ export {
   type ProjectSummary,
 } from './ProjectClient';
 export { ProjectClientProvider, useProjectClient } from './context';
+export { desktopApi } from './desktop';
+export {
+  desktopHost,
+  type Host,
+  type HostCommand,
+  type HostState,
+  type PreviewLayout,
+} from './host';
 
-/** The client for this build. Electron will return an IPC client here instead. */
+/** The client for this build: IPC inside the desktop app, HTTP to apps/server otherwise. */
 export function createDefaultClient(): ProjectClient {
-  return createHttpClient();
+  const api = desktopApi();
+  return api ? createIpcClient(api) : createHttpClient();
 }

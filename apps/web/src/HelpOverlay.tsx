@@ -4,9 +4,11 @@ import { CommandSnippet } from './CommandSnippet';
 import {
   SCOPE_TITLES,
   SHORTCUTS,
+  shortcutAvailable,
   shortcutHint,
   type Scope,
   type ShortcutDef,
+  type ShortcutId,
 } from './shortcutRegistry';
 import { Kbd } from './ui';
 
@@ -48,7 +50,10 @@ export function HelpOverlay({ tab: initialTab, onClose }: { tab: HelpTab; onClos
 
   const groups = ORDER.map((scope) => ({
     scope,
-    items: (SHORTCUTS as readonly ShortcutDef[]).filter((s) => s.scope === scope),
+    // Only what works here: desktop-only shortcuts are left out of the web build (the hint rule).
+    items: (SHORTCUTS as readonly ShortcutDef[]).filter(
+      (s) => s.scope === scope && shortcutAvailable(s.id as ShortcutId),
+    ),
   })).filter((g) => g.items.length > 0);
 
   return (

@@ -1,4 +1,5 @@
 dist
+out
 pnpm-lock.yaml
 # Briefs and docs are authored outside this repo's tooling; never reformat them.
 docs
@@ -14,4 +15,4 @@ packages/spec/test/golden/
 plugins/modelwright/bin/
 
 # The demo project template: canonical design files, compared to serialiser output.
-apps/server/demo/
+packages/core/demo/
