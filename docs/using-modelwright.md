@@ -146,7 +146,14 @@ The skill never edits the design. If something's wrong in it, it asks you.
 
 ### Check
 
-- **The UI tab** shows the running app; the build sets its preview URL. Start the app's dev server yourself (the "Nothing running" card shows its command), and the preview appears.
+- **The UI tab** shows the running app; the build sets its preview URL and dev command.
+- **Start the dev server from modelwright:**
+  - With nothing running, the card offers **Start dev server**. It runs the project's dev command (`preview.devCommand` in `config.json`) in the project folder, through your login shell, so your PATH, nvm and the rest apply as in Terminal. The preview appears once the server answers.
+  - The first time, and whenever the command changes, modelwright shows you the exact command and folder and asks before running it.
+  - A project with no dev command gets a field to set one.
+  - The **Dev server** strip along the bottom shows whether it's running, opens into its output, and has Stop and Start. If the server reports a different address from the preview's (Vite moves to the next port when one is taken), the strip offers **Use this URL**.
+  - The server stops when you close the project or quit modelwright. If it crashes, the card says so, with its exit code, and the log shows why.
+  - You can still run the command yourself in a terminal, and the preview picks it up just the same.
 - **Mobile and Desktop:** Mobile previews the app as a phone would show it: a phone's viewport and pixel density, a mobile Safari user agent, and touch, so the app sees a phone. Desktop is a desktop browser. ⇧⌘R reloads the preview, and **Open in browser** opens it in your default browser.
 - **Any dev server can be previewed,** including one that refuses to be framed (`X-Frame-Options`), because the app shows the preview as a page of its own. Keep apps off ports 4300 to 4302, which are modelwright's.
 - **Every state is reachable** in development builds with `?state=<stateId>` on its route, e.g. `/tasks?state=tasks-empty`, using the state's id from `flows.json`. The build's report lists the URLs for states that have no natural trigger.
