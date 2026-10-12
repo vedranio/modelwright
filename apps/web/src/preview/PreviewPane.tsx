@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { loadPref, savePref } from '../storage';
 import type { Config } from '@modelwright/schema';
 import { DeviceFrame } from './DeviceFrame';
@@ -16,10 +16,25 @@ interface Props {
   /** Whether the UI view is showing. */
   visible: boolean;
   onSetUrl: (url: string) => void;
+  /** Starting the dev server, for the "Nothing running" card. */
+  devServer?: ReactNode;
+  /** Told whether the preview is showing the app. */
+  onLive?: (live: boolean) => void;
+  /** Changes when the dev server starts or stops: the preview checks again at once. */
+  serverKey?: string;
 }
 
 /** The UI view with a valid URL: checks it, then shows the preview or says what's wrong. */
-export function PreviewPane({ projectPath, config, url, visible, onSetUrl }: Props) {
+export function PreviewPane({
+  projectPath,
+  config,
+  url,
+  visible,
+  onSetUrl,
+  devServer,
+  onLive,
+  serverKey,
+}: Props) {
   const { result, slow, recheck } = usePreviewCheck(url, visible);
   const devices = resolveDevices(config);
   // The chosen device is remembered per project, falling back to the first.
@@ -47,6 +62,18 @@ export function PreviewPane({ projectPath, config, url, visible, onSetUrl }: Pro
     visible,
   );
 
+  // A preview that's up isn't re-checked in the background, so a server stopped from here
+  // would leave a dead page on screen. Starting or stopping it checks again straight away.
+  useEffect(() => {
+    if (serverKey !== undefined) recheck();
+  }, [serverKey, recheck]);
+
+  const live = result?.status === 'ok';
+  useEffect(() => {
+    onLive?.(live);
+  }, [onLive, live]);
+  useEffect(() => () => onLive?.(false), [onLive]);
+
   if (!result) return slow ? <CheckingState url={url} /> : null;
 
   switch (result.status) {
@@ -55,7 +82,7 @@ export function PreviewPane({ projectPath, config, url, visible, onSetUrl }: Pro
         <NothingRunning
           url={url}
           detail={result.detail}
-          devCommand={config.preview.devCommand}
+          {...(devServer !== undefined && { devServer })}
           onSetUrl={onSetUrl}
         />
       );

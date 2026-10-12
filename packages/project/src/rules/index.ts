@@ -5,6 +5,7 @@
 export { renameProject, setDevCommand, setPreviewUrl } from './config';
 export {
   PROBLEMS,
+  announcedUrls,
   TOOL_PORTS,
   checkPreviewUrl,
   isLoopback,

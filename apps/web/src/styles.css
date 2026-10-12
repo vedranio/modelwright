@@ -1107,6 +1107,130 @@ button {
   width: var(--state-card-w);
 }
 
+/* The UI view: the preview (or its card) above, the dev server's log strip below. */
+.ui-view {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.ui-view[hidden] {
+  display: none;
+}
+
+.ui-main {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  overflow: auto;
+}
+
+.dev-start {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.dev-start-actions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.dev-command-field {
+  margin-top: var(--space-3);
+}
+
+.dev-command-row {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.dev-command-row .input {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-mono);
+}
+
+.approve-command {
+  display: block;
+  margin: var(--space-2) 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-sunken);
+  font-family: var(--font-mono);
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.devlog {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  border-top: var(--border-w) solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.devlog.open {
+  height: var(--devlog-h);
+}
+
+.devlog-head {
+  flex: none;
+  height: var(--devlog-strip-h);
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 0 var(--space-3);
+  font-size: var(--text-sm);
+}
+
+.devlog-toggle {
+  flex: none;
+}
+
+.devlog-status {
+  color: var(--color-text-muted);
+}
+
+.devlog-status.devlog-running {
+  color: var(--color-success);
+}
+
+.devlog-command {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--color-text-muted);
+}
+
+.devlog-suggest {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  white-space: nowrap;
+}
+
+.devlog-body {
+  flex: 1;
+  min-height: 0;
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  overflow: auto;
+  border-top: var(--border-w) solid var(--color-border);
+  background: var(--color-surface-sunken);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--text-xs-lh);
+  white-space: pre-wrap;
+  word-break: break-word;
+  user-select: text;
+}
+
 .state-url {
   display: block;
   color: var(--color-text);

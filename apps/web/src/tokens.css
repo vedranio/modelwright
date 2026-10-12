@@ -130,6 +130,9 @@
   /* Added in phase 4: the preview toolbar and device frames. preview/DeviceFrame.tsx reads
      the frame sizes at runtime to scale the frame to fit. */
   --preview-toolbar-h: 44px;
+  /* The dev server log: its strip, and its height when open. */
+  --devlog-strip-h: 36px;
+  --devlog-h: 220px;
   --preview-url-max-w: 360px;
   --device-bezel: 10px;
   --device-radius: 34px;

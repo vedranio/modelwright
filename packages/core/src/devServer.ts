@@ -232,23 +232,6 @@ export function stripAnsi(line: string): string {
   return line.replace(ANSI, '');
 }
 
-/**
- * The local addresses a dev server says it's serving at ("Local: http://localhost:5174/"), in
- * the order announced, without repeats. Only loopback addresses: those are what the preview
- * can show.
- */
-export function announcedUrls(lines: readonly string[]): string[] {
-  const found = new Set<string>();
-  const pattern =
-    /\bhttps?:\/\/(?:localhost|127\.0\.0\.1|\[::1\]|0\.0\.0\.0)(?::\d+)?(?:\/[^\s'"<>)]*)?/g;
-  for (const line of lines) {
-    for (const match of line.matchAll(pattern)) {
-      found.add(match[0].replace('0.0.0.0', 'localhost'));
-    }
-  }
-  return [...found];
-}
-
 const ApprovalsFile = z.object({
   approved: z.array(z.object({ project: z.string(), command: z.string() })),
 });
