@@ -196,13 +196,18 @@ export function updateRelationship(
 
 /** Swaps the two ends: `from` with `to`, and `fromCard` with `toCard`. */
 export function reverseRelationship(erd: Erd, relationshipId: string): Erd {
-  return mapRelationship(erd, relationshipId, (r) => ({
+  const reversed = mapRelationship(erd, relationshipId, (r) => ({
     ...r,
     from: r.to,
     to: r.from,
     fromCard: r.toCard,
     toCard: r.fromCard,
   }));
+  // Its join points stay on the same cards, so they swap ends too.
+  const ends = erd.anchors?.[relationshipId];
+  if (reversed === erd || !ends) return reversed;
+  const swapped = { ...(ends.to && { from: ends.to }), ...(ends.from && { to: ends.from }) };
+  return { ...reversed, anchors: { ...erd.anchors, [relationshipId]: swapped } };
 }
 
 export function deleteRelationships(erd: Erd, relationshipIds: Iterable<string>): Erd {
@@ -293,18 +298,27 @@ export interface EntityFragment {
   entities: Entity[];
   relationships: Erd['relationships'];
   layout: Layout;
+  /** The copied relationships' join points, if any. */
+  anchors?: Erd['anchors'];
 }
 
 export function entityFragment(erd: Erd, entityIds: Iterable<string>): EntityFragment {
   const chosen = new Set(entityIds);
   const entities = erd.entities.filter((e) => chosen.has(e.id));
   const kept = new Set(entities.map((e) => e.id));
+  const relationships = erd.relationships.filter((r) => kept.has(r.from) && kept.has(r.to));
+  const anchors: NonNullable<Erd['anchors']> = {};
+  for (const r of relationships) {
+    const ends = erd.anchors?.[r.id];
+    if (ends) anchors[r.id] = ends;
+  }
   return {
     entities,
-    relationships: erd.relationships.filter((r) => kept.has(r.from) && kept.has(r.to)),
+    relationships,
     layout: Object.fromEntries(
       entities.flatMap((e) => (erd.layout[e.id] ? [[e.id, erd.layout[e.id] as Position]] : [])),
     ),
+    ...(Object.keys(anchors).length > 0 && { anchors }),
   };
 }
 
@@ -334,10 +348,15 @@ export function pasteEntities(
     if (at) layout[id] = { x: at.x + shift.x, y: at.y + shift.y };
     return { ...e, id, attributes: e.attributes.map((a) => ({ ...a, id: fresh('attr') })) };
   });
+  const anchors: NonNullable<Erd['anchors']> = { ...erd.anchors };
   const relationships = fragment.relationships.flatMap((r) => {
     const from = copyOf.get(r.from);
     const to = copyOf.get(r.to);
-    return from && to ? [{ ...r, id: fresh('rel'), from, to }] : [];
+    if (!from || !to) return [];
+    const id = fresh('rel');
+    const ends = fragment.anchors?.[r.id];
+    if (ends) anchors[id] = ends;
+    return [{ ...r, id, from, to }];
   });
   return {
     ids: copies.map((c) => c.id),
@@ -346,6 +365,7 @@ export function pasteEntities(
       entities: [...erd.entities, ...copies],
       relationships: [...erd.relationships, ...relationships],
       layout,
+      ...(Object.keys(anchors).length > 0 && { anchors }),
     },
   };
 }

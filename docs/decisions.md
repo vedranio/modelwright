@@ -1348,3 +1348,25 @@ Settled in planning before any code was written; the brief (`docs/phase-8-brief.
 - **Not on the Tab path,** as with state notes, so item → item and CTA → CTA entry stays as fast as before.
 - **`estimateScreenSize`** adds a 16-unit line per noted item or CTA.
 - **Verified in the browser** on the scratch notes project: a note on "note titles" and one on the "New note" CTA, saved as `note` keys in a migrated v3 `flows.json`, and shown in `spec.md` as nested bullets.
+
+## 2026-10-27 — Phase 8 milestone 6: join points (items 33, 29)
+
+- **ERD (`erd/anchors.ts`, pure and tested):** `anchorPoint` puts an anchor on its card's outline, and `nearestAnchor` finds the closest point on the outline (by distance to each side's segment, not its line), rounded to two decimals. A fixed end sits at its anchor, and a floating end faces it (`floatingEnds` towards a zero-size rectangle at the fixed point). Relationships with a fixed end leave the parallel fan-out. Self-loops stay automatic.
+- **Drawing (item 33):**
+  - ERD: a relationship records `from` as the side handle it was drawn from, at that side's middle. It records `to` only when dropped within 24 units of the target's outline (`dropAnchor`); dropped further in, that end floats.
+  - Flows: a transition records `from` as the CTA handle's side (`cta-left:` or `cta:`). It records `to` when dropped within 24 units of the target's left or right edge (`dropSide`). Reassigning a transition by its tip sets `to` the same way, and clears it for a drop further in.
+- **Moving (item 29):** a selected connector shows round accent grips (`canvas/EndGrip.tsx`, `--end-grip-size`).
+  - ERD: one at each end. Dragging slides the end round its card's outline, corners included, with the line following live. One undo step on drop, and Escape cancels.
+  - Flows: one at the start, which moves it to the nearer side of its card. The tip keeps its reassign grip (item 22); a drop near an edge picks the arrival side.
+  - Both popovers gain **Reset join points** when an end is fixed.
+- **Routing in Flows:** fixed sides narrow `routeTransitionSides`' four candidates first. If every route left cuts through a card, the shortest is still used, since the side was asked for.
+- **Keeping `anchors` valid:**
+  - Each view's `apply` runs `pruneAnchors` (`canvas/anchors.ts`) after every edit, so no delete or cascade has to remember them.
+  - `reverseRelationship` swaps the ends' anchors, because they stay on the same cards.
+  - Duplicate, ⌥-drag and paste copy the anchors of the links they copy.
+  - Revert to last build keeps each link's current join points, like the layout, and restores recorded ones for links that come back.
+- **Tests:** Vitest for the geometry, the ops, pruning, reversing, copying and fixed-side routing. Playwright Electron draws a relationship from User's bottom handle and checks the saved anchor.
+- **Verified in the browser** on the scratch notes project:
+  - The ERD "owns" end dragged to Note's bottom (saved `to: bottom, 0.25`), with the User end facing it.
+  - The Flows "Sign in" start dragged to Login's left (saved `from: 'left'`), routing round the top into Notes.
+  - Reset join points removed the block.

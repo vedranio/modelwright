@@ -100,6 +100,8 @@
   --focus-ring-w: 3px;
   /* The line showing where a dragged row will land. */
   --drop-line-w: 2px;
+  /* The handles for moving where a selected connector joins its cards. */
+  --end-grip-size: 10px;
   --tracking-tight: -0.01em;
   --text-glyph: 14px; /* + and − glyphs in the canvas toolbar */
   --logo-size: 16px;

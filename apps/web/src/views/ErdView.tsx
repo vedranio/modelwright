@@ -1,7 +1,8 @@
 import { useCallback, useMemo, useRef, useState, type MouseEvent } from 'react';
 import type { NodeChange, OnConnectEnd, ReactFlowInstance, XYPosition } from '@xyflow/react';
-import { parseDesign, type Erd } from '@modelwright/schema';
+import { Side, parseDesign, type Anchor, type Erd } from '@modelwright/schema';
 import type { Rect } from '../canvas/edgeGeometry';
+import { pruneAnchors } from '../canvas/anchors';
 import { Canvas } from '../canvas/Canvas';
 import { anchorCard, cardRects, nodeUnderPoint, revealCard } from '../canvas/cards';
 import { besideAnchor, nudgeClear } from '../canvas/freeSpot';
@@ -16,6 +17,7 @@ import { SaveStatusPill } from '../editing/SaveStatusPill';
 import { touchedErd } from '../editing/touched';
 import { useCanvasHistory } from '../editing/useCanvasHistory';
 import type { EditableDoc } from '../editing/useEditableDoc';
+import { dropAnchor, setRelationshipAnchor } from '../erd/anchors';
 import { CrowsFootEdge, type CrowsFootEdgeType } from '../erd/CrowsFootEdge';
 import { deletionSummary } from '../erd/deletion';
 import { parallelSlots, selfLoopSide } from '../erd/edgeGeometry';
@@ -97,7 +99,8 @@ function ErdCanvas({
       applyDoc((doc) => {
         const placed = withPlacement(doc);
         const next = op(placed);
-        return next === placed ? doc : next;
+        // Join points of relationships that went with this edit go too.
+        return next === placed ? doc : pruneAnchors(next, next.relationships);
       }, options),
     [applyDoc],
   );
@@ -186,24 +189,34 @@ function ErdCanvas({
   const onConnectEnd: OnConnectEnd = (event, connection) => {
     const from = connection.fromNode?.id;
     const point = 'changedTouches' in event ? event.changedTouches[0] : event;
-    if (!from || !point) return;
+    if (!from || !point || !instance.current) return;
+    // The line stays on the side it was drawn from, at that side's middle (its handle).
+    const side = connection.fromHandle?.id;
+    const fromAnchor: Anchor | null = isSide(side) ? { side, at: 0.5 } : null;
+    const anchor = (doc: Erd, id: string | null, end: 'from' | 'to', a: Anchor | null) =>
+      id && a ? setRelationshipAnchor(doc, id, end, a) : doc;
+    const at = instance.current.screenToFlowPosition({ x: point.clientX, y: point.clientY });
     const under = nodeUnderPoint(point.clientX, point.clientY);
     if (!under) {
-      if (!instance.current) return;
-      const at = instance.current.screenToFlowPosition({ x: point.clientX, y: point.clientY });
       createEntity(at, (doc, position) => {
         const result = addEntityWithRelationship(doc, position, from, lastCardinalities(doc));
-        return { erd: result.erd, id: result.entityId };
+        return {
+          erd: anchor(result.erd, result.relationshipId, 'from', fromAnchor),
+          id: result.entityId,
+        };
       });
       return;
     }
     const to = under.node.dataset.id;
     if (!to || to === from) return;
+    // Dropped near the target's outline, the line joins it there; further in, it floats.
+    const target = nodes.find((n) => n.id === to);
+    const toAnchor = target ? dropAnchor(cardRects([target])[0] as Rect, at) : null;
     let id: string | null = null;
     apply((doc) => {
       const result = addRelationship(doc, from, to, lastCardinalities(doc));
       id = result.id;
-      return result.erd;
+      return anchor(anchor(result.erd, id, 'from', fromAnchor), id, 'to', toAnchor);
     });
     // After the click that ends the drag: dropped on its own card, that click would select
     // the card instead.
@@ -526,7 +539,10 @@ function toFlow(erd: Erd): { nodes: EntityNodeType[]; edges: CrowsFootEdgeType[]
       toName: names.get(rel.to) ?? rel.to,
       editing: false,
       ...(rel.label !== undefined && { label: rel.label }),
+      ...(erd.anchors?.[rel.id] && { anchors: erd.anchors[rel.id] }),
     },
   }));
   return { nodes, edges };
 }
+
+const isSide = (value: unknown): value is Side => Side.safeParse(value).success;

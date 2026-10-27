@@ -1,6 +1,7 @@
 import { useCallback, useLayoutEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
 import type { NodeChange, OnConnectEnd, ReactFlowInstance, XYPosition } from '@xyflow/react';
-import { parseDesign, type Flows, type TransitionFrom } from '@modelwright/schema';
+import { parseDesign, type FlowSide, type Flows, type TransitionFrom } from '@modelwright/schema';
+import { pruneAnchors } from '../canvas/anchors';
 import { Canvas } from '../canvas/Canvas';
 import { anchorCard, cardRects, nodeUnderPoint, revealCard } from '../canvas/cards';
 import { besideAnchor, nudgeClear } from '../canvas/freeSpot';
@@ -16,6 +17,7 @@ import { SaveStatusPill } from '../editing/SaveStatusPill';
 import { touchedFlows } from '../editing/touched';
 import { useCanvasHistory } from '../editing/useCanvasHistory';
 import type { EditableDoc } from '../editing/useEditableDoc';
+import { dropSide, handleSide, setTransitionSide } from '../flows/anchors';
 import { deletionSummary } from '../flows/deletion';
 import { connectedCtas, fanPlaces, screensById, transitionEndpoints } from '../flows/endpoints';
 import { SCREEN_WIDTH, estimateScreenSize } from '../flows/metrics';
@@ -110,7 +112,8 @@ function FlowsCanvas({
       applyDoc((doc) => {
         const placed = withPlacement(doc);
         const next = op(placed);
-        return next === placed ? doc : next;
+        // Sides fixed for transitions that went with this edit go too.
+        return next === placed ? doc : pruneAnchors(next, next.transitions);
       }, options),
     [applyDoc],
   );
@@ -205,16 +208,22 @@ function FlowsCanvas({
     const screenId = connection.fromNode?.id;
     const handleId = connection.fromHandle?.id;
     const point = 'changedTouches' in event ? event.changedTouches[0] : event;
-    if (!screenId || !handleId || !point) return;
+    if (!screenId || !handleId || !point || !instance.current) return;
     const from = ctaForHandle(flows, screenId, handleId);
     if (!from) return;
+    // The line stays on the side of the card it was drawn from.
+    const fromSide = handleSide(handleId);
+    const at = instance.current.screenToFlowPosition({ x: point.clientX, y: point.clientY });
     const under = nodeUnderPoint(point.clientX, point.clientY);
     if (!under) {
-      if (!instance.current) return;
-      const at = instance.current.screenToFlowPosition({ x: point.clientX, y: point.clientY });
       createScreen(at, (doc, position) => {
         const result = addScreenWithTransition(doc, position, from);
-        return { flows: result.flows, id: result.screenId };
+        return {
+          flows: result.transitionId
+            ? setTransitionSide(result.flows, result.transitionId, 'from', fromSide)
+            : result.flows,
+          id: result.screenId,
+        };
       });
       return;
     }
@@ -223,11 +232,15 @@ function FlowsCanvas({
       stateId: under.element.closest<HTMLElement>('[data-state]')?.dataset.state ?? null,
     });
     if (!to) return;
+    // Dropped close to the target's left or right edge, it arrives on that side.
+    const toSide = sideOfDrop(instance.current, to.screenId, at);
     let id: string | null = null;
     apply((doc) => {
       const result = addTransition(doc, from, to);
       id = result.id;
-      return result.flows;
+      if (!id) return result.flows;
+      const sided = setTransitionSide(result.flows, id, 'from', fromSide);
+      return setTransitionSide(sided, id, 'to', toSide);
     });
     // After the click that ends the drag: dropped on its own card, that click would select
     // the card instead.
@@ -271,9 +284,17 @@ function FlowsCanvas({
           screenId: under.node.dataset.id ?? null,
           stateId: under.element.closest<HTMLElement>('[data-state]')?.dataset.state ?? null,
         };
+        const point = view.screenToFlowPosition({ x: e.clientX, y: e.clientY });
         apply((doc) => {
           const to = dropTarget(doc, transition.from, at);
-          return to ? retargetTransition(doc, transitionId, to) : doc;
+          if (!to) return doc;
+          // Its arrival side follows the drop: near an edge, that side; otherwise routed.
+          return setTransitionSide(
+            retargetTransition(doc, transitionId, to),
+            transitionId,
+            'to',
+            sideOfDrop(view, to.screenId, point),
+          );
         });
         // After the click that ends the drag, which would otherwise select the card.
         setTimeout(() => select([], [transitionId]));
@@ -637,6 +658,7 @@ function toFlow(flows: Flows): { nodes: ScreenNodeType[]; edges: TransitionEdgeT
           screens: targets,
           editing: false,
           ...(t.label !== undefined && { label: t.label }),
+          ...(flows.anchors?.[t.id] && { anchors: flows.anchors[t.id] }),
         },
       },
     ];
@@ -663,4 +685,16 @@ function transitionHighlights(flows: Flows, ids: ReadonlySet<string>): Map<strin
     if (target) of(t.to.screenId).states.add(target);
   }
   return out;
+}
+
+/** The side a drop near a card's left or right edge picks (`dropSide`), or null. */
+function sideOfDrop(
+  view: ReactFlowInstance<ScreenNodeType, TransitionEdgeType>,
+  screenId: string,
+  at: XYPosition,
+): FlowSide | null {
+  const node = view.getInternalNode(screenId);
+  const { width, height } = node?.measured ?? {};
+  if (!node || !width || !height) return null;
+  return dropSide({ ...node.internals.positionAbsolute, width, height }, at);
 }

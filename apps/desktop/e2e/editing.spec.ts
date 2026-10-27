@@ -154,3 +154,24 @@ test('dragging an attribute by its grip reorders it', async () => {
     )
     .toEqual(['body', 'updated at', 'title']);
 });
+
+test('a relationship drawn from a card’s bottom stays on its bottom', async () => {
+  const dir = await run.notesProject();
+  await openByPath(run.window, dir);
+  await card('User').hover();
+  const handle = await card('User')
+    .locator('.connect-handle[data-handlepos="bottom"]')
+    .boundingBox();
+  const note = await card('Note').boundingBox();
+  if (!handle || !note) throw new Error('missing boxes');
+  const { mouse } = run.window;
+  await mouse.move(handle.x + handle.width / 2, handle.y + handle.height / 2);
+  await mouse.down();
+  await mouse.move(note.x + note.width / 2, note.y + note.height / 2, { steps: 12 });
+  await mouse.up();
+  await expect.poll(async () => (await erdOf(dir)).relationships.length).toBe(2);
+  const erd = await erdOf(dir);
+  const added = erd.relationships.at(-1).id;
+  // From the handle it was drawn from; dropped mid-card, the other end floats.
+  expect(erd.anchors).toEqual({ [added]: { from: { side: 'bottom', at: 0.5 } } });
+});

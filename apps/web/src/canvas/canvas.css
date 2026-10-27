@@ -297,3 +297,22 @@
 .react-flow__node.drag-ghost {
   pointer-events: none;
 }
+
+/* The handles on a selected connector's ends (canvas/EndGrip.tsx). */
+.end-grip {
+  position: absolute;
+  width: var(--end-grip-size);
+  height: var(--end-grip-size);
+  border: var(--border-w) solid var(--color-accent);
+  border-radius: 50%;
+  background: var(--color-surface);
+  cursor: grab;
+  pointer-events: all;
+  touch-action: none;
+  z-index: 1;
+}
+
+.end-grip:hover,
+.end-grip:active {
+  background: var(--color-accent);
+}

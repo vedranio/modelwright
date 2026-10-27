@@ -134,7 +134,8 @@ export interface SidedRoute extends Route {
  *
  * A candidate that would cut through either card is dropped, and the shortest of the rest wins.
  * Ties go right → left, then right → right, left → right, left → left, so the usual
- * left-to-right reading stays the default.
+ * left-to-right reading stays the default. Sides fixed in the design narrow the candidates
+ * first, and then a route that cuts through a card is used if it's all that's left.
  */
 export function routeTransitionSides(
   sourceY: number,
@@ -143,8 +144,10 @@ export function routeTransitionSides(
   targetRect: Rect,
   fan: Fan = { index: 0, count: 1 },
   track = 0,
+  /** Sides fixed by the design (`anchors`); a candidate must match them, even if it cuts through. */
+  sides: { from?: CardSide; to?: CardSide } = {},
 ): SidedRoute {
-  const candidates: SidedRoute[] = [
+  const all: SidedRoute[] = [
     {
       ...routeTransition(
         at(sourceRect, 'right', sourceY),
@@ -194,6 +197,9 @@ export function routeTransitionSides(
       to: 'left',
     },
   ];
+  const candidates = all.filter(
+    (c) => (sides.from ?? c.from) === c.from && (sides.to ?? c.to) === c.to,
+  );
   const clear = candidates.filter(
     (c) => !cutsThrough(c.points, sourceRect) && !cutsThrough(c.points, targetRect),
   );

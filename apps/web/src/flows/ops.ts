@@ -491,20 +491,29 @@ export interface ScreenFragment {
   screens: Screen[];
   transitions: Transition[];
   layout: Layout;
+  /** The copied transitions' sides, if any are fixed. */
+  anchors?: Flows['anchors'];
 }
 
 export function screenFragment(flows: Flows, screenIds: Iterable<string>): ScreenFragment {
   const chosen = new Set(screenIds);
   const screens = flows.screens.filter((s) => chosen.has(s.id));
   const kept = new Set(screens.map((s) => s.id));
+  const transitions = flows.transitions.filter(
+    (t) => kept.has(t.from.screenId) && kept.has(t.to.screenId),
+  );
+  const anchors: NonNullable<Flows['anchors']> = {};
+  for (const t of transitions) {
+    const sides = flows.anchors?.[t.id];
+    if (sides) anchors[t.id] = sides;
+  }
   return {
     screens,
-    transitions: flows.transitions.filter(
-      (t) => kept.has(t.from.screenId) && kept.has(t.to.screenId),
-    ),
+    transitions,
     layout: Object.fromEntries(
       screens.flatMap((s) => (flows.layout[s.id] ? [[s.id, flows.layout[s.id] as Position]] : [])),
     ),
+    ...(Object.keys(anchors).length > 0 && { anchors }),
   };
 }
 
@@ -568,6 +577,7 @@ export function pasteScreens(
     };
   });
 
+  const anchors: NonNullable<Flows['anchors']> = { ...flows.anchors };
   const transitions = fragment.transitions.flatMap((t): Transition[] => {
     const fromScreen = screenCopy.get(t.from.screenId);
     const toScreen = screenCopy.get(t.to.screenId);
@@ -576,10 +586,13 @@ export function pasteScreens(
     if (!fromScreen || !toScreen || !fromState || !fromCta) return [];
     const toState =
       t.to.stateId === undefined ? undefined : stateCopy.get(key(t.to.screenId, t.to.stateId));
+    const id = fresh('tr');
+    const sides = fragment.anchors?.[t.id];
+    if (sides) anchors[id] = sides;
     return [
       {
         ...t,
-        id: fresh('tr'),
+        id,
         from: { screenId: fromScreen, stateId: fromState, ctaId: fromCta },
         to:
           toState === undefined ? { screenId: toScreen } : { screenId: toScreen, stateId: toState },
@@ -594,6 +607,7 @@ export function pasteScreens(
       screens: [...flows.screens, ...copies],
       transitions: [...flows.transitions, ...transitions],
       layout,
+      ...(Object.keys(anchors).length > 0 && { anchors }),
     },
   };
 }
