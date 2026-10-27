@@ -4,7 +4,7 @@ A local design tool that produces a structured spec — an entity relationship d
 
 ## Current phase
 
-**Phase 7 — Desktop.** See `docs/phase-7-brief.md`. Phases 1–6 are complete and merged. This phase wraps modelwright as a macOS Electron app: the server's handlers move into a transport-free core shared by the Hono server and Electron's main process, an `ipcClient` joins `httpClient` behind `ProjectClient`, and the app gains native folder dialogs, an application menu, device emulation in the preview, and a packaged `.dmg`. The web build stays as the development and test harness.
+**Phase 8 — UI feedback round 2.** See `docs/phase-8-brief.md`. Phases 1–7 are complete and merged. This phase builds items 25–36 of `docs/ui-feedback.md`: single-click and focus fixes, drag to reorder, alignment guides and ⌥-drag on both canvases, connector join points, and notes on CTAs and information items. It bumps `erd.json` to schemaVersion 2 and `flows.json` to 3.
 
 Phases, in order:
 
@@ -15,6 +15,7 @@ Phases, in order:
 5. Polish — undo/redo, shortcuts, Mermaid/Markdown export, dark mode
 6. Pipeline — the `/build-from-design` skill, first real project
 7. Desktop — Electron wrap: shared core, IPC client, native dialogs and menu, preview emulation, packaged app
+8. UI feedback round 2 — reorder, guides, ⌥-drag, join points, notes on CTAs and information items
 
 ## The two-repo rule
 
