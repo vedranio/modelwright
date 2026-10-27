@@ -175,3 +175,30 @@ test('a relationship drawn from a card’s bottom stays on its bottom', async ()
   // From the handle it was drawn from; dropped mid-card, the other end floats.
   expect(erd.anchors).toEqual({ [added]: { from: { side: 'bottom', at: 0.5 } } });
 });
+
+test('a project saved by an older modelwright opens, and saves at the new versions', async () => {
+  const dir = await run.notesProject();
+  const old = fileURLToPath(new URL('../../../packages/schema/test/fixtures', import.meta.url));
+  await writeFile(
+    path.join(dir, '.design', 'erd.json'),
+    await readFile(path.join(old, 'v1', 'erd.json')),
+  );
+  await writeFile(
+    path.join(dir, '.design', 'flows.json'),
+    await readFile(path.join(old, 'v2', 'flows.json')),
+  );
+  await openByPath(run.window, dir);
+  await rename('User', 'Member');
+  await expect.poll(async () => (await erdOf(dir)).schemaVersion).toBe(2);
+  await run.window.getByRole('tab', { name: 'Flows' }).click();
+  await run.window.locator('.sees-text', { hasText: 'email field' }).first().click();
+  await run.window.getByLabel('Sees item').fill('email address');
+  await run.window.getByLabel('Sees item').blur();
+  const flows = async () =>
+    JSON.parse(await readFile(path.join(dir, '.design', 'flows.json'), 'utf8'));
+  await expect.poll(async () => (await flows()).schemaVersion).toBe(3);
+  expect((await flows()).screens[0].states[0].sees[0]).toEqual({
+    id: 'info_1',
+    text: 'email address',
+  });
+});

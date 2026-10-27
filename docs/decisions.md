@@ -1370,3 +1370,22 @@ Settled in planning before any code was written; the brief (`docs/phase-8-brief.
   - The ERD "owns" end dragged to Note's bottom (saved `to: bottom, 0.25`), with the User end facing it.
   - The Flows "Sign in" start dragged to Login's left (saved `from: 'left'`), routing round the top into Notes.
   - Reset join points removed the block.
+
+## 2026-10-27 — Phase 8 milestone 7: verification
+
+- **Checks:** `pnpm test` (893 tests), `pnpm typecheck` and `pnpm lint` pass. `pnpm e2e:desktop` and `pnpm e2e:packaged` pass 37 Playwright Electron tests each, against `out/` and the packaged `.app`. `pnpm package` built `modelwright-0.1.0-arm64.dmg`.
+- **New Playwright tests:**
+  - a field left open while the app is in the background, saved on close
+  - ⌥-drag copies
+  - a grip reorder
+  - a relationship drawn from a bottom handle
+  - a project at erd 1 and flows 2 opening and saving at erd 2 and flows 3, with information items becoming `info_1`, …
+- **In the browser:** each item on a scratch copy of the notes fixture, in dark and light themes (milestone entries above). The scratch project was removed from recents afterwards.
+- **For a check by hand in the desktop app,** because simulated input can't prove them:
+  - Switching to another app with a field open and coming back: the browser should give focus back to the field (item 25).
+  - How live snapping feels on a real trackpad, and that ⌘ turns it off (item 31).
+  - ⌥-drag with a real Option key, including letting go of ⌥ before the drop (item 32).
+  - Dragging connector grips and row grips with a trackpad (items 28, 29, 34).
+- **Known limits:**
+  - During an ⌥-drag, edges follow the copies until the drop.
+  - Selecting a card now means clicking outside its text, as on screen cards.
