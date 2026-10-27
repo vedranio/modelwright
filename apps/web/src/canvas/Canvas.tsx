@@ -46,6 +46,8 @@ export type CanvasProps<N extends Node, E extends Edge> = Omit<ReactFlowProps<N,
   status?: ReactNode;
   /** Shown centred over the canvas, e.g. an empty state. Doesn't block the canvas around it. */
   overlay?: ReactNode;
+  /** Drawn in canvas coordinates under the cards, e.g. alignment guides (a `ViewportPortal`). */
+  inFlow?: ReactNode;
 };
 
 export const MIN_ZOOM = 0.2;
@@ -70,6 +72,7 @@ function CanvasInner<N extends Node, E extends Edge>({
   toolbarActions,
   status,
   overlay,
+  inFlow,
   ...flowProps
 }: CanvasProps<N, E>) {
   const viewport = usePersistedViewport(viewportKey);
@@ -106,6 +109,7 @@ function CanvasInner<N extends Node, E extends Edge>({
         proOptions={{ hideAttribution: true }}
       >
         <Background variant={BackgroundVariant.Dots} gap={gap} size={dot} />
+        {inFlow}
         {overlay && <div className="canvas-overlay">{overlay}</div>}
         <Panel position="bottom-left" className="canvas-panel">
           {status}

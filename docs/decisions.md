@@ -1308,3 +1308,17 @@ Settled in planning before any code was written; the brief (`docs/phase-8-brief.
 - **Where a row lands** is pure and tested (`dropIndex`, `dropSlot` in `editing/reorder.ts`): before the first row whose midpoint is below the pointer, measured in screen pixels, so zoom doesn't matter.
 - **A state dragged to the top becomes the default,** as ⌥↑ already does.
 - **Verified in the browser** on a scratch copy of the notes fixture: an attribute moved down (and saved in that order), a CTA moved down, and the Empty state moved above List, becoming the default.
+
+## 2026-10-27 — Phase 8 milestone 3: guides, snapping and ⌥-drag (items 31, 32)
+
+- **One hook for both canvases,** `canvas/useCardDrag.tsx`. It takes over the views' live-drag positions, `onNodeDragStart` and `onNodeDragStop`, and draws the guides through a new `Canvas` prop, `inFlow` (rendered inside React Flow, here as a `ViewportPortal`).
+- **Snapping** (`canvas/snap.ts`, pure and tested) lines up the dragged cards' bounding box with every other card: left, centre or right, and top, middle or bottom. The threshold is 6 screen pixels (`SNAP_DISTANCE_PX / zoom` canvas units), and the nearest candidate wins on each axis. React Flow computes each drag position from the pointer, not from the last position we fed back, so a snap holds while the pointer is within range and lets go beyond it. The drop commits the snapped positions, not React Flow's raw ones. ⌘ held while dragging turns snapping off.
+- **Guides** are 1-unit lines in `--color-guide` (the accent, at 60% opacity, in both themes). Each guide spans every card on the line.
+- **⌥-drag:**
+  - ⌥ held when the drag starts makes it a copy. While ⌥ stays held, the originals show where they were as non-interactive ghost nodes (`ghost:<id>`), and the dragged cards are the copies-to-be.
+  - Dropping with ⌥ still held pastes copies (`pasteEntities`/`pasteScreens` of the dragged cards' fragment, moved by the drop's offset, rounded) and leaves the originals unmoved. The copies and the links between them are selected, as with ⌘D, in one undo step.
+  - Letting go of ⌥ before the drop makes it an ordinary move.
+  - Modifiers are tracked from key and pointer events (`useModifiers`), because React Flow's change events carry none.
+  - Known limit: while dragging, edges stay attached to the dragged cards, so for a moment they follow the copies rather than the originals.
+- **Tests:** Vitest for `snap` and `boundsOf`. Playwright Electron covers an ⌥-drag copy, with the original unmoved and the copy saved, and a grip reorder of an attribute.
+- **Verified in the browser** with scripted mouse events, to read state mid-drag: a card dragged to within 5 units of level snapped to it with a guide showing, and dropped there. An ⌥-drag showed a ghost and left the original, with the copy selected where it was dropped.

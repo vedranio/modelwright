@@ -274,3 +274,26 @@
 .drop-after::after {
   bottom: calc(var(--drop-line-w) / -2);
 }
+
+/* Alignment guides while dragging cards (canvas/useCardDrag.tsx), in canvas coordinates. */
+.snap-guide {
+  position: absolute;
+  top: 0;
+  left: 0;
+  background: var(--color-guide);
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.snap-guide-x {
+  width: var(--border-w);
+}
+
+.snap-guide-y {
+  height: var(--border-w);
+}
+
+/* An ⌥-drag's originals, staying where they were while the copies move. */
+.react-flow__node.drag-ghost {
+  pointer-events: none;
+}

@@ -9,6 +9,7 @@ import { decodeCards, encodeCards, pasteShift } from '../canvas/cardClipboard';
 import { UndoRedoButtons } from '../canvas/UndoRedoButtons';
 import { useCardClipboard, viewInFlow } from '../canvas/useCardClipboard';
 import { useCanvasShortcuts } from '../canvas/useCanvasShortcuts';
+import { useCardDrag } from '../canvas/useCardDrag';
 import { useMeasurements } from '../canvas/useMeasurements';
 import { useSelection } from '../canvas/useSelection';
 import { SaveStatusPill } from '../editing/SaveStatusPill';
@@ -79,7 +80,6 @@ function ErdCanvas({
   edit: EditableDoc<'erd'>;
 }) {
   const [editing, setEditing] = useState<EditTarget | null>(null);
-  const [dragging, setDragging] = useState<Record<string, XYPosition>>({});
   /** The relationship under the pointer, highlighted with the entities it joins. */
   const [hoveredEdge, setHoveredEdge] = useState<string | null>(null);
   const selection = useSelection();
@@ -125,20 +125,45 @@ function ErdCanvas({
     }
     return lit;
   }, [erd, hoveredEdge, selection.selectedEdges]);
-  const nodes = useMemo(
-    () =>
+  const placed = useMemo(
+    (): EntityNodeType[] =>
       flow.nodes.map((n) => {
         const measured = measurements.sizes.get(n.id);
         return {
           ...n,
-          position: dragging[n.id] ?? n.position,
           selected: selection.selectedNodes.has(n.id),
           ...(measured && { measured }),
           ...(highlighted.has(n.id) && { data: { ...n.data, highlighted: true } }),
         };
       }),
-    [flow, dragging, selection.selectedNodes, measurements.sizes, highlighted],
+    [flow, selection.selectedNodes, measurements.sizes, highlighted],
   );
+  const cardDrag = useCardDrag({
+    nodes: placed,
+    zoom: () => instance.current?.getZoom() ?? 1,
+    onMove: (positions) => apply((doc) => moveEntities(doc, positions), { saveNow: true }),
+    onCopy: (ids, shift) => {
+      let copies: string[] = [];
+      let links: string[] = [];
+      apply(
+        (doc) => {
+          const result = pasteEntities(doc, entityFragment(doc, ids), {
+            x: Math.round(shift.x),
+            y: Math.round(shift.y),
+          });
+          copies = result.ids;
+          links = result.erd.relationships
+            .filter((r) => copies.includes(r.from) && copies.includes(r.to))
+            .map((r) => r.id);
+          return result.erd;
+        },
+        { saveNow: true },
+      );
+      selection.select(copies, links);
+    },
+  });
+  const { shown } = cardDrag;
+  const nodes = useMemo(() => shown(placed), [shown, placed]);
   const edges = useMemo(() => {
     // The popover shows when one relationship, and nothing else, is selected. Only count what
     // still exists: a deleted item's id can linger in the selection.
@@ -188,12 +213,8 @@ function ErdCanvas({
   const onNodesChange = (changes: NodeChange<EntityNodeType>[]) => {
     selection.onNodesChange(changes);
     measurements.onNodesChange(changes);
-    // Positions move live while dragging; the document changes once, on drop.
-    const moved: Record<string, XYPosition> = {};
-    for (const c of changes) {
-      if (c.type === 'position' && c.dragging && c.position) moved[c.id] = c.position;
-    }
-    if (Object.keys(moved).length > 0) setDragging((d) => ({ ...d, ...moved }));
+    // Positions move live while dragging, snapping to line up; the document changes on drop.
+    cardDrag.onNodesChange(changes);
   };
 
   /**
@@ -375,14 +396,9 @@ function ErdCanvas({
           }}
           onNodesChange={onNodesChange}
           onEdgesChange={selection.onEdgesChange}
-          onNodeDragStop={(_e, _node, dragged) => {
-            apply(
-              (doc) =>
-                moveEntities(doc, Object.fromEntries(dragged.map((n) => [n.id, n.position]))),
-              { saveNow: true },
-            );
-            setDragging({});
-          }}
+          onNodeDragStart={cardDrag.onNodeDragStart}
+          onNodeDragStop={cardDrag.onNodeDragStop}
+          inFlow={cardDrag.overlay}
           onConnectEnd={onConnectEnd}
           onEdgeMouseEnter={(_event, edge) => setHoveredEdge(edge.id)}
           onEdgeMouseLeave={() => setHoveredEdge(null)}

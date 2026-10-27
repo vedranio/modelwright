@@ -9,6 +9,7 @@ import { decodeCards, encodeCards, pasteShift } from '../canvas/cardClipboard';
 import { UndoRedoButtons } from '../canvas/UndoRedoButtons';
 import { useCardClipboard, viewInFlow } from '../canvas/useCardClipboard';
 import { useCanvasShortcuts } from '../canvas/useCanvasShortcuts';
+import { useCardDrag } from '../canvas/useCardDrag';
 import { useMeasurements } from '../canvas/useMeasurements';
 import { useSelection } from '../canvas/useSelection';
 import { SaveStatusPill } from '../editing/SaveStatusPill';
@@ -88,7 +89,6 @@ function FlowsCanvas({
   edit: EditableDoc<'flows'>;
 }) {
   const [editing, setEditing] = useState<EditTarget | null>(null);
-  const [dragging, setDragging] = useState<Record<string, XYPosition>>({});
   /** The CTA a connection is being dragged from, while one is. */
   const [connecting, setConnecting] = useState<TransitionFrom | null>(null);
   /** The transition under the pointer, highlighted with its two ends. */
@@ -136,14 +136,13 @@ function FlowsCanvas({
     if (reconnecting) lit.delete(reconnecting.transitionId);
     return transitionHighlights(flows, lit);
   }, [flows, hoveredEdge, selection.selectedEdges, reconnecting]);
-  const nodes = useMemo(
-    () =>
+  const placed = useMemo(
+    (): ScreenNodeType[] =>
       flow.nodes.map((n) => {
         const measured = measurements.sizes.get(n.id);
         const highlight = highlights.get(n.id);
         return {
           ...n,
-          position: dragging[n.id] ?? n.position,
           selected: selection.selectedNodes.has(n.id),
           ...(measured && { measured }),
           data: {
@@ -154,8 +153,34 @@ function FlowsCanvas({
           },
         };
       }),
-    [flow, dragging, selection.selectedNodes, measurements.sizes, highlights, connecting],
+    [flow, selection.selectedNodes, measurements.sizes, highlights, connecting],
   );
+  const cardDrag = useCardDrag({
+    nodes: placed,
+    zoom: () => instance.current?.getZoom() ?? 1,
+    onMove: (positions) => apply((doc) => moveScreens(doc, positions), { saveNow: true }),
+    onCopy: (ids, shift) => {
+      let copies: string[] = [];
+      let links: string[] = [];
+      apply(
+        (doc) => {
+          const result = pasteScreens(doc, screenFragment(doc, ids), {
+            x: Math.round(shift.x),
+            y: Math.round(shift.y),
+          });
+          copies = result.ids;
+          links = result.flows.transitions
+            .filter((t) => copies.includes(t.from.screenId))
+            .map((t) => t.id);
+          return result.flows;
+        },
+        { saveNow: true },
+      );
+      selection.select(copies, links);
+    },
+  });
+  const { shown } = cardDrag;
+  const nodes = useMemo(() => shown(placed), [shown, placed]);
   const edges = useMemo(() => {
     // The popover shows when one transition, and nothing else, is selected. Only count what
     // still exists: a deleted item's id can linger in the selection.
@@ -274,12 +299,8 @@ function FlowsCanvas({
   const onNodesChange = (changes: NodeChange<ScreenNodeType>[]) => {
     selection.onNodesChange(changes);
     measurements.onNodesChange(changes);
-    // Positions move live while dragging; the document changes once, on drop.
-    const moved: Record<string, XYPosition> = {};
-    for (const c of changes) {
-      if (c.type === 'position' && c.dragging && c.position) moved[c.id] = c.position;
-    }
-    if (Object.keys(moved).length > 0) setDragging((d) => ({ ...d, ...moved }));
+    // Positions move live while dragging, snapping to line up; the document changes on drop.
+    cardDrag.onNodesChange(changes);
   };
 
   /**
@@ -472,14 +493,9 @@ function FlowsCanvas({
             }}
             onNodesChange={onNodesChange}
             onEdgesChange={selection.onEdgesChange}
-            onNodeDragStop={(_e, _node, dragged) => {
-              apply(
-                (doc) =>
-                  moveScreens(doc, Object.fromEntries(dragged.map((n) => [n.id, n.position]))),
-                { saveNow: true },
-              );
-              setDragging({});
-            }}
+            onNodeDragStart={cardDrag.onNodeDragStart}
+            onNodeDragStop={cardDrag.onNodeDragStop}
+            inFlow={cardDrag.overlay}
             onConnectStart={(_event, { nodeId, handleId }) =>
               setConnecting(nodeId && handleId ? ctaForHandle(flows, nodeId, handleId) : null)
             }

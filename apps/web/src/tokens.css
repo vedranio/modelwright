@@ -24,6 +24,8 @@
   /* Darker than the README's #9b9b95, which is 2.6:1; this meets WCAG AA (phase 5). */
   --color-text-faint: #6c6c66;
   --color-accent: #3e55cf;
+  /* Alignment guides while dragging cards: the accent, drawn faint (canvas.css). */
+  --color-guide: #3e55cf;
   --color-accent-hover: #3447b5;
   --color-accent-subtle: #eceffb;
   --color-on-accent: #ffffff;
@@ -168,6 +170,7 @@
   --color-text-muted: #a8a8a2;
   --color-text-faint: #909089;
   --color-accent: #7385f2;
+  --color-guide: #7385f2;
   --color-accent-hover: #8494f4;
   --color-accent-subtle: #1f2440;
   --color-on-accent: #11152b;
@@ -200,6 +203,7 @@
     --color-text-muted: #a8a8a2;
     --color-text-faint: #909089;
     --color-accent: #7385f2;
+    --color-guide: #7385f2;
     --color-accent-hover: #8494f4;
     --color-accent-subtle: #1f2440;
     --color-on-accent: #11152b;

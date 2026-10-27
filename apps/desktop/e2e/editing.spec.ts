@@ -113,3 +113,44 @@ test('an open field stays open while the app is in the background, and saves on 
     .poll(async () => (await erdOf(dir)).entities.map((e: { name: string }) => e.name))
     .toContain('Member');
 });
+
+test('⌥-dragging an entity copies it and leaves the original in place', async () => {
+  const dir = await run.notesProject();
+  await openByPath(run.window, dir);
+  const box = await card('Note').boundingBox();
+  if (!box) throw new Error('Note has no box');
+  const { mouse, keyboard } = run.window;
+  await mouse.move(box.x + 3, box.y + 3);
+  await keyboard.down('Alt');
+  await mouse.down();
+  await mouse.move(box.x + 3, box.y + 200, { steps: 10 });
+  await mouse.up();
+  await keyboard.up('Alt');
+  await expect(entity('Note')).toHaveCount(2);
+  await expect.poll(async () => (await erdOf(dir)).entities.length).toBe(3);
+  const erd = await erdOf(dir);
+  expect(erd.layout.note).toEqual({ x: 320, y: 0 });
+  const copy = erd.entities.at(-1);
+  expect(copy.name).toBe('Note');
+  expect(erd.layout[copy.id].y).toBeGreaterThan(100);
+});
+
+test('dragging an attribute by its grip reorders it', async () => {
+  const dir = await run.notesProject();
+  await openByPath(run.window, dir);
+  const title = run.window.locator('.attribute', { hasText: 'title' });
+  await title.hover();
+  const grip = await title.locator('.row-grip').boundingBox();
+  const updated = await run.window.locator('.attribute', { hasText: 'updated at' }).boundingBox();
+  if (!grip || !updated) throw new Error('missing boxes');
+  const { mouse } = run.window;
+  await mouse.move(grip.x + grip.width / 2, grip.y + grip.height / 2);
+  await mouse.down();
+  await mouse.move(grip.x, updated.y + updated.height - 2, { steps: 8 });
+  await mouse.up();
+  await expect
+    .poll(async () =>
+      (await erdOf(dir)).entities[1].attributes.map((a: { name: string }) => a.name),
+    )
+    .toEqual(['body', 'updated at', 'title']);
+});
