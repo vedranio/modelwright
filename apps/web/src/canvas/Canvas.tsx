@@ -5,6 +5,7 @@ import {
   Panel,
   ReactFlow,
   ReactFlowProvider,
+  SelectionMode,
   type Edge,
   type Node,
   type ReactFlowProps,
@@ -29,6 +30,7 @@ type Owned =
   | 'zoomOnPinch'
   | 'panOnDrag'
   | 'selectionOnDrag'
+  | 'selectionMode'
   | 'proOptions'
   | 'zoomOnDoubleClick'
   | 'deleteKeyCode'
@@ -90,6 +92,8 @@ function CanvasInner<N extends Node, E extends Edge>({
         zoomOnPinch
         // Pointer: drag on empty canvas draws a selection box; middle-drag or Space+drag pans.
         selectionOnDrag
+        // The box selects every card it touches, not only the ones wholly inside it.
+        selectionMode={SelectionMode.Partial}
         panOnDrag={[1]}
         multiSelectionKeyCode="Shift"
         // Double-click on empty canvas belongs to the view (e.g. creating a node), not to zoom.

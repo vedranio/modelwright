@@ -25,13 +25,16 @@ const edit = (action: Edit) =>
   );
 const clipboardText = () => run.app.evaluate(({ clipboard }) => clipboard.readText());
 const entity = (name: string) => run.window.locator('.entity-name', { hasText: name });
+/** Selects a card by its corner: a click on its text edits the text. */
+const card = (name: string) => run.window.locator('.react-flow__node', { has: entity(name) });
+const corner = { position: { x: 3, y: 3 } };
 const erdOf = async (dir: string) =>
   JSON.parse(await readFile(path.join(dir, '.design', 'erd.json'), 'utf8'));
 
 test('copy and paste an entity, then undo the paste', async () => {
   const dir = await run.notesProject();
   await openByPath(run.window, dir);
-  await entity('User').click();
+  await card('User').click(corner);
   await edit('copy');
   await expect.poll(clipboardText).toContain('"modelwright/cards": 1');
   await edit('paste');
@@ -46,8 +49,8 @@ test('copy and paste an entity, then undo the paste', async () => {
 test('cut removes the entities with an undo toast, and paste brings copies back', async () => {
   const dir = await run.notesProject();
   await openByPath(run.window, dir);
-  await entity('User').click();
-  await entity('Note').click({ modifiers: ['Shift'] });
+  await card('User').click(corner);
+  await card('Note').click({ ...corner, modifiers: ['Shift'] });
   await edit('cut');
   await expect(entity('User')).toHaveCount(0);
   await expect(run.window.locator('.toast')).toContainText(/^Cut 'User'|Cut 2 entities/);
@@ -60,7 +63,7 @@ test('cut removes the entities with an undo toast, and paste brings copies back'
 
 test('in a text field, copy is the field’s text, not cards', async () => {
   await openByPath(run.window, await run.notesProject());
-  await entity('User').dblclick();
+  await entity('User').click();
   await run.window.getByLabel('Entity name').selectText();
   await edit('copy');
   await expect.poll(clipboardText).toBe('User');
@@ -68,7 +71,7 @@ test('in a text field, copy is the field’s text, not cards', async () => {
 
 test('entities don’t paste into Flows', async () => {
   await openByPath(run.window, await run.notesProject());
-  await entity('User').click();
+  await card('User').click(corner);
   await edit('copy');
   await run.window.getByRole('tab', { name: 'Flows' }).click();
   const before = await run.window.locator('.react-flow__node').count();

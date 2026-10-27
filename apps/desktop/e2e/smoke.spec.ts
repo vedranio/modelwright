@@ -17,7 +17,7 @@ test('smoke: launch, open, edit, switch views, quit', async () => {
 
   const dir = await run.notesProject();
   await openByPath(window, dir);
-  await window.locator('.entity-name', { hasText: 'Note' }).dblclick();
+  await window.locator('.entity-name', { hasText: 'Note' }).click();
   await window.getByLabel('Entity name').fill('Memo');
   await window.getByLabel('Entity name').press('Enter');
   const erd = () => readFile(path.join(dir, '.design', 'erd.json'), 'utf8');

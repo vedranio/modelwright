@@ -4,7 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 import { expect, test } from '@playwright/test';
-import { launch, openByPath, type Launched } from './launch';
+import { clickMenu, launch, openByPath, type Launched } from './launch';
 
 // Phases 2–6's editing features, in the desktop app: toasts with Undo, the build indicator and
 // Revert all, and the conflict banner for an outside edit made while there are unsaved edits.
@@ -22,18 +22,34 @@ test.afterEach(async () => {
 });
 
 const entity = (name: string) => run.window.locator('.entity-name', { hasText: name });
+const card = (name: string) => run.window.locator('.react-flow__node', { has: entity(name) });
+/**
+ * Another app taking focus. Playwright makes a page always report focus, so this fakes what
+ * the field sees: `document.hasFocus()` false, then the blur. The browser giving focus back on
+ * return can't be simulated; it's on the hand-check list.
+ */
+const background = () =>
+  run.window.evaluate(() => {
+    document.hasFocus = () => false;
+    (document.activeElement as HTMLElement | null)?.blur();
+  });
+const foreground = () =>
+  run.window.evaluate(() => {
+    delete (document as { hasFocus?: unknown }).hasFocus;
+  });
 const erdOf = async (dir: string) =>
   JSON.parse(await readFile(path.join(dir, '.design', 'erd.json'), 'utf8'));
 
 async function rename(from: string, to: string): Promise<void> {
-  await entity(from).dblclick();
+  await entity(from).click();
   await run.window.getByLabel('Entity name').fill(to);
   await run.window.getByLabel('Entity name').press('Enter');
 }
 
 test('deleting an entity shows a toast whose Undo brings it back', async () => {
   await openByPath(run.window, await run.notesProject());
-  await entity('Note').click();
+  // A click on the card's text edits it, so select it by its corner.
+  await card('Note').click({ position: { x: 3, y: 3 } });
   await run.window.keyboard.press('Backspace');
   await expect(entity('Note')).toHaveCount(0);
   const toast = run.window.locator('.toast');
@@ -74,4 +90,26 @@ test('an outside edit during unsaved edits asks which to keep', async () => {
   await banner.getByRole('button', { name: 'Keep mine' }).click();
   await expect.poll(async () => (await erdOf(dir)).entities[0].name).toBe('Mine');
   expect((await erdOf(dir)).entities[1].name).toBe('Note');
+});
+
+test('an open field stays open while the app is in the background, and saves on quit', async () => {
+  const dir = await run.notesProject();
+  await openByPath(run.window, dir);
+  await entity('User').click();
+  const field = run.window.getByLabel('Entity name');
+  await field.fill('Mem');
+  // Another app takes focus: the window blurs, but the field mustn't commit and close.
+  await background();
+  await expect(field).toBeVisible();
+  await foreground();
+  await field.focus();
+  await run.window.keyboard.type('ber');
+  await expect(field).toHaveValue('Member');
+  // Background again, then close the project from the menu: the open field is saved first.
+  await background();
+  await expect(field).toBeVisible();
+  await clickMenu(run.app, ['File', 'Close Project']);
+  await expect
+    .poll(async () => (await erdOf(dir)).entities.map((e: { name: string }) => e.name))
+    .toContain('Member');
 });

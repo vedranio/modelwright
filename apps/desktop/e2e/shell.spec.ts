@@ -45,7 +45,7 @@ test('opens a project, shows every view, and saves an edit to disk', async () =>
   await openByPath(window, dir);
 
   await expect(window.locator('.entity-name', { hasText: 'User' })).toBeVisible();
-  await window.locator('.entity-name', { hasText: 'User' }).dblclick();
+  await window.locator('.entity-name', { hasText: 'User' }).click();
   await window.getByLabel('Entity name').fill('Member');
   await window.getByLabel('Entity name').press('Enter');
   await expect

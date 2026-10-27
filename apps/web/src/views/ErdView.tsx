@@ -29,6 +29,7 @@ import {
   deleteRelationships,
   duplicateEntities,
   entityFragment,
+  lastCardinalities,
   moveEntities,
   pasteEntities,
 } from '../erd/ops';
@@ -152,8 +153,8 @@ function ErdCanvas({
   }, [flow, selection.selectedEdges, selection.selectedNodes]);
 
   /**
-   * Dropping a connection anywhere on another entity relates the two, with the default
-   * cardinalities; the new relationship is selected, which opens its popover. Dropping on empty
+   * Dropping a connection anywhere on another entity relates the two, with the cardinalities of
+   * the last relationship added; the new relationship is selected, which opens its popover. Dropping on empty
    * canvas creates an entity there, already related, with its name open for typing. Dropping
    * on the same entity does nothing.
    */
@@ -166,7 +167,7 @@ function ErdCanvas({
       if (!instance.current) return;
       const at = instance.current.screenToFlowPosition({ x: point.clientX, y: point.clientY });
       createEntity(at, (doc, position) => {
-        const result = addEntityWithRelationship(doc, position, from);
+        const result = addEntityWithRelationship(doc, position, from, lastCardinalities(doc));
         return { erd: result.erd, id: result.entityId };
       });
       return;
@@ -175,7 +176,7 @@ function ErdCanvas({
     if (!to || to === from) return;
     let id: string | null = null;
     apply((doc) => {
-      const result = addRelationship(doc, from, to);
+      const result = addRelationship(doc, from, to, lastCardinalities(doc));
       id = result.id;
       return result.erd;
     });
@@ -251,7 +252,7 @@ function ErdCanvas({
   };
 
   const onDoubleClick = (e: MouseEvent) => {
-    // Only on empty canvas: double-clicks on cards edit their text.
+    // Only on empty canvas: clicks on cards edit their text.
     if (!(e.target instanceof Element) || !e.target.classList.contains('react-flow__pane')) return;
     if (!instance.current) return;
     createEntity(instance.current.screenToFlowPosition({ x: e.clientX, y: e.clientY }));

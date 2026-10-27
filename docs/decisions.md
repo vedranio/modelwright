@@ -1286,3 +1286,17 @@ The phase 7 brief's "obvious next convenience". Settled with you: both builds th
   - Vitest covers the core (approval, output, cap, exit codes, process groups, stopAll, no command, `stripAnsi`, `announcedUrls`), three contract cases on both clients, and IPC validation.
   - Playwright Electron, through the real login shell, covers: approve, the preview shows the page, Stop and the process gone, start again with no dialog; closing the project and quitting each stop it (by pid); and a crash showing exit 2, its output and Start again.
   - In the web build's browser pane: Start, the dialog, the preview, the log, Stop with the card back, start again with no dialog, and close stopping the server.
+
+## 2026-10-27 — Phase 8 planning decisions
+
+Settled in planning before any code was written; the brief (`docs/phase-8-brief.md`) lists them. Reordering is by dragging a grip; join points remember side and position (side only on Flows); snapping is live, with ⌘ to turn it off; notes on information items and CTAs aren't on the Tab path; one schema bump per file (`erd.json` 2, `flows.json` 3). Item 13 stays a follow-up: it only affects the web build.
+
+## 2026-10-27 — Phase 8 milestone 1: small canvas fixes (items 25, 26, 27, 30)
+
+- **Item 25, a field survives switching apps.** Switching to another app blurred the open field, and blur commits and closes it. Now `InlineField` ignores a blur while `document.hasFocus()` is false (the window itself lost focus): the field stays open, and the browser gives it focus back when the window returns. This replaces the plan's restore-on-focus hook, which would have reopened fields with their text selected and needed every editor to take part.
+  - **Nothing is lost on close or quit.** `Shell.saveOrAsk` first calls `commitOpenField()`, which asks a mounted `InlineField` to commit as a blur would, then flushes. That covers quitting from the Dock while the app is in the background.
+  - **Tested in Playwright by faking the background:** Playwright makes a page always report focus, so the test sets `document.hasFocus()` to false and blurs the field. That the browser gives focus back on return is on the hand-check list.
+  - **Selecting a card now means clicking outside its text,** as on screen cards. Three Playwright tests that clicked an entity's name to select it now click its corner.
+- **Item 26, single click on entity cards** (supersedes "Entity cards stay double-click", 2026-10-07). Name, description, attribute and note open on a click, as screen cards do. React Flow swallows the click that ends a drag, so dragging by the text still moves the card.
+- **Item 27, partial selection.** `Canvas` sets `selectionMode={SelectionMode.Partial}` for both canvases, and views can't override it.
+- **Item 30, the last cardinality.** A new relationship copies the cardinalities of the relationship added last (new ones are appended, so it's the end of the list), via `lastCardinalities`. That's the last line drawn, with any change made to it since, and it needs no preference storage. With no relationships it's `one` → `zero-many`, as before. `addRelationship` and `addEntityWithRelationship` take the cardinalities as an optional argument, defaulting as before.

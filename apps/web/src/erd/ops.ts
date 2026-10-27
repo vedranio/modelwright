@@ -121,14 +121,28 @@ export function moveEntities(erd: Erd, positions: Readonly<Record<string, Positi
   return layout ? { ...erd, layout } : erd;
 }
 
+/** The cardinalities a relationship starts with when nothing else is asked for. */
+export type Cardinalities = { fromCard: Cardinality; toCard: Cardinality };
+export const DEFAULT_CARDINALITIES: Cardinalities = { fromCard: 'one', toCard: 'zero-many' };
+
 /**
- * Adds a relationship from one entity to another with the default cardinalities: `one` at the
- * `from` end and `zero-many` at the `to` end. Returns null as the id if either entity is missing.
+ * The cardinalities of the relationship added last (new ones go at the end of the list), so the
+ * next one drawn starts the same way. The defaults when there are none.
+ */
+export function lastCardinalities(erd: Erd): Cardinalities {
+  const last = erd.relationships.at(-1);
+  return last ? { fromCard: last.fromCard, toCard: last.toCard } : DEFAULT_CARDINALITIES;
+}
+
+/**
+ * Adds a relationship from one entity to another, by default with `one` at the `from` end and
+ * `zero-many` at the `to` end. Returns null as the id if either entity is missing.
  */
 export function addRelationship(
   erd: Erd,
   from: string,
   to: string,
+  cards: Cardinalities = DEFAULT_CARDINALITIES,
 ): { erd: Erd; id: string | null } {
   const known = new Set(erd.entities.map((e) => e.id));
   if (!known.has(from) || !known.has(to)) return { erd, id: null };
@@ -137,26 +151,27 @@ export function addRelationship(
     id,
     erd: {
       ...erd,
-      relationships: [...erd.relationships, { id, from, to, fromCard: 'one', toCard: 'zero-many' }],
+      relationships: [...erd.relationships, { id, from, to, ...cards }],
     },
   };
 }
 
 /**
- * Adds an entity with its top-left at `position`, related to `from` with the default
- * cardinalities, as one edit: what dropping a connection on empty canvas does. Returns null
- * ids, and the document unchanged, if `from` doesn't exist.
+ * Adds an entity with its top-left at `position`, related to `from` (by default with the
+ * default cardinalities), as one edit: what dropping a connection on empty canvas does. Returns
+ * null ids, and the document unchanged, if `from` doesn't exist.
  */
 export function addEntityWithRelationship(
   erd: Erd,
   position: Position,
   from: string,
+  cards: Cardinalities = DEFAULT_CARDINALITIES,
 ): { erd: Erd; entityId: string | null; relationshipId: string | null } {
   if (!erd.entities.some((e) => e.id === from)) {
     return { erd, entityId: null, relationshipId: null };
   }
   const entity = addEntity(erd, position);
-  const relationship = addRelationship(entity.erd, from, entity.id);
+  const relationship = addRelationship(entity.erd, from, entity.id, cards);
   return { erd: relationship.erd, entityId: entity.id, relationshipId: relationship.id };
 }
 
