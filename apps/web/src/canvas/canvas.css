@@ -226,3 +226,51 @@
 .canvas .react-flow__node.draggable.dragging {
   cursor: grabbing;
 }
+
+/* Dragging a row by its grip (editing/rowDrag.tsx), on entity and screen cards. */
+.row-grip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: grab;
+  touch-action: none;
+}
+
+.row-grip .icon {
+  --icon-size: var(--text-sm-lh);
+}
+
+.rows-dragging,
+.rows-dragging * {
+  cursor: grabbing !important;
+}
+
+[data-row] {
+  position: relative;
+}
+
+.row-dragged {
+  opacity: 0.5;
+}
+
+/* Where the row will land: a line at the top of the row it goes before, or under the last. */
+.drop-before::after,
+.drop-after::after {
+  content: '';
+  position: absolute;
+  left: var(--space-2);
+  right: var(--space-2);
+  height: var(--drop-line-w);
+  border-radius: var(--drop-line-w);
+  background: var(--color-accent);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.drop-before::after {
+  top: calc(var(--drop-line-w) / -2);
+}
+
+.drop-after::after {
+  bottom: calc(var(--drop-line-w) / -2);
+}

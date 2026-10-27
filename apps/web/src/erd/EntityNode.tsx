@@ -3,6 +3,7 @@ import type { Attribute, Entity } from '@modelwright/schema';
 import { isEditing, useErdEditor } from './editor';
 import { attributeDeletionSummary } from './deletion';
 import { InlineField, type CommitReason } from '../editing/InlineField';
+import { RowGrip } from '../editing/rowDrag';
 import {
   addAttribute,
   deleteAttribute,
@@ -135,7 +136,7 @@ export function EntityNode({ data }: NodeProps<EntityNodeType>) {
         )}
       </header>
 
-      <ul className="attributes">
+      <ul className="attributes" data-rows>
         {entity.attributes
           .map((attribute) => (
             <AttributeRow
@@ -194,7 +195,7 @@ function AttributeRow({
   };
 
   return (
-    <li className="attribute">
+    <li className="attribute" data-row>
       <div className="attribute-line">
         {isEditing(editing, target('attribute')) ? (
           <InlineField
@@ -227,6 +228,10 @@ function AttributeRow({
           </span>
         )}
         <span className="attribute-actions">
+          <RowGrip
+            className="attribute-action"
+            onMove={(offset) => apply((erd) => moveAttribute(erd, entityId, attribute.id, offset))}
+          />
           {!attribute.note && !isEditing(editing, target('note')) && (
             <button
               type="button"

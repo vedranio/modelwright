@@ -1300,3 +1300,11 @@ Settled in planning before any code was written; the brief (`docs/phase-8-brief.
 - **Item 26, single click on entity cards** (supersedes "Entity cards stay double-click", 2026-10-07). Name, description, attribute and note open on a click, as screen cards do. React Flow swallows the click that ends a drag, so dragging by the text still moves the card.
 - **Item 27, partial selection.** `Canvas` sets `selectionMode={SelectionMode.Partial}` for both canvases, and views can't override it.
 - **Item 30, the last cardinality.** A new relationship copies the cardinalities of the relationship added last (new ones are appended, so it's the end of the list), via `lastCardinalities`. That's the last line drawn, with any change made to it since, and it needs no preference storage. With no relationships it's `one` → `zero-many`, as before. `addRelationship` and `addEntityWithRelationship` take the cardinalities as an optional argument, defaulting as before.
+
+## 2026-10-27 — Phase 8 milestone 2: drag to reorder (items 28, 34)
+
+- **A grip (Material's `drag_indicator`) leads each row's hover controls,** on attributes, state headers, information items and CTAs. It sits with the other hover controls at the row's right, rather than at its left as planned: the left edge of a CTA row already holds its left connection handle, and hover controls take no space.
+- **No drag library.** `editing/rowDrag.tsx` handles pointer events imperatively: the list is the nearest `[data-rows]` element, its rows are its `[data-row]` children (drafts aren't rows), and classes on the DOM show the dragged row (faded) and the drop line (accent, `--drop-line-w`). Escape cancels. Dropping calls the existing move ops (`moveAttribute`, `moveState`, `moveSeesItem`, `moveCta`) with the offset, so it's one undo step and ⌥↑/⌥↓ is unchanged.
+- **Where a row lands** is pure and tested (`dropIndex`, `dropSlot` in `editing/reorder.ts`): before the first row whose midpoint is below the pointer, measured in screen pixels, so zoom doesn't matter.
+- **A state dragged to the top becomes the default,** as ⌥↑ already does.
+- **Verified in the browser** on a scratch copy of the notes fixture: an attribute moved down (and saved in that order), a CTA moved down, and the Empty state moved above List, becoming the default.

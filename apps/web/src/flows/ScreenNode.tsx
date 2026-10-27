@@ -1,6 +1,7 @@
 import { Handle, Position, type Node, type NodeProps } from '@xyflow/react';
 import type { Cta, Screen, ScreenState } from '@modelwright/schema';
 import { InlineField } from '../editing/InlineField';
+import { RowGrip } from '../editing/rowDrag';
 import { isEditing, useFlowsEditor, type EditTarget } from './editor';
 import { ctaDeletionSummary, seesDeletionSummary, stateDeletionSummary } from './deletion';
 import { SCREEN_HANDLE, ctaHandle, showsStateHeaders, stateHandle } from './endpoints';
@@ -103,6 +104,8 @@ export function ScreenNode({ data }: NodeProps<ScreenNodeType>) {
       ]
         .filter(Boolean)
         .join(' ')}
+      // States are its rows, dragged by their header's grip.
+      data-rows
     >
       <header className="screen-head" data-screen-header="">
         <Handle
@@ -284,6 +287,7 @@ function StateSection({
         .filter(Boolean)
         .join(' ')}
       data-state={state.id}
+      data-row
     >
       {showHeader && (
         <div className="state-head" data-state-header={state.id}>
@@ -328,6 +332,10 @@ function StateSection({
           {isDefault && <span className="state-tag">default</span>}
           {!nameTarget && (
             <span className="row-actions">
+              <RowGrip
+                className="row-action"
+                onMove={(offset) => apply((f) => moveState(f, screen.id, state.id, offset))}
+              />
               {!state.notes && !editingNotes && (
                 <button
                   type="button"
@@ -371,7 +379,7 @@ function StateSection({
       {notes}
       <div className="state-body">
         <div className="list-caption">Information</div>
-        <ul className="sees">
+        <ul className="sees" data-rows>
           {state.sees.flatMap((item, i) => {
             const row = (
               <SeesRow
@@ -397,7 +405,7 @@ function StateSection({
         />
 
         <div className="list-caption">Actions</div>
-        <ul className="ctas">
+        <ul className="ctas" data-rows>
           {state.ctas.flatMap((cta) => {
             const row = (
               <CtaRow
@@ -466,7 +474,7 @@ function SeesRow({
   };
 
   return (
-    <li className="sees-item">
+    <li className="sees-item" data-row>
       {isEditing(editing, target) ? (
         <InlineField
           ariaLabel="Sees item"
@@ -505,6 +513,10 @@ function SeesRow({
         </span>
       )}
       <span className="row-actions">
+        <RowGrip
+          className="row-action"
+          onMove={(offset) => apply((f) => moveSeesItem(f, screen.id, state.id, index, offset))}
+        />
         <button
           type="button"
           className="row-action row-delete nodrag"
@@ -599,7 +611,7 @@ function CtaRow({
   };
 
   return (
-    <li className={`cta-row${highlighted ? ' highlighted' : ''}`}>
+    <li className={`cta-row${highlighted ? ' highlighted' : ''}`} data-row>
       {isEditing(editing, target) ? (
         <InlineField
           ariaLabel="CTA label"
@@ -637,6 +649,10 @@ function CtaRow({
       )}
       {primary && !isEditing(editing, target) && <span className="state-tag">primary</span>}
       <span className="row-actions">
+        <RowGrip
+          className="row-action"
+          onMove={(offset) => apply((f) => moveCta(f, screen.id, state.id, cta.id, offset))}
+        />
         <button
           type="button"
           className="row-action nodrag"
