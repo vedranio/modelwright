@@ -239,6 +239,22 @@ export function updateSeesItem(
   );
 }
 
+/** Sets the note on the sees item at `index`; a blank note removes it. */
+export function setSeesNote(
+  flows: Flows,
+  screenId: string,
+  stateId: string,
+  index: number,
+  note: string,
+): Flows {
+  return mapState(flows, screenId, stateId, (st) => {
+    const item = st.sees[index];
+    if (!item) return st;
+    const next = withOptional(item, 'note', note);
+    return next === item ? st : { ...st, sees: st.sees.map((x, i) => (i === index ? next : x)) };
+  });
+}
+
 export function deleteSeesItem(
   flows: Flows,
   screenId: string,
@@ -283,6 +299,22 @@ export function renameCta(
   return mapState(flows, screenId, stateId, (st) => {
     if (!st.ctas.some((c) => c.id === ctaId && c.label !== label)) return st;
     return { ...st, ctas: st.ctas.map((c) => (c.id === ctaId ? { ...c, label } : c)) };
+  });
+}
+
+/** Sets a CTA's note; a blank note removes it. */
+export function setCtaNote(
+  flows: Flows,
+  screenId: string,
+  stateId: string,
+  ctaId: string,
+  note: string,
+): Flows {
+  return mapState(flows, screenId, stateId, (st) => {
+    const cta = st.ctas.find((c) => c.id === ctaId);
+    if (!cta) return st;
+    const next = withOptional(cta, 'note', note);
+    return next === cta ? st : { ...st, ctas: st.ctas.map((c) => (c.id === ctaId ? next : c)) };
   });
 }
 

@@ -9,6 +9,8 @@ import type { Size } from '../canvas/placement';
 export const SCREEN_WIDTH = 260; // keep in step with --screen-w in tokens.css
 const HEADER_HEIGHT = 40;
 const NOTES_HEIGHT = 20;
+/** A note under an information item or a CTA, in smaller type. */
+const ROW_NOTE_HEIGHT = 16;
 /** A state's header row, shown only when the screen has more than one state. */
 const STATE_HEADER_HEIGHT = 32;
 /** The "Information" and "Actions" captions. */
@@ -37,6 +39,7 @@ export function estimateScreenSize(screen: Screen): Size {
           2 * CAPTION_HEIGHT +
           s.sees.length * SEES_ROW_HEIGHT +
           s.ctas.length * CTA_ROW_HEIGHT +
+          [...s.sees, ...s.ctas].filter((row) => row.note).length * ROW_NOTE_HEIGHT +
           STATE_FOOTER_HEIGHT,
         0,
       ),

@@ -1340,3 +1340,11 @@ Settled in planning before any code was written; the brief (`docs/phase-8-brief.
 - **Fixtures:** the notes, busy and notes-edited fixtures and the Todo demo were upgraded through the migration itself (parse, then stringify). `fixtures/v1/erd.json` and `fixtures/v2/flows.json` keep the old notes files for the migration tests.
 - **The rest of the app** reads items as objects. Rows are keyed by item id rather than index. `addState` copies the default state's items with their ids (ids only need to be unique within a state), and `pasteScreens` keeps item ids for the same reason.
 - **The bundled CLI was rebuilt.**
+
+## 2026-10-27 — Phase 8 milestone 5: notes on information items and CTAs (items 35, 36)
+
+- **The attribute note pattern, on screen cards:** a "note" hover control (when there's none), and the note as a faint `--text-xs` line under the row that opens with a single click. Enter or clicking away keeps it, Escape drops it, and a blank note removes the key (`setSeesNote`, `setCtaNote`). One `RowNote` component serves both.
+- **An information item's note sits inside its row.** A CTA's note is a list item of its own after the row (`cta-note-line`), so the CTA row and its connection handles keep their height and transitions still leave from the label's line. It isn't a `[data-row]`, so grip dragging ignores it, and the CTA row's drop line still lands between CTAs.
+- **Not on the Tab path,** as with state notes, so item → item and CTA → CTA entry stays as fast as before.
+- **`estimateScreenSize`** adds a 16-unit line per noted item or CTA.
+- **Verified in the browser** on the scratch notes project: a note on "note titles" and one on the "New note" CTA, saved as `note` keys in a migrated v3 `flows.json`, and shown in `spec.md` as nested bullets.

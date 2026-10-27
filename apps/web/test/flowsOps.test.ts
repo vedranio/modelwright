@@ -12,7 +12,9 @@ import {
   addTransition,
   deleteCta,
   duplicateScreens,
+  setCtaNote,
   setPrimaryCta,
+  setSeesNote,
   setStateNotes,
   deleteScreens,
   deleteSeesItem,
@@ -296,6 +298,36 @@ describe('sees items', () => {
       texts(state(valid(deleteSeesItem(f, 'login', 'login-default', 0)), 'login', 'login-default')),
     ).toEqual(['password field']);
     expect(deleteSeesItem(f, 'login', 'login-default', 5)).toBe(f);
+  });
+});
+
+describe('notes on items and CTAs', () => {
+  it('sets, replaces and removes a note on a sees item, by index', () => {
+    const f = frozen();
+    const noted = valid(setSeesNote(f, 'login', 'login-default', 1, 'masked'));
+    expect(state(noted, 'login', 'login-default').sees[1]).toEqual({
+      id: 'info_2',
+      text: 'password field',
+      note: 'masked',
+    });
+    expect(setSeesNote(deepFreeze(noted), 'login', 'login-default', 1, 'masked')).toBe(noted);
+    const cleared = valid(setSeesNote(deepFreeze(noted), 'login', 'login-default', 1, ' '));
+    expect(state(cleared, 'login', 'login-default').sees[1]).toEqual({
+      id: 'info_2',
+      text: 'password field',
+    });
+    expect(setSeesNote(f, 'login', 'login-default', 9, 'x')).toBe(f);
+  });
+
+  it('sets and removes a note on a CTA', () => {
+    const f = frozen();
+    const noted = valid(
+      setCtaNote(f, 'login', 'login-default', 'login-submit', 'disabled until filled'),
+    );
+    expect(state(noted, 'login', 'login-default').ctas[0]?.note).toBe('disabled until filled');
+    const cleared = setCtaNote(deepFreeze(noted), 'login', 'login-default', 'login-submit', '');
+    expect(state(cleared, 'login', 'login-default').ctas[0]).not.toHaveProperty('note');
+    expect(setCtaNote(f, 'login', 'login-default', 'nope', 'x')).toBe(f);
   });
 });
 

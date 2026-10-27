@@ -450,3 +450,23 @@
   pointer-events: auto;
   cursor: pointer;
 }
+
+/* Notes on information items and CTAs: faint small type under the row, like attribute notes. */
+.row-note {
+  display: block;
+  font-size: var(--text-xs);
+  line-height: var(--text-xs-lh);
+  color: var(--color-text-faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cta-note-line {
+  padding: 0 var(--space-3) 0 calc(var(--space-3) + var(--space-3));
+}
+
+.row-note-input {
+  width: 100%;
+  margin-top: var(--space-0);
+}
