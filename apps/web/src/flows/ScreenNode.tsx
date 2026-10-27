@@ -1,5 +1,5 @@
 import { Handle, Position, type Node, type NodeProps } from '@xyflow/react';
-import type { Cta, Screen, ScreenState } from '@modelwright/schema';
+import type { Cta, InfoItem, Screen, ScreenState } from '@modelwright/schema';
 import { InlineField } from '../editing/InlineField';
 import { RowGrip } from '../editing/rowDrag';
 import { isEditing, useFlowsEditor, type EditTarget } from './editor';
@@ -383,7 +383,7 @@ function StateSection({
           {state.sees.flatMap((item, i) => {
             const row = (
               <SeesRow
-                key={i}
+                key={item.id}
                 screen={screen}
                 state={state}
                 stateIndex={stateIndex}
@@ -462,7 +462,7 @@ function SeesRow({
   stateIndex,
   index,
   item,
-}: RowProps & { index: number; item: string }) {
+}: RowProps & { index: number; item: InfoItem }) {
   const { apply, remove, editing, setEditing } = useFlowsEditor();
   const target: EditTarget = { kind: 'sees', screenId: screen.id, stateId: state.id, index };
 
@@ -478,7 +478,7 @@ function SeesRow({
       {isEditing(editing, target) ? (
         <InlineField
           ariaLabel="Sees item"
-          value={item}
+          value={item.text}
           selectAll
           onCommit={(value, reason) => {
             const text = save(value);
@@ -509,7 +509,7 @@ function SeesRow({
             setEditing(target);
           }}
         >
-          {item || ' '}
+          {item.text || ' '}
         </span>
       )}
       <span className="row-actions">
@@ -520,7 +520,7 @@ function SeesRow({
         <button
           type="button"
           className="row-action row-delete nodrag"
-          aria-label={`Delete ${item || 'item'}`}
+          aria-label={`Delete ${item.text || 'item'}`}
           title="Delete item"
           onClick={() =>
             remove(

@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "screens": [
     {
       "id": "login",
@@ -9,8 +9,14 @@
           "id": "login-default",
           "name": "Default",
           "sees": [
-            "email field",
-            "password field"
+            {
+              "id": "info_1",
+              "text": "email field"
+            },
+            {
+              "id": "info_2",
+              "text": "password field"
+            }
           ],
           "ctas": [
             {
@@ -23,9 +29,18 @@
           "id": "login-error",
           "name": "Error",
           "sees": [
-            "email field",
-            "password field",
-            "error message"
+            {
+              "id": "info_1",
+              "text": "email field"
+            },
+            {
+              "id": "info_2",
+              "text": "password field"
+            },
+            {
+              "id": "info_3",
+              "text": "error message"
+            }
           ],
           "ctas": [
             {
@@ -47,8 +62,14 @@
           "id": "notes-list",
           "name": "List",
           "sees": [
-            "note titles",
-            "updated dates"
+            {
+              "id": "info_1",
+              "text": "note titles"
+            },
+            {
+              "id": "info_2",
+              "text": "updated dates"
+            }
           ],
           "ctas": [
             {
@@ -65,7 +86,10 @@
           "id": "notes-empty",
           "name": "Empty",
           "sees": [
-            "empty message"
+            {
+              "id": "info_1",
+              "text": "empty message"
+            }
           ],
           "ctas": [
             {
@@ -87,8 +111,14 @@
           "id": "editor-default",
           "name": "Default",
           "sees": [
-            "title field",
-            "body field"
+            {
+              "id": "info_1",
+              "text": "title field"
+            },
+            {
+              "id": "info_2",
+              "text": "body field"
+            }
           ],
           "ctas": [
             {

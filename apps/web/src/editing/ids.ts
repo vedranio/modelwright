@@ -1,7 +1,10 @@
 import { customAlphabet } from 'nanoid';
 
-/** Every id prefix the editors generate: ERD entities, attributes and relationships; flow screens, states, CTAs and transitions. */
-export type IdPrefix = 'ent' | 'attr' | 'rel' | 'scr' | 'st' | 'cta' | 'tr';
+/**
+ * Every id prefix the editors generate: ERD entities, attributes and relationships; flow
+ * screens, states, information items, CTAs and transitions.
+ */
+export type IdPrefix = 'ent' | 'attr' | 'rel' | 'scr' | 'st' | 'info' | 'cta' | 'tr';
 
 const ALPHABET = '0123456789abcdefghijklmnopqrstuvwxyz';
 const LENGTH = 8;

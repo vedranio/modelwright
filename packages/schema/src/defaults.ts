@@ -5,11 +5,11 @@ import type { Flows } from './flows';
 /** These are what initialising `.design/` writes. */
 
 export function defaultErd(): Erd {
-  return { schemaVersion: 1, entities: [], relationships: [], layout: {} };
+  return { schemaVersion: 2, entities: [], relationships: [], layout: {} };
 }
 
 export function defaultFlows(): Flows {
-  return { schemaVersion: 2, screens: [], transitions: [], layout: {} };
+  return { schemaVersion: 3, screens: [], transitions: [], layout: {} };
 }
 
 export function defaultConfig(name: string): Config {

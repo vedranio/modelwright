@@ -1322,3 +1322,21 @@ Settled in planning before any code was written; the brief (`docs/phase-8-brief.
   - Known limit: while dragging, edges stay attached to the dragged cards, so for a moment they follow the copies rather than the originals.
 - **Tests:** Vitest for `snap` and `boundsOf`. Playwright Electron covers an ⌥-drag copy, with the original unmoved and the copy saved, and a grip reorder of an attribute.
 - **Verified in the browser** with scripted mouse events, to read state mid-drag: a card dragged to within 5 units of level snapped to it with a guide showing, and dropped there. An ⌥-drag showed a ghost and left the original, with the copy selected where it was dropped.
+
+## 2026-10-27 — Phase 8 milestone 4: erd.json v2 and flows.json v3
+
+- **`erd.json` schemaVersion 2** adds an optional top-level `anchors` block after `layout`: `{ [relationshipId]: { from?: { side, at }, to?: { side, at } } }`, where `side` is top, right, bottom or left and `at` runs from 0 to 1 along it. Keys must name relationships (`checkAnchorKeys`, like `checkLayoutKeys`). The migration from 1 only changes the version.
+- **`flows.json` schemaVersion 3:**
+  - Information items are `{ id, text, note? }` objects, with ids unique within their state (like CTAs). The migration from 2 numbers each state's items `info_1`, `info_2`, … in order. New items get `info_` plus 8 characters, like every other id.
+  - `Cta` gains an optional `note`.
+  - An optional `anchors` block: `{ [transitionId]: { from?: 'left' | 'right', to?: 'left' | 'right' } }`. A CTA row and the target state fix the heights, so only the side is stored.
+- **`anchors` is optional and left out when empty** (`orderAnchors` in `stringify.ts`, which also puts entries in link order). The plan had it always present, but a file with no fixed join points shouldn't carry an empty block, and existing files re-save with no change but the version.
+- **The design diff still lines information items up by text,** so a build recorded before this phase (its snapshot migrates when read) still diffs item by item. New change kinds:
+  - `information-note-changed`: items pair with the first unpaired item of the same text.
+  - `cta-note-changed`.
+  - Added items and CTAs mention their note.
+  - The diff compares named fields only, so `anchors`, like `layout`, never shows as a change.
+- **`spec.md`** shows an item's or a CTA's note as a nested bullet under it. SKILL.md says those notes are requirements.
+- **Fixtures:** the notes, busy and notes-edited fixtures and the Todo demo were upgraded through the migration itself (parse, then stringify). `fixtures/v1/erd.json` and `fixtures/v2/flows.json` keep the old notes files for the migration tests.
+- **The rest of the app** reads items as objects. Rows are keyed by item id rather than index. `addState` copies the default state's items with their ids (ids only need to be unique within a state), and `pasteScreens` keeps item ids for the same reason.
+- **The bundled CLI was rebuilt.**

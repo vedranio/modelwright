@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "screens": [
     {
       "id": "catalogue",
@@ -15,8 +15,14 @@
           "name": "Browse",
           "notes": "Shown when there is at least one item",
           "sees": [
-            "categories",
-            "product cards"
+            {
+              "id": "info_1",
+              "text": "categories"
+            },
+            {
+              "id": "info_2",
+              "text": "product cards"
+            }
           ],
           "ctas": [
             {
@@ -34,7 +40,10 @@
           "id": "loading",
           "name": "Loading",
           "sees": [
-            "skeleton cards"
+            {
+              "id": "info_1",
+              "text": "skeleton cards"
+            }
           ],
           "ctas": []
         }
@@ -48,8 +57,14 @@
           "id": "default",
           "name": "Default",
           "sees": [
-            "photos",
-            "price | stock"
+            {
+              "id": "info_1",
+              "text": "photos"
+            },
+            {
+              "id": "info_2",
+              "text": "price | stock"
+            }
           ],
           "ctas": [
             {
@@ -72,8 +87,14 @@
           "id": "full",
           "name": "Has items",
           "sees": [
-            "line items",
-            "total"
+            {
+              "id": "info_1",
+              "text": "line items"
+            },
+            {
+              "id": "info_2",
+              "text": "total"
+            }
           ],
           "ctas": [
             {
@@ -107,8 +128,14 @@
           "id": "form",
           "name": "Form",
           "sees": [
-            "address",
-            "card field"
+            {
+              "id": "info_1",
+              "text": "address"
+            },
+            {
+              "id": "info_2",
+              "text": "card field"
+            }
           ],
           "ctas": [
             {
@@ -121,7 +148,10 @@
           "id": "error",
           "name": "Payment failed",
           "sees": [
-            "error message"
+            {
+              "id": "info_1",
+              "text": "error message"
+            }
           ],
           "ctas": [
             {

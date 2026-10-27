@@ -12,8 +12,14 @@ import type { Flows } from './flows';
  */
 export function stringifyDesign<K extends DesignKind>(kind: K, doc: DesignDoc<K>): string {
   const canonical = canonicalise(SCHEMAS[kind], doc) as Record<string, unknown>;
-  if (kind === 'erd') orderLayout(canonical, (doc as Erd).entities);
-  if (kind === 'flows') orderLayout(canonical, (doc as Flows).screens);
+  if (kind === 'erd') {
+    orderLayout(canonical, (doc as Erd).entities);
+    orderAnchors(canonical, (doc as Erd).relationships);
+  }
+  if (kind === 'flows') {
+    orderLayout(canonical, (doc as Flows).screens);
+    orderAnchors(canonical, (doc as Flows).transitions);
+  }
   return `${JSON.stringify(canonical, null, 2)}\n`;
 }
 
@@ -58,6 +64,20 @@ export function orderLayout(doc: Record<string, unknown>, nodes: readonly { id: 
     if (!(id in ordered)) ordered[id] = position;
   }
   doc['layout'] = ordered;
+}
+
+/**
+ * Puts `anchors` entries in link order, like the layout, and leaves the block out when it's
+ * empty, so a file with no fixed join points doesn't carry one.
+ */
+export function orderAnchors(doc: Record<string, unknown>, links: readonly { id: string }[]): void {
+  const anchors = doc['anchors'] as Record<string, unknown> | undefined;
+  if (!anchors) return;
+  const ordered: Record<string, unknown> = {};
+  for (const { id } of links) if (anchors[id]) ordered[id] = anchors[id];
+  for (const [id, anchor] of Object.entries(anchors)) if (!(id in ordered)) ordered[id] = anchor;
+  if (Object.keys(ordered).length === 0) delete doc['anchors'];
+  else doc['anchors'] = ordered;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

@@ -22,13 +22,14 @@ export const NEW_SCREEN_NAME = 'Screen';
 export const DEFAULT_STATE_NAME = 'Default';
 export const NEW_STATE_NAME = 'State';
 
-/** Every id in the document (screens, states, CTAs, transitions), for collision checks. */
+/** Every id in the document (screens, states, items, CTAs, transitions), for collision checks. */
 export function idsIn(flows: Flows): Set<string> {
   const ids = new Set<string>();
   for (const screen of flows.screens) {
     ids.add(screen.id);
     for (const state of screen.states) {
       ids.add(state.id);
+      for (const item of state.sees) ids.add(item.id);
       for (const cta of state.ctas) ids.add(cta.id);
     }
   }
@@ -199,7 +200,7 @@ export function makeDefaultState(flows: Flows, screenId: string, stateId: string
   });
 }
 
-// Sees items: plain strings, addressed by index.
+// Sees (information) items: addressed by index, as the editor shows them in order.
 
 /**
  * Inserts a sees item directly after `afterIndex` when given (and in range), otherwise at the
@@ -213,12 +214,13 @@ export function addSeesItem(
   text = '',
 ): { flows: Flows; index: number | null } {
   let index: number | null = null;
+  const id = newId('info', idsIn(flows));
   const next = mapState(flows, screenId, stateId, (st) => {
     index =
       afterIndex !== undefined && afterIndex >= 0 && afterIndex < st.sees.length
         ? afterIndex + 1
         : st.sees.length;
-    return { ...st, sees: [...st.sees.slice(0, index), text, ...st.sees.slice(index)] };
+    return { ...st, sees: [...st.sees.slice(0, index), { id, text }, ...st.sees.slice(index)] };
   });
   return { flows: next, index };
 }
@@ -231,9 +233,9 @@ export function updateSeesItem(
   text: string,
 ): Flows {
   return mapState(flows, screenId, stateId, (st) =>
-    index < 0 || index >= st.sees.length || st.sees[index] === text
+    index < 0 || index >= st.sees.length || st.sees[index]?.text === text
       ? st
-      : { ...st, sees: st.sees.map((item, i) => (i === index ? text : item)) },
+      : { ...st, sees: st.sees.map((item, i) => (i === index ? { ...item, text } : item)) },
   );
 }
 

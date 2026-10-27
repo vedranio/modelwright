@@ -76,7 +76,8 @@ function destination(flows: Flows, t: Transition): string {
 /**
  * The "Screens and flows" section: the diagram, then each screen's states with their notes,
  * what the user sees and can do, and where each CTA leads. The state's primary CTA is marked
- * "(primary)"; a CTA with nowhere to go is a "(dead end)".
+ * "(primary)"; a CTA with nowhere to go is a "(dead end)". A note on an information item or a
+ * CTA is a nested bullet under it.
  */
 export function flowsSection(flows: Flows, erd: Erd): string[] {
   const out = ['## Screens and flows', ''];
@@ -100,7 +101,10 @@ export function flowsSection(flows: Flows, erd: Erd): string[] {
       if (st.notes?.trim()) out.push(inlineText(st.notes), '');
       out.push('Information:', '');
       if (st.sees.length === 0) out.push('- Nothing yet');
-      for (const item of st.sees) out.push(`- ${inlineText(item)}`);
+      for (const item of st.sees) {
+        out.push(`- ${inlineText(item.text)}`);
+        if (item.note?.trim()) out.push(`  - ${inlineText(item.note)}`);
+      }
       out.push('', 'Actions:', '');
       if (st.ctas.length === 0) out.push('- Nothing yet');
       for (const cta of st.ctas) {
@@ -109,15 +113,12 @@ export function flowsSection(flows: Flows, erd: Erd): string[] {
         );
         const primary = st.primaryCtaId === cta.id ? ' (primary)' : '';
         const label = `**${inlineText(cta.label) || '(unnamed)'}**${primary}`;
-        if (leads.length === 0) {
-          out.push(`- ${label} (dead end)`);
-          continue;
-        }
         const targets = leads.map((t) => {
           const own = t.label?.trim();
           return `→ ${destination(flows, t)}${own ? ` (${inlineText(own)})` : ''}`;
         });
-        out.push(`- ${label} ${targets.join('; ')}`);
+        out.push(`- ${label} ${leads.length === 0 ? '(dead end)' : targets.join('; ')}`);
+        if (cta.note?.trim()) out.push(`  - ${inlineText(cta.note)}`);
       }
       out.push('');
     }

@@ -54,7 +54,7 @@ describe('addEntity', () => {
 
   it('works on an empty document', () => {
     const empty = deepFreeze<Erd>({
-      schemaVersion: 1,
+      schemaVersion: 2,
       entities: [],
       relationships: [],
       layout: {},

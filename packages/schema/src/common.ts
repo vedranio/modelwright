@@ -66,3 +66,21 @@ export function checkLayoutKeys(
     }
   }
 }
+
+/** Reports a custom issue for every `anchors` key that doesn't name a link in the document. */
+export function checkAnchorKeys(
+  ctx: z.RefinementCtx,
+  anchors: Readonly<Record<string, unknown>> | undefined,
+  linkIds: ReadonlySet<string>,
+  label: string,
+): void {
+  for (const key of Object.keys(anchors ?? {})) {
+    if (!linkIds.has(key)) {
+      ctx.addIssue({
+        code: 'custom',
+        message: `Anchors refer to unknown ${label} "${key}"`,
+        path: ['anchors', key],
+      });
+    }
+  }
+}

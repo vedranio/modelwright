@@ -87,6 +87,15 @@ describe('stringify', () => {
     expect(Object.keys(layout)).toEqual(['b', 'a']);
   });
 
+  it('writes anchors after the layout in link order, and leaves out an empty block', () => {
+    const erd = parseOk('erd', fixtureText('erd'));
+    const id = erd.relationships[0]?.id ?? '';
+    const text = stringifyErd({ ...erd, anchors: { [id]: { to: { at: 0.5, side: 'top' } } } });
+    expect(text.indexOf('"anchors"')).toBeGreaterThan(text.indexOf('"layout"'));
+    expect(text).toContain(`"${id}": {\n      "to": {\n        "side": "top",\n        "at": 0.5`);
+    expect(stringifyErd({ ...erd, anchors: {} })).toBe(fixtureText('erd'));
+  });
+
   it('changes only the edited value when a field changes', () => {
     const doc = parseOk('config', fixtureText('config'));
     const edited = stringifyConfig({ ...doc, name: 'Notebook' });
@@ -115,14 +124,14 @@ describe('defaults', () => {
   it('defaultErd is a valid empty ERD', () => {
     expect(parseErd(defaultErd())).toEqual({
       ok: true,
-      doc: { schemaVersion: 1, entities: [], relationships: [], layout: {} },
+      doc: { schemaVersion: 2, entities: [], relationships: [], layout: {} },
     });
   });
 
   it('defaultFlows is a valid empty flow chart', () => {
     expect(parseFlows(defaultFlows())).toEqual({
       ok: true,
-      doc: { schemaVersion: 2, screens: [], transitions: [], layout: {} },
+      doc: { schemaVersion: 3, screens: [], transitions: [], layout: {} },
     });
   });
 

@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "screens": [
     {
       "id": "lists",
@@ -14,8 +14,14 @@
           "id": "lists-default",
           "name": "Default",
           "sees": [
-            "list names",
-            "open task count for each list"
+            {
+              "id": "info_1",
+              "text": "list names"
+            },
+            {
+              "id": "info_2",
+              "text": "open task count for each list"
+            }
           ],
           "ctas": [
             {
@@ -34,7 +40,10 @@
           "name": "Empty",
           "notes": "Shown when there are no lists",
           "sees": [
-            "\"No lists yet\" message"
+            {
+              "id": "info_1",
+              "text": "\"No lists yet\" message"
+            }
           ],
           "ctas": [
             {
@@ -58,7 +67,10 @@
           "id": "new-list-default",
           "name": "Default",
           "sees": [
-            "list name field"
+            {
+              "id": "info_1",
+              "text": "list name field"
+            }
           ],
           "ctas": [
             {
@@ -87,8 +99,14 @@
           "id": "tasks-default",
           "name": "Default",
           "sees": [
-            "list name",
-            "tasks, each with its due date and done mark"
+            {
+              "id": "info_1",
+              "text": "list name"
+            },
+            {
+              "id": "info_2",
+              "text": "tasks, each with its due date and done mark"
+            }
           ],
           "ctas": [
             {
@@ -111,8 +129,14 @@
           "name": "Empty",
           "notes": "Shown when the list has no tasks",
           "sees": [
-            "list name",
-            "\"No tasks yet\" message"
+            {
+              "id": "info_1",
+              "text": "list name"
+            },
+            {
+              "id": "info_2",
+              "text": "\"No tasks yet\" message"
+            }
           ],
           "ctas": [
             {
@@ -140,9 +164,18 @@
           "id": "task-editor-default",
           "name": "Default",
           "sees": [
-            "title field",
-            "due date field",
-            "done checkbox"
+            {
+              "id": "info_1",
+              "text": "title field"
+            },
+            {
+              "id": "info_2",
+              "text": "due date field"
+            },
+            {
+              "id": "info_3",
+              "text": "done checkbox"
+            }
           ],
           "ctas": [
             {

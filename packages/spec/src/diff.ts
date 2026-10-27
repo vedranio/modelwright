@@ -65,9 +65,11 @@ export type ChangeKind =
   | 'information-added'
   | 'information-removed'
   | 'information-changed'
+  | 'information-note-changed'
   | 'cta-added'
   | 'cta-removed'
   | 'cta-renamed'
+  | 'cta-note-changed'
   | 'ctas-reordered'
   | 'primary-cta-changed'
   | 'cta-now-dead-end'
@@ -468,7 +470,10 @@ function stateChanges(
   });
   if (notes) out.push({ kind: 'state-notes-changed', ids: at, text: notes });
 
-  for (const step of alignText(a.sees, b.sees)) {
+  // Information items are lined up by their text, as before they had ids, so a build recorded
+  // then still diffs item by item.
+  const texts = (st: ScreenState) => st.sees.map((item) => item.text);
+  for (const step of alignText(texts(a), texts(b))) {
     if (step.op === 'changed') {
       out.push({
         kind: 'information-changed',
@@ -482,12 +487,28 @@ function stateChanges(
         text: `Removed information ${q(step.was)} from ${where}.`,
       });
     } else {
+      const note = b.sees.find((item) => item.text === step.now)?.note?.trim();
       out.push({
         kind: 'information-added',
         ids: at,
-        text: `Added information ${q(step.now)} to ${where}.`,
+        text: `Added information ${q(step.now)} to ${where}${note ? `, noted ${q(note)}` : ''}.`,
       });
     }
+  }
+  // Notes on items whose text is unchanged: each item pairs with the first unpaired one of the
+  // same text before.
+  const unpaired = [...a.sees];
+  for (const y of b.sees) {
+    const k = unpaired.findIndex((x) => x.text === y.text);
+    if (k < 0) continue;
+    const [x] = unpaired.splice(k, 1);
+    const item = `${q(y.text)} in ${where}`;
+    const note = optionalChange(x?.note, y.note, {
+      added: (v) => `Added a note to information ${item}: ${q(v)}.`,
+      removed: () => `Removed the note on information ${item}.`,
+      changed: (v, was) => `Changed the note on information ${item} to ${q(v)} (was ${q(was)}).`,
+    });
+    if (note) out.push({ kind: 'information-note-changed', ids: at, text: note });
   }
 
   const old = byId(a.ctas);
@@ -499,10 +520,11 @@ function stateChanges(
     const key = ctaKey(screen.id, b.id, id);
     if (!x && y) {
       const dead = (leadsAfter.get(key) ?? []).length === 0 ? ' (dead end)' : '';
+      const note = y.note?.trim() ? `, noted ${q(y.note)}` : '';
       out.push({
         kind: 'cta-added',
         ids: ctaIds,
-        text: `Added action ${q(y.label)} to ${where}${dead}.`,
+        text: `Added action ${q(y.label)} to ${where}${dead}${note}.`,
       });
     } else if (x && !y) {
       out.push({
@@ -518,6 +540,13 @@ function stateChanges(
           text: `Renamed action ${q(x.label)} in ${where} to ${q(y.label)}.`,
         });
       }
+      const action = `${q(y.label)} in ${where}`;
+      const note = optionalChange(x.note, y.note, {
+        added: (v) => `Added a note to action ${action}: ${q(v)}.`,
+        removed: () => `Removed the note on action ${action}.`,
+        changed: (v, was) => `Changed the note on action ${action} to ${q(v)} (was ${q(was)}).`,
+      });
+      if (note) out.push({ kind: 'cta-note-changed', ids: ctaIds, text: note });
       const deadBefore = (leadsBefore.get(key) ?? []).length === 0;
       const deadAfter = (leadsAfter.get(key) ?? []).length === 0;
       if (!deadBefore && deadAfter) {

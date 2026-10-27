@@ -16,7 +16,10 @@ const screen: Screen = {
     {
       id: 'a',
       name: 'Default',
-      sees: ['email', 'password'],
+      sees: [
+        { id: 'i1', text: 'email' },
+        { id: 'i2', text: 'password' },
+      ],
       ctas: [
         { id: 'c1', label: 'Sign in' },
         { id: 'c2', label: 'Forgot' },
