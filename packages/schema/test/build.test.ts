@@ -6,7 +6,11 @@ import {
   type BuildRecord,
   type BuildRecordResult,
 } from '../src/index';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { fixture } from './helpers';
+
+const FIXTURES = fileURLToPath(new URL('./fixtures', import.meta.url));
 
 /** A valid record over the notes fixture, as plain JSON that tests may mutate. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- tests mutate records into invalid shapes
@@ -101,11 +105,17 @@ describe('BuildRecord', () => {
     );
   });
 
-  it('reads a snapshot recorded with v1 flows, migrating it', () => {
+  it('reads a snapshot recorded with older design files, migrating them', () => {
     const r = record();
-    r.snapshot.flows.schemaVersion = 1;
+    r.snapshot.erd.schemaVersion = 1;
+    r.snapshot.flows = JSON.parse(readFileSync(`${FIXTURES}/v1/flows.json`, 'utf8'));
     const parsed = ok(parseBuildRecord(r));
-    expect(parsed.snapshot.flows.schemaVersion).toBe(2);
+    expect(parsed.snapshot.erd.schemaVersion).toBe(2);
+    expect(parsed.snapshot.flows.schemaVersion).toBe(3);
+    expect(parsed.snapshot.flows.screens[0]?.states[0]?.sees[0]).toEqual({
+      id: 'info_1',
+      text: 'email field',
+    });
   });
 
   it('refuses a newer schemaVersion with a clear message', () => {

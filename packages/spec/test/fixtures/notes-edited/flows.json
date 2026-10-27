@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "screens": [
     {
       "id": "login",
@@ -9,8 +9,14 @@
           "id": "login-default",
           "name": "Default",
           "sees": [
-            "email field",
-            "password field"
+            {
+              "id": "info_1",
+              "text": "email field"
+            },
+            {
+              "id": "info_2",
+              "text": "password field"
+            }
           ],
           "ctas": [
             {
@@ -23,8 +29,14 @@
           "id": "login-error",
           "name": "Failed",
           "sees": [
-            "email field",
-            "error message"
+            {
+              "id": "info_1",
+              "text": "email field"
+            },
+            {
+              "id": "info_2",
+              "text": "error message"
+            }
           ],
           "ctas": [
             {
@@ -48,7 +60,10 @@
           "id": "notes-empty",
           "name": "Empty",
           "sees": [
-            "empty message"
+            {
+              "id": "info_1",
+              "text": "empty message"
+            }
           ],
           "ctas": [
             {
@@ -62,9 +77,18 @@
           "name": "List",
           "notes": "Newest first",
           "sees": [
-            "memo titles",
-            "updated dates",
-            "tags"
+            {
+              "id": "info_1",
+              "text": "memo titles"
+            },
+            {
+              "id": "info_2",
+              "text": "updated dates"
+            },
+            {
+              "id": "info_3",
+              "text": "tags"
+            }
           ],
           "ctas": [
             {
@@ -86,7 +110,10 @@
           "id": "notes-loading",
           "name": "Loading",
           "sees": [
-            "spinner"
+            {
+              "id": "info_1",
+              "text": "spinner"
+            }
           ],
           "ctas": []
         }
@@ -103,9 +130,18 @@
           "id": "editor-default",
           "name": "Default",
           "sees": [
-            "heading field",
-            "body field",
-            "tag picker"
+            {
+              "id": "info_1",
+              "text": "heading field"
+            },
+            {
+              "id": "info_2",
+              "text": "body field"
+            },
+            {
+              "id": "info_3",
+              "text": "tag picker"
+            }
           ],
           "ctas": [
             {
@@ -127,7 +163,10 @@
           "id": "tags-default",
           "name": "Default",
           "sees": [
-            "tag names"
+            {
+              "id": "info_1",
+              "text": "tag names"
+            }
           ],
           "ctas": [
             {

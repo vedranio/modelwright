@@ -14,7 +14,7 @@ function entity(id: string, attributes = 0): Entity {
 }
 
 function erd(entities: Entity[], layout: Erd['layout'] = {}): Erd {
-  return { schemaVersion: 1, entities, relationships: [], layout };
+  return { schemaVersion: 2, entities, relationships: [], layout };
 }
 
 function overlaps(a: Position, sa: Size, b: Position, sb: Size): boolean {

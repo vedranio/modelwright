@@ -1,7 +1,8 @@
 import { useCallback, useMemo, useRef, useState, type MouseEvent } from 'react';
 import type { NodeChange, OnConnectEnd, ReactFlowInstance, XYPosition } from '@xyflow/react';
-import { parseDesign, type Erd } from '@modelwright/schema';
+import { Side, parseDesign, type Anchor, type Erd } from '@modelwright/schema';
 import type { Rect } from '../canvas/edgeGeometry';
+import { pruneAnchors } from '../canvas/anchors';
 import { Canvas } from '../canvas/Canvas';
 import { anchorCard, cardRects, nodeUnderPoint, revealCard } from '../canvas/cards';
 import { besideAnchor, nudgeClear } from '../canvas/freeSpot';
@@ -9,12 +10,14 @@ import { decodeCards, encodeCards, pasteShift } from '../canvas/cardClipboard';
 import { UndoRedoButtons } from '../canvas/UndoRedoButtons';
 import { useCardClipboard, viewInFlow } from '../canvas/useCardClipboard';
 import { useCanvasShortcuts } from '../canvas/useCanvasShortcuts';
+import { useCardDrag } from '../canvas/useCardDrag';
 import { useMeasurements } from '../canvas/useMeasurements';
 import { useSelection } from '../canvas/useSelection';
 import { SaveStatusPill } from '../editing/SaveStatusPill';
 import { touchedErd } from '../editing/touched';
 import { useCanvasHistory } from '../editing/useCanvasHistory';
 import type { EditableDoc } from '../editing/useEditableDoc';
+import { dropAnchor, setRelationshipAnchor } from '../erd/anchors';
 import { CrowsFootEdge, type CrowsFootEdgeType } from '../erd/CrowsFootEdge';
 import { deletionSummary } from '../erd/deletion';
 import { parallelSlots, selfLoopSide } from '../erd/edgeGeometry';
@@ -29,6 +32,7 @@ import {
   deleteRelationships,
   duplicateEntities,
   entityFragment,
+  lastCardinalities,
   moveEntities,
   pasteEntities,
 } from '../erd/ops';
@@ -78,7 +82,6 @@ function ErdCanvas({
   edit: EditableDoc<'erd'>;
 }) {
   const [editing, setEditing] = useState<EditTarget | null>(null);
-  const [dragging, setDragging] = useState<Record<string, XYPosition>>({});
   /** The relationship under the pointer, highlighted with the entities it joins. */
   const [hoveredEdge, setHoveredEdge] = useState<string | null>(null);
   const selection = useSelection();
@@ -96,7 +99,8 @@ function ErdCanvas({
       applyDoc((doc) => {
         const placed = withPlacement(doc);
         const next = op(placed);
-        return next === placed ? doc : next;
+        // Join points of relationships that went with this edit go too.
+        return next === placed ? doc : pruneAnchors(next, next.relationships);
       }, options),
     [applyDoc],
   );
@@ -124,20 +128,45 @@ function ErdCanvas({
     }
     return lit;
   }, [erd, hoveredEdge, selection.selectedEdges]);
-  const nodes = useMemo(
-    () =>
+  const placed = useMemo(
+    (): EntityNodeType[] =>
       flow.nodes.map((n) => {
         const measured = measurements.sizes.get(n.id);
         return {
           ...n,
-          position: dragging[n.id] ?? n.position,
           selected: selection.selectedNodes.has(n.id),
           ...(measured && { measured }),
           ...(highlighted.has(n.id) && { data: { ...n.data, highlighted: true } }),
         };
       }),
-    [flow, dragging, selection.selectedNodes, measurements.sizes, highlighted],
+    [flow, selection.selectedNodes, measurements.sizes, highlighted],
   );
+  const cardDrag = useCardDrag({
+    nodes: placed,
+    zoom: () => instance.current?.getZoom() ?? 1,
+    onMove: (positions) => apply((doc) => moveEntities(doc, positions), { saveNow: true }),
+    onCopy: (ids, shift) => {
+      let copies: string[] = [];
+      let links: string[] = [];
+      apply(
+        (doc) => {
+          const result = pasteEntities(doc, entityFragment(doc, ids), {
+            x: Math.round(shift.x),
+            y: Math.round(shift.y),
+          });
+          copies = result.ids;
+          links = result.erd.relationships
+            .filter((r) => copies.includes(r.from) && copies.includes(r.to))
+            .map((r) => r.id);
+          return result.erd;
+        },
+        { saveNow: true },
+      );
+      selection.select(copies, links);
+    },
+  });
+  const { shown } = cardDrag;
+  const nodes = useMemo(() => shown(placed), [shown, placed]);
   const edges = useMemo(() => {
     // The popover shows when one relationship, and nothing else, is selected. Only count what
     // still exists: a deleted item's id can linger in the selection.
@@ -152,32 +181,42 @@ function ErdCanvas({
   }, [flow, selection.selectedEdges, selection.selectedNodes]);
 
   /**
-   * Dropping a connection anywhere on another entity relates the two, with the default
-   * cardinalities; the new relationship is selected, which opens its popover. Dropping on empty
+   * Dropping a connection anywhere on another entity relates the two, with the cardinalities of
+   * the last relationship added; the new relationship is selected, which opens its popover. Dropping on empty
    * canvas creates an entity there, already related, with its name open for typing. Dropping
    * on the same entity does nothing.
    */
   const onConnectEnd: OnConnectEnd = (event, connection) => {
     const from = connection.fromNode?.id;
     const point = 'changedTouches' in event ? event.changedTouches[0] : event;
-    if (!from || !point) return;
+    if (!from || !point || !instance.current) return;
+    // The line stays on the side it was drawn from, at that side's middle (its handle).
+    const side = connection.fromHandle?.id;
+    const fromAnchor: Anchor | null = isSide(side) ? { side, at: 0.5 } : null;
+    const anchor = (doc: Erd, id: string | null, end: 'from' | 'to', a: Anchor | null) =>
+      id && a ? setRelationshipAnchor(doc, id, end, a) : doc;
+    const at = instance.current.screenToFlowPosition({ x: point.clientX, y: point.clientY });
     const under = nodeUnderPoint(point.clientX, point.clientY);
     if (!under) {
-      if (!instance.current) return;
-      const at = instance.current.screenToFlowPosition({ x: point.clientX, y: point.clientY });
       createEntity(at, (doc, position) => {
-        const result = addEntityWithRelationship(doc, position, from);
-        return { erd: result.erd, id: result.entityId };
+        const result = addEntityWithRelationship(doc, position, from, lastCardinalities(doc));
+        return {
+          erd: anchor(result.erd, result.relationshipId, 'from', fromAnchor),
+          id: result.entityId,
+        };
       });
       return;
     }
     const to = under.node.dataset.id;
     if (!to || to === from) return;
+    // Dropped near the target's outline, the line joins it there; further in, it floats.
+    const target = nodes.find((n) => n.id === to);
+    const toAnchor = target ? dropAnchor(cardRects([target])[0] as Rect, at) : null;
     let id: string | null = null;
     apply((doc) => {
-      const result = addRelationship(doc, from, to);
+      const result = addRelationship(doc, from, to, lastCardinalities(doc));
       id = result.id;
-      return result.erd;
+      return anchor(anchor(result.erd, id, 'from', fromAnchor), id, 'to', toAnchor);
     });
     // After the click that ends the drag: dropped on its own card, that click would select
     // the card instead.
@@ -187,12 +226,8 @@ function ErdCanvas({
   const onNodesChange = (changes: NodeChange<EntityNodeType>[]) => {
     selection.onNodesChange(changes);
     measurements.onNodesChange(changes);
-    // Positions move live while dragging; the document changes once, on drop.
-    const moved: Record<string, XYPosition> = {};
-    for (const c of changes) {
-      if (c.type === 'position' && c.dragging && c.position) moved[c.id] = c.position;
-    }
-    if (Object.keys(moved).length > 0) setDragging((d) => ({ ...d, ...moved }));
+    // Positions move live while dragging, snapping to line up; the document changes on drop.
+    cardDrag.onNodesChange(changes);
   };
 
   /**
@@ -251,7 +286,7 @@ function ErdCanvas({
   };
 
   const onDoubleClick = (e: MouseEvent) => {
-    // Only on empty canvas: double-clicks on cards edit their text.
+    // Only on empty canvas: clicks on cards edit their text.
     if (!(e.target instanceof Element) || !e.target.classList.contains('react-flow__pane')) return;
     if (!instance.current) return;
     createEntity(instance.current.screenToFlowPosition({ x: e.clientX, y: e.clientY }));
@@ -374,14 +409,9 @@ function ErdCanvas({
           }}
           onNodesChange={onNodesChange}
           onEdgesChange={selection.onEdgesChange}
-          onNodeDragStop={(_e, _node, dragged) => {
-            apply(
-              (doc) =>
-                moveEntities(doc, Object.fromEntries(dragged.map((n) => [n.id, n.position]))),
-              { saveNow: true },
-            );
-            setDragging({});
-          }}
+          onNodeDragStart={cardDrag.onNodeDragStart}
+          onNodeDragStop={cardDrag.onNodeDragStop}
+          inFlow={cardDrag.overlay}
           onConnectEnd={onConnectEnd}
           onEdgeMouseEnter={(_event, edge) => setHoveredEdge(edge.id)}
           onEdgeMouseLeave={() => setHoveredEdge(null)}
@@ -509,7 +539,10 @@ function toFlow(erd: Erd): { nodes: EntityNodeType[]; edges: CrowsFootEdgeType[]
       toName: names.get(rel.to) ?? rel.to,
       editing: false,
       ...(rel.label !== undefined && { label: rel.label }),
+      ...(erd.anchors?.[rel.id] && { anchors: erd.anchors[rel.id] }),
     },
   }));
   return { nodes, edges };
 }
+
+const isSide = (value: unknown): value is Side => Side.safeParse(value).success;

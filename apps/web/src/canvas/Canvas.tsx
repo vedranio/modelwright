@@ -5,6 +5,7 @@ import {
   Panel,
   ReactFlow,
   ReactFlowProvider,
+  SelectionMode,
   type Edge,
   type Node,
   type ReactFlowProps,
@@ -29,6 +30,7 @@ type Owned =
   | 'zoomOnPinch'
   | 'panOnDrag'
   | 'selectionOnDrag'
+  | 'selectionMode'
   | 'proOptions'
   | 'zoomOnDoubleClick'
   | 'deleteKeyCode'
@@ -44,6 +46,8 @@ export type CanvasProps<N extends Node, E extends Edge> = Omit<ReactFlowProps<N,
   status?: ReactNode;
   /** Shown centred over the canvas, e.g. an empty state. Doesn't block the canvas around it. */
   overlay?: ReactNode;
+  /** Drawn in canvas coordinates under the cards, e.g. alignment guides (a `ViewportPortal`). */
+  inFlow?: ReactNode;
 };
 
 export const MIN_ZOOM = 0.2;
@@ -68,6 +72,7 @@ function CanvasInner<N extends Node, E extends Edge>({
   toolbarActions,
   status,
   overlay,
+  inFlow,
   ...flowProps
 }: CanvasProps<N, E>) {
   const viewport = usePersistedViewport(viewportKey);
@@ -90,6 +95,8 @@ function CanvasInner<N extends Node, E extends Edge>({
         zoomOnPinch
         // Pointer: drag on empty canvas draws a selection box; middle-drag or Space+drag pans.
         selectionOnDrag
+        // The box selects every card it touches, not only the ones wholly inside it.
+        selectionMode={SelectionMode.Partial}
         panOnDrag={[1]}
         multiSelectionKeyCode="Shift"
         // Double-click on empty canvas belongs to the view (e.g. creating a node), not to zoom.
@@ -102,6 +109,7 @@ function CanvasInner<N extends Node, E extends Edge>({
         proOptions={{ hideAttribution: true }}
       >
         <Background variant={BackgroundVariant.Dots} gap={gap} size={dot} />
+        {inFlow}
         {overlay && <div className="canvas-overlay">{overlay}</div>}
         <Panel position="bottom-left" className="canvas-panel">
           {status}

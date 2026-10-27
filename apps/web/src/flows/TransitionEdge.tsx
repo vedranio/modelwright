@@ -8,9 +8,18 @@ import {
   type EdgeProps,
   type InternalNode,
 } from '@xyflow/react';
+import { useState } from 'react';
 import { EdgePopoverAnchor } from '../canvas/EdgePopoverAnchor';
+import { EndGrip } from '../canvas/EndGrip';
 import { orthogonalPath, type Rect } from '../canvas/edgeGeometry';
-import type { TransitionFrom, TransitionTo } from '@modelwright/schema';
+import type {
+  FlowSide,
+  TransitionAnchors,
+  TransitionFrom,
+  TransitionTo,
+} from '@modelwright/schema';
+import { nearerSide, setTransitionSide } from './anchors';
+import { useFlowsEditor } from './editor';
 import { useReconnect } from './reconnect';
 import { routeTransitionSides, type Fan } from './route';
 import { TransitionPopover, type TargetScreen } from './TransitionPopover';
@@ -30,6 +39,8 @@ export type TransitionEdgeType = Edge<
     screens: readonly TargetScreen[];
     /** Whether this is the only thing selected, so its editing popover shows. */
     editing: boolean;
+    /** Sides fixed in the design; the rest are routed by the shortest path. */
+    anchors?: TransitionAnchors;
   },
   'transition'
 >;
@@ -69,9 +80,13 @@ export function TransitionEdge({
   const dragged = reconnect.reconnecting?.transitionId === id ? reconnect.reconnecting.at : null;
   const sourceNode = useInternalNode(source);
   const targetNode = useInternalNode(target);
+  const { apply } = useFlowsEditor();
+  /** The start being dragged to the card's other side, shown before it's dropped. */
+  const [movingFrom, setMovingFrom] = useState<FlowSide | null>(null);
   const sourceRect = sourceNode && rectOf(sourceNode);
   const targetRect = targetNode && rectOf(targetNode);
   if (!sourceRect || !targetRect) return null;
+  const sides = movingFrom ? { ...data?.anchors, from: movingFrom } : data?.anchors;
 
   // The handles fix each end's height; the line starts and ends exactly on the cards' edges.
   const { points, label, from, to } = routeTransitionSides(
@@ -81,6 +96,7 @@ export function TransitionEdge({
     targetRect,
     data?.fan,
     data?.track ?? 0,
+    sides,
   );
   const tip = points[points.length - 1] ?? { x: targetRect.x, y: targetY };
   // Arriving on the left side the arrow points right, and on the right side, left. The line
@@ -135,8 +151,21 @@ export function TransitionEdge({
             to={data.to}
             screens={data.screens}
             label={data.label ?? ''}
+            anchored={Boolean(data.anchors?.from ?? data.anchors?.to)}
           />
         </EdgePopoverAnchor>
+      )}
+      {selected && points[0] && (
+        // The start's grip moves it to the card's other side; the tip's grip reassigns it.
+        <EndGrip
+          at={points[0]}
+          label="Move this to the other side of the card"
+          onDrag={(p) => setMovingFrom(p ? nearerSide(sourceRect, p) : null)}
+          onDrop={(p) => {
+            setMovingFrom(null);
+            apply((flows) => setTransitionSide(flows, id, 'from', nearerSide(sourceRect, p)));
+          }}
+        />
       )}
       {selected && (
         <EdgeLabelRenderer>

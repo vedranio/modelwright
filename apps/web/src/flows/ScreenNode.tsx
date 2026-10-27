@@ -1,6 +1,7 @@
 import { Handle, Position, type Node, type NodeProps } from '@xyflow/react';
-import type { Cta, Screen, ScreenState } from '@modelwright/schema';
+import type { Cta, InfoItem, Screen, ScreenState } from '@modelwright/schema';
 import { InlineField } from '../editing/InlineField';
+import { RowGrip } from '../editing/rowDrag';
 import { isEditing, useFlowsEditor, type EditTarget } from './editor';
 import { ctaDeletionSummary, seesDeletionSummary, stateDeletionSummary } from './deletion';
 import { SCREEN_HANDLE, ctaHandle, showsStateHeaders, stateHandle } from './endpoints';
@@ -22,6 +23,8 @@ import {
   moveState,
   setScreenNotes,
   updateSeesItem,
+  setCtaNote,
+  setSeesNote,
 } from './ops';
 import {
   afterCta,
@@ -103,6 +106,8 @@ export function ScreenNode({ data }: NodeProps<ScreenNodeType>) {
       ]
         .filter(Boolean)
         .join(' ')}
+      // States are its rows, dragged by their header's grip.
+      data-rows
     >
       <header className="screen-head" data-screen-header="">
         <Handle
@@ -284,6 +289,7 @@ function StateSection({
         .filter(Boolean)
         .join(' ')}
       data-state={state.id}
+      data-row
     >
       {showHeader && (
         <div className="state-head" data-state-header={state.id}>
@@ -328,6 +334,10 @@ function StateSection({
           {isDefault && <span className="state-tag">default</span>}
           {!nameTarget && (
             <span className="row-actions">
+              <RowGrip
+                className="row-action"
+                onMove={(offset) => apply((f) => moveState(f, screen.id, state.id, offset))}
+              />
               {!state.notes && !editingNotes && (
                 <button
                   type="button"
@@ -371,11 +381,11 @@ function StateSection({
       {notes}
       <div className="state-body">
         <div className="list-caption">Information</div>
-        <ul className="sees">
+        <ul className="sees" data-rows>
           {state.sees.flatMap((item, i) => {
             const row = (
               <SeesRow
-                key={i}
+                key={item.id}
                 screen={screen}
                 state={state}
                 stateIndex={stateIndex}
@@ -397,7 +407,7 @@ function StateSection({
         />
 
         <div className="list-caption">Actions</div>
-        <ul className="ctas">
+        <ul className="ctas" data-rows>
           {state.ctas.flatMap((cta) => {
             const row = (
               <CtaRow
@@ -454,9 +464,10 @@ function SeesRow({
   stateIndex,
   index,
   item,
-}: RowProps & { index: number; item: string }) {
+}: RowProps & { index: number; item: InfoItem }) {
   const { apply, remove, editing, setEditing } = useFlowsEditor();
   const target: EditTarget = { kind: 'sees', screenId: screen.id, stateId: state.id, index };
+  const noteTarget: EditTarget = { ...target, kind: 'seesNote' };
 
   /** Clearing an item doesn't delete it; that's what × is for. */
   const save = (value: string) => {
@@ -466,11 +477,11 @@ function SeesRow({
   };
 
   return (
-    <li className="sees-item">
+    <li className="sees-item" data-row>
       {isEditing(editing, target) ? (
         <InlineField
           ariaLabel="Sees item"
-          value={item}
+          value={item.text}
           selectAll
           onCommit={(value, reason) => {
             const text = save(value);
@@ -501,14 +512,34 @@ function SeesRow({
             setEditing(target);
           }}
         >
-          {item || ' '}
+          {item.text || ' '}
         </span>
       )}
+      <RowNote
+        note={item.note}
+        editing={isEditing(editing, noteTarget)}
+        onOpen={() => setEditing(noteTarget)}
+        onCommit={(value) => apply((f) => setSeesNote(f, screen.id, state.id, index, value.trim()))}
+      />
       <span className="row-actions">
+        <RowGrip
+          className="row-action"
+          onMove={(offset) => apply((f) => moveSeesItem(f, screen.id, state.id, index, offset))}
+        />
+        {!item.note && !isEditing(editing, noteTarget) && (
+          <button
+            type="button"
+            className="row-action nodrag"
+            title="Add a note"
+            onClick={() => setEditing(noteTarget)}
+          >
+            note
+          </button>
+        )}
         <button
           type="button"
           className="row-action row-delete nodrag"
-          aria-label={`Delete ${item || 'item'}`}
+          aria-label={`Delete ${item.text || 'item'}`}
           title="Delete item"
           onClick={() =>
             remove(
@@ -590,6 +621,8 @@ function CtaRow({
 }: RowProps & { cta: Cta; primary: boolean; connected: boolean; highlighted: boolean }) {
   const { apply, remove, editing, setEditing } = useFlowsEditor();
   const target: EditTarget = { kind: 'cta', screenId: screen.id, stateId: state.id, ctaId: cta.id };
+  const noteTarget: EditTarget = { ...target, kind: 'ctaNote' };
+  const editingNote = isEditing(editing, noteTarget);
 
   /** Clearing a label doesn't delete the CTA; that's what × is for. */
   const save = (value: string) => {
@@ -599,85 +632,160 @@ function CtaRow({
   };
 
   return (
-    <li className={`cta-row${highlighted ? ' highlighted' : ''}`}>
-      {isEditing(editing, target) ? (
-        <InlineField
-          ariaLabel="CTA label"
-          value={cta.label}
-          selectAll
-          onCommit={(value, reason) => {
-            const label = save(value);
-            setEditing(
-              label && reason === 'enter'
-                ? { kind: 'ctaDraft', screenId: screen.id, stateId: state.id, after: cta.id }
-                : null,
-            );
-          }}
-          onTab={(value) => {
-            save(value);
-            setEditing(afterCta(screen, stateIndex, cta.id));
-          }}
-          onMove={(value, offset) => {
-            save(value);
-            apply((f) => moveCta(f, screen.id, state.id, cta.id, offset));
-          }}
-          onCancel={() => setEditing(null)}
-        />
-      ) : (
-        <span
-          className="cta-label editable"
-          title={cta.label}
-          onClick={(e) => {
-            e.stopPropagation();
-            setEditing(target);
-          }}
-        >
-          {cta.label || ' '}
+    <>
+      <li className={`cta-row${highlighted ? ' highlighted' : ''}`} data-row>
+        {isEditing(editing, target) ? (
+          <InlineField
+            ariaLabel="CTA label"
+            value={cta.label}
+            selectAll
+            onCommit={(value, reason) => {
+              const label = save(value);
+              setEditing(
+                label && reason === 'enter'
+                  ? { kind: 'ctaDraft', screenId: screen.id, stateId: state.id, after: cta.id }
+                  : null,
+              );
+            }}
+            onTab={(value) => {
+              save(value);
+              setEditing(afterCta(screen, stateIndex, cta.id));
+            }}
+            onMove={(value, offset) => {
+              save(value);
+              apply((f) => moveCta(f, screen.id, state.id, cta.id, offset));
+            }}
+            onCancel={() => setEditing(null)}
+          />
+        ) : (
+          <span
+            className="cta-label editable"
+            title={cta.label}
+            onClick={(e) => {
+              e.stopPropagation();
+              setEditing(target);
+            }}
+          >
+            {cta.label || ' '}
+          </span>
+        )}
+        {primary && !isEditing(editing, target) && <span className="state-tag">primary</span>}
+        <span className="row-actions">
+          <RowGrip
+            className="row-action"
+            onMove={(offset) => apply((f) => moveCta(f, screen.id, state.id, cta.id, offset))}
+          />
+          {!cta.note && !editingNote && (
+            <button
+              type="button"
+              className="row-action nodrag"
+              title="Add a note"
+              onClick={() => setEditing(noteTarget)}
+            >
+              note
+            </button>
+          )}
+          <button
+            type="button"
+            className="row-action nodrag"
+            title={
+              primary ? 'Stop marking this as the primary CTA' : 'Make this the state’s primary CTA'
+            }
+            onClick={() =>
+              apply((f) => setPrimaryCta(f, screen.id, state.id, primary ? null : cta.id))
+            }
+          >
+            {primary ? 'unset' : 'make primary'}
+          </button>
+          <button
+            type="button"
+            className="row-action row-delete nodrag"
+            aria-label={`Delete ${cta.label || 'CTA'}`}
+            title="Delete CTA"
+            onClick={() =>
+              remove(
+                (f) => deleteCta(f, screen.id, state.id, cta.id),
+                (f) => ctaDeletionSummary(f, screen.id, state.id, cta.id),
+              )
+            }
+          >
+            ×
+          </button>
         </span>
+        {/* Drag from either side; the left one shows on hover or selection. */}
+        <Handle
+          type="source"
+          id={ctaHandle(state.id, cta.id, 'left')}
+          position={Position.Left}
+          className={`cta-handle left${connected ? ' connected' : ''}`}
+        />
+        <Handle
+          type="source"
+          id={ctaHandle(state.id, cta.id)}
+          position={Position.Right}
+          className={`cta-handle${connected ? ' connected' : ''}`}
+        />
+      </li>
+      {/* The note is a line of its own, so the row and its handles keep their height. */}
+      {(cta.note || editingNote) && (
+        <li className="cta-note-line">
+          <RowNote
+            note={cta.note}
+            editing={editingNote}
+            onOpen={() => setEditing(noteTarget)}
+            onCommit={(value) =>
+              apply((f) => setCtaNote(f, screen.id, state.id, cta.id, value.trim()))
+            }
+          />
+        </li>
       )}
-      {primary && !isEditing(editing, target) && <span className="state-tag">primary</span>}
-      <span className="row-actions">
-        <button
-          type="button"
-          className="row-action nodrag"
-          title={
-            primary ? 'Stop marking this as the primary CTA' : 'Make this the state’s primary CTA'
-          }
-          onClick={() =>
-            apply((f) => setPrimaryCta(f, screen.id, state.id, primary ? null : cta.id))
-          }
-        >
-          {primary ? 'unset' : 'make primary'}
-        </button>
-        <button
-          type="button"
-          className="row-action row-delete nodrag"
-          aria-label={`Delete ${cta.label || 'CTA'}`}
-          title="Delete CTA"
-          onClick={() =>
-            remove(
-              (f) => deleteCta(f, screen.id, state.id, cta.id),
-              (f) => ctaDeletionSummary(f, screen.id, state.id, cta.id),
-            )
-          }
-        >
-          ×
-        </button>
-      </span>
-      {/* Drag from either side; the left one shows on hover or selection. */}
-      <Handle
-        type="source"
-        id={ctaHandle(state.id, cta.id, 'left')}
-        position={Position.Left}
-        className={`cta-handle left${connected ? ' connected' : ''}`}
+    </>
+  );
+}
+
+/**
+ * A note under an information item or a CTA, in faint small type like an attribute's note:
+ * click to edit, Enter or click away to keep it, Escape to drop it. A blank note is removed.
+ */
+function RowNote({
+  note,
+  editing,
+  onOpen,
+  onCommit,
+}: {
+  note: string | undefined;
+  editing: boolean;
+  onOpen: () => void;
+  onCommit: (value: string) => void;
+}) {
+  const { setEditing } = useFlowsEditor();
+  if (editing) {
+    return (
+      <InlineField
+        className="row-note-input"
+        ariaLabel="Note"
+        placeholder="Note"
+        value={note ?? ''}
+        onCommit={(value) => {
+          onCommit(value);
+          setEditing(null);
+        }}
+        onCancel={() => setEditing(null)}
       />
-      <Handle
-        type="source"
-        id={ctaHandle(state.id, cta.id)}
-        position={Position.Right}
-        className={`cta-handle${connected ? ' connected' : ''}`}
-      />
-    </li>
+    );
+  }
+  if (!note) return null;
+  return (
+    <span
+      className="row-note editable"
+      title={note}
+      onClick={(e) => {
+        e.stopPropagation();
+        onOpen();
+      }}
+    >
+      {note}
+    </span>
   );
 }
 

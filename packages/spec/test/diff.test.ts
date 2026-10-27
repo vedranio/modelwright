@@ -317,7 +317,9 @@ describe('diffDesign: screens and flows', () => {
 
   it('aligns information items by text, pairing leftovers as changes', () => {
     const changes = all((d) => {
-      state(d, 'notes', 'notes-list').sees = ['note titles', 'tags', 'last edited', 'search'];
+      state(d, 'notes', 'notes-list').sees = ['note titles', 'tags', 'last edited', 'search'].map(
+        (text, i) => ({ id: `i${i}`, text }),
+      );
     });
     expect(changes.map((c) => [c.kind, c.text])).toEqual([
       ['information-changed', 'Changed information “updated dates” in “Notes › List” to “tags”.'],
@@ -325,10 +327,30 @@ describe('diffDesign: screens and flows', () => {
       ['information-added', 'Added information “search” to “Notes › List”.'],
     ]);
     expect(changes[0]?.ids).toEqual({ screenId: 'notes', stateId: 'notes-list' });
-    const removed = all((d) => (state(d, 'login', 'login-error').sees = ['email field']));
+    const removed = all(
+      (d) => (state(d, 'login', 'login-error').sees = [{ id: 'info_1', text: 'email field' }]),
+    );
     expect(removed.map((c) => c.text)).toEqual([
       'Removed information “password field” from “Login › Error”.',
       'Removed information “error message” from “Login › Error”.',
+    ]);
+  });
+
+  it('reports notes on information items and CTAs', () => {
+    const changes = all((d) => {
+      const list = state(d, 'notes', 'notes-list');
+      list.sees = list.sees.map((item, i) => (i === 0 ? { ...item, note: 'newest first' } : item));
+      list.ctas = list.ctas.map((c, i) => (i === 0 ? { ...c, note: 'opens a blank note' } : c));
+    });
+    expect(changes.map((c) => [c.kind, c.text])).toEqual([
+      [
+        'information-note-changed',
+        'Added a note to information “note titles” in “Notes › List”: “newest first”.',
+      ],
+      [
+        'cta-note-changed',
+        'Added a note to action “New note” in “Notes › List”: “opens a blank note”.',
+      ],
     ]);
   });
 

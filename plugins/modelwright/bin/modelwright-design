@@ -3533,7 +3533,7 @@ var $ZodObject = /* @__PURE__ */ $constructor("$ZodObject", (inst, def) => {
     }
     return propValues;
   });
-  const isObject2 = isObject;
+  const isObject3 = isObject;
   const catchall = def.catchall;
   let value;
   const memo2 = globalConfig.memoizer;
@@ -3541,7 +3541,7 @@ var $ZodObject = /* @__PURE__ */ $constructor("$ZodObject", (inst, def) => {
   inst._zod.parse = (payload, ctx) => {
     value ?? (value = _normalized.value);
     const input2 = payload.value;
-    if (!isObject2(input2)) {
+    if (!isObject3(input2)) {
       payload.issues.push({
         expected: "object",
         code: "invalid_type",
@@ -3677,7 +3677,7 @@ var $ZodObjectJIT = /* @__PURE__ */ $constructor("$ZodObjectJIT", (inst, def) =>
     return doc.compile();
   };
   let fastpass;
-  const isObject2 = isObject;
+  const isObject3 = isObject;
   const jit = !globalConfig.jitless;
   const allowsEval2 = allowsEval;
   const fastEnabled = jit && allowsEval2.value;
@@ -3686,7 +3686,7 @@ var $ZodObjectJIT = /* @__PURE__ */ $constructor("$ZodObjectJIT", (inst, def) =>
   inst._zod.parse = (payload, ctx) => {
     value ?? (value = _normalized.value);
     const input2 = payload.value;
-    if (!isObject2(input2)) {
+    if (!isObject3(input2)) {
       payload.issues.push({
         expected: "object",
         code: "invalid_type",
@@ -19709,6 +19709,17 @@ function checkLayoutKeys(ctx, layout, nodeIds, label) {
     }
   }
 }
+function checkAnchorKeys(ctx, anchors, linkIds, label) {
+  for (const key of Object.keys(anchors ?? {})) {
+    if (!linkIds.has(key)) {
+      ctx.addIssue({
+        code: "custom",
+        message: `Anchors refer to unknown ${label} "${key}"`,
+        path: ["anchors", key]
+      });
+    }
+  }
+}
 
 // ../schema/src/erd.ts
 var Cardinality = external_exports.enum(["one", "zero-one", "many", "zero-many"]);
@@ -19731,11 +19742,22 @@ var Relationship = external_exports.strictObject({
   toCard: Cardinality,
   label: external_exports.string().optional()
 });
+var Side = external_exports.enum(["top", "right", "bottom", "left"]);
+var Anchor = external_exports.strictObject({
+  side: Side,
+  at: external_exports.number().min(0).max(1)
+});
+var RelationshipAnchors = external_exports.strictObject({
+  from: Anchor.optional(),
+  to: Anchor.optional()
+});
 var Erd = external_exports.strictObject({
-  schemaVersion: external_exports.literal(1),
+  schemaVersion: external_exports.literal(2),
   entities: external_exports.array(Entity),
   relationships: external_exports.array(Relationship),
-  layout: Layout
+  layout: Layout,
+  /** Where relationships join their cards, by relationship id. Added in schemaVersion 2. */
+  anchors: external_exports.record(Id, RelationshipAnchors).optional()
 }).superRefine((erd, ctx) => {
   checkUniqueIds(ctx, erd.entities, ["entities"], "entity");
   checkUniqueIds(ctx, erd.relationships, ["relationships"], "relationship");
@@ -19755,12 +19777,20 @@ var Erd = external_exports.strictObject({
     }
   });
   checkLayoutKeys(ctx, erd.layout, entityIds, "entity");
+  checkAnchorKeys(ctx, erd.anchors, new Set(erd.relationships.map((r) => r.id)), "relationship");
 });
 
 // ../schema/src/flows.ts
 var Cta = external_exports.strictObject({
   id: Id,
-  label: external_exports.string()
+  label: external_exports.string(),
+  /** Added in schemaVersion 3. */
+  note: external_exports.string().optional()
+});
+var InfoItem = external_exports.strictObject({
+  id: Id,
+  text: external_exports.string(),
+  note: external_exports.string().optional()
 });
 var ScreenState = external_exports.strictObject({
   id: Id,
@@ -19768,7 +19798,7 @@ var ScreenState = external_exports.strictObject({
   /** Notes on this state, e.g. when it shows. Added in schemaVersion 2. */
   notes: external_exports.string().optional(),
   /** What the user can see. */
-  sees: external_exports.array(external_exports.string()),
+  sees: external_exports.array(InfoItem),
   /** What the user can do. */
   ctas: external_exports.array(Cta),
   /** The state's main CTA: one of `ctas`, at most one per state. Added in schemaVersion 2. */
@@ -19799,11 +19829,18 @@ var Transition = external_exports.strictObject({
   to: TransitionTo,
   label: external_exports.string().optional()
 });
+var FlowSide = external_exports.enum(["left", "right"]);
+var TransitionAnchors = external_exports.strictObject({
+  from: FlowSide.optional(),
+  to: FlowSide.optional()
+});
 var Flows = external_exports.strictObject({
-  schemaVersion: external_exports.literal(2),
+  schemaVersion: external_exports.literal(3),
   screens: external_exports.array(Screen),
   transitions: external_exports.array(Transition),
-  layout: Layout
+  layout: Layout,
+  /** Which sides transitions are drawn on, by transition id. Added in schemaVersion 3. */
+  anchors: external_exports.record(Id, TransitionAnchors).optional()
 }).superRefine((flows, ctx) => {
   checkUniqueIds(ctx, flows.screens, ["screens"], "screen");
   checkUniqueIds(ctx, flows.transitions, ["transitions"], "transition");
@@ -19811,6 +19848,7 @@ var Flows = external_exports.strictObject({
     checkUniqueIds(ctx, screen.states, ["screens", i, "states"], "state");
     screen.states.forEach((state, j) => {
       checkUniqueIds(ctx, state.ctas, ["screens", i, "states", j, "ctas"], "CTA");
+      checkUniqueIds(ctx, state.sees, ["screens", i, "states", j, "sees"], "information item");
       if (state.primaryCtaId !== void 0 && !state.ctas.some((c) => c.id === state.primaryCtaId)) {
         ctx.addIssue({
           code: "custom",
@@ -19854,6 +19892,7 @@ var Flows = external_exports.strictObject({
     }
   });
   checkLayoutKeys(ctx, flows.layout, new Set(screens.keys()), "screen");
+  checkAnchorKeys(ctx, flows.anchors, new Set(flows.transitions.map((t) => t.id)), "transition");
 });
 
 // ../schema/src/config.ts
@@ -19888,16 +19927,22 @@ var SCHEMAS = {
 
 // ../schema/src/migrate.ts
 var CURRENT_VERSION = {
-  erd: 1,
-  flows: 2,
+  erd: 2,
+  flows: 3,
   config: 1
 };
 var MIGRATIONS = {
-  erd: {},
+  erd: {
+    // v2 adds the optional `anchors` block: every v1 file is a valid v2 file.
+    1: (doc) => doc
+  },
   flows: {
     // v2 adds two optional fields to states (`notes`, `primaryCtaId`): every v1 file is a
     // valid v2 file once its version says so.
-    1: (doc) => doc
+    1: (doc) => doc,
+    // v3 makes information items objects with ids (and adds optional notes on them and on
+    // CTAs, and the `anchors` block). Each state's items get ids `info_1`, `info_2`, … in order.
+    2: (doc) => ({ ...doc, screens: mapStates(doc["screens"], seesToItems) })
   },
   config: {}
 };
@@ -19936,6 +19981,29 @@ function applyMigrations(kind, data, table, current) {
 }
 function fail(path4, message) {
   return { ok: false, issues: [{ path: path4, message }] };
+}
+function mapStates(screens, change) {
+  if (!Array.isArray(screens)) return screens;
+  return screens.map((screen) => {
+    if (!isObject2(screen) || !Array.isArray(screen["states"])) return screen;
+    return {
+      ...screen,
+      states: screen["states"].map((state) => isObject2(state) ? change(state) : state)
+    };
+  });
+}
+function seesToItems(state) {
+  const sees = state["sees"];
+  if (!Array.isArray(sees)) return state;
+  return {
+    ...state,
+    sees: sees.map(
+      (item, i) => typeof item === "string" ? { id: `info_${i + 1}`, text: item } : item
+    )
+  };
+}
+function isObject2(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 // ../schema/src/parse.ts
@@ -19977,8 +20045,14 @@ function toIssues(error62) {
 // ../schema/src/stringify.ts
 function stringifyDesign(kind, doc) {
   const canonical = canonicalise(SCHEMAS[kind], doc);
-  if (kind === "erd") orderLayout(canonical, doc.entities);
-  if (kind === "flows") orderLayout(canonical, doc.screens);
+  if (kind === "erd") {
+    orderLayout(canonical, doc.entities);
+    orderAnchors(canonical, doc.relationships);
+  }
+  if (kind === "flows") {
+    orderLayout(canonical, doc.screens);
+    orderAnchors(canonical, doc.transitions);
+  }
   return `${JSON.stringify(canonical, null, 2)}
 `;
 }
@@ -20017,6 +20091,15 @@ function orderLayout(doc, nodes2) {
     if (!(id in ordered)) ordered[id] = position;
   }
   doc["layout"] = ordered;
+}
+function orderAnchors(doc, links) {
+  const anchors = doc["anchors"];
+  if (!anchors) return;
+  const ordered = {};
+  for (const { id } of links) if (anchors[id]) ordered[id] = anchors[id];
+  for (const [id, anchor2] of Object.entries(anchors)) if (!(id in ordered)) ordered[id] = anchor2;
+  if (Object.keys(ordered).length === 0) delete doc["anchors"];
+  else doc["anchors"] = ordered;
 }
 function isRecord(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -20389,7 +20472,10 @@ function flowsSection(flows, erd) {
       if (st.notes?.trim()) out.push(inlineText(st.notes), "");
       out.push("Information:", "");
       if (st.sees.length === 0) out.push("- Nothing yet");
-      for (const item of st.sees) out.push(`- ${inlineText(item)}`);
+      for (const item of st.sees) {
+        out.push(`- ${inlineText(item.text)}`);
+        if (item.note?.trim()) out.push(`  - ${inlineText(item.note)}`);
+      }
       out.push("", "Actions:", "");
       if (st.ctas.length === 0) out.push("- Nothing yet");
       for (const cta of st.ctas) {
@@ -20398,15 +20484,12 @@ function flowsSection(flows, erd) {
         );
         const primary = st.primaryCtaId === cta.id ? " (primary)" : "";
         const label = `**${inlineText(cta.label) || "(unnamed)"}**${primary}`;
-        if (leads2.length === 0) {
-          out.push(`- ${label} (dead end)`);
-          continue;
-        }
         const targets = leads2.map((t) => {
           const own2 = t.label?.trim();
           return `\u2192 ${destination(flows, t)}${own2 ? ` (${inlineText(own2)})` : ""}`;
         });
-        out.push(`- ${label} ${targets.join("; ")}`);
+        out.push(`- ${label} ${leads2.length === 0 ? "(dead end)" : targets.join("; ")}`);
+        if (cta.note?.trim()) out.push(`  - ${inlineText(cta.note)}`);
       }
       out.push("");
     }
@@ -20734,7 +20817,8 @@ function stateChanges(after, screen, a, b, leadsBefore, leadsAfter) {
     changed: (v, was) => `Changed the notes on ${where} to ${q(v)} (was ${q(was)}).`
   });
   if (notes) out.push({ kind: "state-notes-changed", ids: at, text: notes });
-  for (const step of alignText(a.sees, b.sees)) {
+  const texts = (st) => st.sees.map((item) => item.text);
+  for (const step of alignText(texts(a), texts(b))) {
     if (step.op === "changed") {
       out.push({
         kind: "information-changed",
@@ -20748,12 +20832,26 @@ function stateChanges(after, screen, a, b, leadsBefore, leadsAfter) {
         text: `Removed information ${q(step.was)} from ${where}.`
       });
     } else {
+      const note = b.sees.find((item) => item.text === step.now)?.note?.trim();
       out.push({
         kind: "information-added",
         ids: at,
-        text: `Added information ${q(step.now)} to ${where}.`
+        text: `Added information ${q(step.now)} to ${where}${note ? `, noted ${q(note)}` : ""}.`
       });
     }
+  }
+  const unpaired = [...a.sees];
+  for (const y of b.sees) {
+    const k = unpaired.findIndex((x2) => x2.text === y.text);
+    if (k < 0) continue;
+    const [x] = unpaired.splice(k, 1);
+    const item = `${q(y.text)} in ${where}`;
+    const note = optionalChange(x?.note, y.note, {
+      added: (v) => `Added a note to information ${item}: ${q(v)}.`,
+      removed: () => `Removed the note on information ${item}.`,
+      changed: (v, was) => `Changed the note on information ${item} to ${q(v)} (was ${q(was)}).`
+    });
+    if (note) out.push({ kind: "information-note-changed", ids: at, text: note });
   }
   const old = byId(a.ctas);
   const now = byId(b.ctas);
@@ -20764,10 +20862,11 @@ function stateChanges(after, screen, a, b, leadsBefore, leadsAfter) {
     const key = ctaKey(screen.id, b.id, id);
     if (!x && y) {
       const dead = (leadsAfter.get(key) ?? []).length === 0 ? " (dead end)" : "";
+      const note = y.note?.trim() ? `, noted ${q(y.note)}` : "";
       out.push({
         kind: "cta-added",
         ids: ctaIds,
-        text: `Added action ${q(y.label)} to ${where}${dead}.`
+        text: `Added action ${q(y.label)} to ${where}${dead}${note}.`
       });
     } else if (x && !y) {
       out.push({
@@ -20783,6 +20882,13 @@ function stateChanges(after, screen, a, b, leadsBefore, leadsAfter) {
           text: `Renamed action ${q(x.label)} in ${where} to ${q(y.label)}.`
         });
       }
+      const action = `${q(y.label)} in ${where}`;
+      const note = optionalChange(x.note, y.note, {
+        added: (v) => `Added a note to action ${action}: ${q(v)}.`,
+        removed: () => `Removed the note on action ${action}.`,
+        changed: (v, was) => `Changed the note on action ${action} to ${q(v)} (was ${q(was)}).`
+      });
+      if (note) out.push({ kind: "cta-note-changed", ids: ctaIds, text: note });
       const deadBefore = (leadsBefore.get(key) ?? []).length === 0;
       const deadAfter = (leadsAfter.get(key) ?? []).length === 0;
       if (!deadBefore && deadAfter) {

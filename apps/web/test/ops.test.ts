@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Erd } from '@modelwright/schema';
 import {
+  DEFAULT_CARDINALITIES,
   NEW_ENTITY_NAME,
   addAttribute,
   addEntity,
@@ -9,6 +10,7 @@ import {
   deleteAttribute,
   deleteEntities,
   deleteRelationships,
+  lastCardinalities,
   moveEntities,
   renameEntity,
   reverseRelationship,
@@ -52,7 +54,7 @@ describe('addEntity', () => {
 
   it('works on an empty document', () => {
     const empty = deepFreeze<Erd>({
-      schemaVersion: 1,
+      schemaVersion: 2,
       entities: [],
       relationships: [],
       layout: {},
@@ -165,6 +167,18 @@ describe('attributes', () => {
   it('deletes an attribute', () => {
     const erd = valid(deleteAttribute(frozen(), 'user', 'user-email'));
     expect(entity(erd, 'user').attributes.map((a) => a.id)).toEqual(['user-name']);
+  });
+});
+
+describe('lastCardinalities', () => {
+  it('copies the relationship added last, and falls back to one → zero-many', () => {
+    const doc = frozen();
+    const last = must(doc.relationships.at(-1));
+    expect(lastCardinalities(doc)).toEqual({ fromCard: last.fromCard, toCard: last.toCard });
+    const changed = updateRelationship(doc, last.id, { fromCard: 'zero-one', toCard: 'many' });
+    const { erd, id } = addRelationship(changed, 'user', 'note', lastCardinalities(changed));
+    expect(rel(valid(erd), must(id))).toMatchObject({ fromCard: 'zero-one', toCard: 'many' });
+    expect(lastCardinalities({ ...doc, relationships: [] })).toEqual(DEFAULT_CARDINALITIES);
   });
 });
 

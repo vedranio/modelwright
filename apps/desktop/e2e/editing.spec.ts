@@ -4,7 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 import { expect, test } from '@playwright/test';
-import { launch, openByPath, type Launched } from './launch';
+import { clickMenu, launch, openByPath, type Launched } from './launch';
 
 // Phases 2–6's editing features, in the desktop app: toasts with Undo, the build indicator and
 // Revert all, and the conflict banner for an outside edit made while there are unsaved edits.
@@ -22,18 +22,34 @@ test.afterEach(async () => {
 });
 
 const entity = (name: string) => run.window.locator('.entity-name', { hasText: name });
+const card = (name: string) => run.window.locator('.react-flow__node', { has: entity(name) });
+/**
+ * Another app taking focus. Playwright makes a page always report focus, so this fakes what
+ * the field sees: `document.hasFocus()` false, then the blur. The browser giving focus back on
+ * return can't be simulated; it's on the hand-check list.
+ */
+const background = () =>
+  run.window.evaluate(() => {
+    document.hasFocus = () => false;
+    (document.activeElement as HTMLElement | null)?.blur();
+  });
+const foreground = () =>
+  run.window.evaluate(() => {
+    delete (document as { hasFocus?: unknown }).hasFocus;
+  });
 const erdOf = async (dir: string) =>
   JSON.parse(await readFile(path.join(dir, '.design', 'erd.json'), 'utf8'));
 
 async function rename(from: string, to: string): Promise<void> {
-  await entity(from).dblclick();
+  await entity(from).click();
   await run.window.getByLabel('Entity name').fill(to);
   await run.window.getByLabel('Entity name').press('Enter');
 }
 
 test('deleting an entity shows a toast whose Undo brings it back', async () => {
   await openByPath(run.window, await run.notesProject());
-  await entity('Note').click();
+  // A click on the card's text edits it, so select it by its corner.
+  await card('Note').click({ position: { x: 3, y: 3 } });
   await run.window.keyboard.press('Backspace');
   await expect(entity('Note')).toHaveCount(0);
   const toast = run.window.locator('.toast');
@@ -74,4 +90,115 @@ test('an outside edit during unsaved edits asks which to keep', async () => {
   await banner.getByRole('button', { name: 'Keep mine' }).click();
   await expect.poll(async () => (await erdOf(dir)).entities[0].name).toBe('Mine');
   expect((await erdOf(dir)).entities[1].name).toBe('Note');
+});
+
+test('an open field stays open while the app is in the background, and saves on quit', async () => {
+  const dir = await run.notesProject();
+  await openByPath(run.window, dir);
+  await entity('User').click();
+  const field = run.window.getByLabel('Entity name');
+  await field.fill('Mem');
+  // Another app takes focus: the window blurs, but the field mustn't commit and close.
+  await background();
+  await expect(field).toBeVisible();
+  await foreground();
+  await field.focus();
+  await run.window.keyboard.type('ber');
+  await expect(field).toHaveValue('Member');
+  // Background again, then close the project from the menu: the open field is saved first.
+  await background();
+  await expect(field).toBeVisible();
+  await clickMenu(run.app, ['File', 'Close Project']);
+  await expect
+    .poll(async () => (await erdOf(dir)).entities.map((e: { name: string }) => e.name))
+    .toContain('Member');
+});
+
+test('⌥-dragging an entity copies it and leaves the original in place', async () => {
+  const dir = await run.notesProject();
+  await openByPath(run.window, dir);
+  const box = await card('Note').boundingBox();
+  if (!box) throw new Error('Note has no box');
+  const { mouse, keyboard } = run.window;
+  await mouse.move(box.x + 3, box.y + 3);
+  await keyboard.down('Alt');
+  await mouse.down();
+  await mouse.move(box.x + 3, box.y + 200, { steps: 10 });
+  await mouse.up();
+  await keyboard.up('Alt');
+  await expect(entity('Note')).toHaveCount(2);
+  await expect.poll(async () => (await erdOf(dir)).entities.length).toBe(3);
+  const erd = await erdOf(dir);
+  expect(erd.layout.note).toEqual({ x: 320, y: 0 });
+  const copy = erd.entities.at(-1);
+  expect(copy.name).toBe('Note');
+  expect(erd.layout[copy.id].y).toBeGreaterThan(100);
+});
+
+test('dragging an attribute by its grip reorders it', async () => {
+  const dir = await run.notesProject();
+  await openByPath(run.window, dir);
+  const title = run.window.locator('.attribute', { hasText: 'title' });
+  await title.hover();
+  const grip = await title.locator('.row-grip').boundingBox();
+  const updated = await run.window.locator('.attribute', { hasText: 'updated at' }).boundingBox();
+  if (!grip || !updated) throw new Error('missing boxes');
+  const { mouse } = run.window;
+  await mouse.move(grip.x + grip.width / 2, grip.y + grip.height / 2);
+  await mouse.down();
+  await mouse.move(grip.x, updated.y + updated.height - 2, { steps: 8 });
+  await mouse.up();
+  await expect
+    .poll(async () =>
+      (await erdOf(dir)).entities[1].attributes.map((a: { name: string }) => a.name),
+    )
+    .toEqual(['body', 'updated at', 'title']);
+});
+
+test('a relationship drawn from a card’s bottom stays on its bottom', async () => {
+  const dir = await run.notesProject();
+  await openByPath(run.window, dir);
+  await card('User').hover();
+  const handle = await card('User')
+    .locator('.connect-handle[data-handlepos="bottom"]')
+    .boundingBox();
+  const note = await card('Note').boundingBox();
+  if (!handle || !note) throw new Error('missing boxes');
+  const { mouse } = run.window;
+  await mouse.move(handle.x + handle.width / 2, handle.y + handle.height / 2);
+  await mouse.down();
+  await mouse.move(note.x + note.width / 2, note.y + note.height / 2, { steps: 12 });
+  await mouse.up();
+  await expect.poll(async () => (await erdOf(dir)).relationships.length).toBe(2);
+  const erd = await erdOf(dir);
+  const added = erd.relationships.at(-1).id;
+  // From the handle it was drawn from; dropped mid-card, the other end floats.
+  expect(erd.anchors).toEqual({ [added]: { from: { side: 'bottom', at: 0.5 } } });
+});
+
+test('a project saved by an older modelwright opens, and saves at the new versions', async () => {
+  const dir = await run.notesProject();
+  const old = fileURLToPath(new URL('../../../packages/schema/test/fixtures', import.meta.url));
+  await writeFile(
+    path.join(dir, '.design', 'erd.json'),
+    await readFile(path.join(old, 'v1', 'erd.json')),
+  );
+  await writeFile(
+    path.join(dir, '.design', 'flows.json'),
+    await readFile(path.join(old, 'v2', 'flows.json')),
+  );
+  await openByPath(run.window, dir);
+  await rename('User', 'Member');
+  await expect.poll(async () => (await erdOf(dir)).schemaVersion).toBe(2);
+  await run.window.getByRole('tab', { name: 'Flows' }).click();
+  await run.window.locator('.sees-text', { hasText: 'email field' }).first().click();
+  await run.window.getByLabel('Sees item').fill('email address');
+  await run.window.getByLabel('Sees item').blur();
+  const flows = async () =>
+    JSON.parse(await readFile(path.join(dir, '.design', 'flows.json'), 'utf8'));
+  await expect.poll(async () => (await flows()).schemaVersion).toBe(3);
+  expect((await flows()).screens[0].states[0].sees[0]).toEqual({
+    id: 'info_1',
+    text: 'email address',
+  });
 });

@@ -132,7 +132,7 @@ test('opening a folder handed over by the OS (the Dock) opens it as a project', 
 test('quitting with an unsaved edit saves it first, and reopens the project next time', async () => {
   const dir = await run.notesProject();
   await openByPath(run.window, dir);
-  await run.window.locator('.entity-name', { hasText: 'User' }).dblclick();
+  await run.window.locator('.entity-name', { hasText: 'User' }).click();
   await run.window.getByLabel('Entity name').fill('Quitter');
   await run.window.getByLabel('Entity name').press('Enter');
   // Quit straight away, inside the autosave pause.

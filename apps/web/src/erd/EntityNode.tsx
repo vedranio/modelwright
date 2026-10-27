@@ -3,6 +3,7 @@ import type { Attribute, Entity } from '@modelwright/schema';
 import { isEditing, useErdEditor } from './editor';
 import { attributeDeletionSummary } from './deletion';
 import { InlineField, type CommitReason } from '../editing/InlineField';
+import { RowGrip } from '../editing/rowDrag';
 import {
   addAttribute,
   deleteAttribute,
@@ -25,8 +26,9 @@ const CONNECT_SIDES = [Position.Top, Position.Right, Position.Bottom, Position.L
 
 /**
  * An entity card: the name, an optional muted description, then one row per attribute with
- * its note beneath in faint text. Every text is edited in place: double-click it, then Enter
- * or click away to keep the change, Escape to drop it.
+ * its note beneath in faint text. Every text is edited in place: click it, then Enter or click
+ * away to keep the change, Escape to drop it. React Flow swallows the click that ends a drag,
+ * so dragging a card by its text still just moves it.
  */
 export function EntityNode({ data }: NodeProps<EntityNodeType>) {
   const { entity } = data;
@@ -88,7 +90,7 @@ export function EntityNode({ data }: NodeProps<EntityNodeType>) {
           <div
             className="entity-name editable"
             title={entity.name}
-            onDoubleClick={(e) => {
+            onClick={(e) => {
               e.stopPropagation();
               setEditing(at('name'));
             }}
@@ -116,7 +118,7 @@ export function EntityNode({ data }: NodeProps<EntityNodeType>) {
         ) : entity.description ? (
           <p
             className="entity-description editable"
-            onDoubleClick={(e) => {
+            onClick={(e) => {
               e.stopPropagation();
               setEditing(at('description'));
             }}
@@ -134,7 +136,7 @@ export function EntityNode({ data }: NodeProps<EntityNodeType>) {
         )}
       </header>
 
-      <ul className="attributes">
+      <ul className="attributes" data-rows>
         {entity.attributes
           .map((attribute) => (
             <AttributeRow
@@ -193,7 +195,7 @@ function AttributeRow({
   };
 
   return (
-    <li className="attribute">
+    <li className="attribute" data-row>
       <div className="attribute-line">
         {isEditing(editing, target('attribute')) ? (
           <InlineField
@@ -217,7 +219,7 @@ function AttributeRow({
           <span
             className="attribute-name editable"
             title={attribute.name}
-            onDoubleClick={(e) => {
+            onClick={(e) => {
               e.stopPropagation();
               setEditing(target('attribute'));
             }}
@@ -226,6 +228,10 @@ function AttributeRow({
           </span>
         )}
         <span className="attribute-actions">
+          <RowGrip
+            className="attribute-action"
+            onMove={(offset) => apply((erd) => moveAttribute(erd, entityId, attribute.id, offset))}
+          />
           {!attribute.note && !isEditing(editing, target('note')) && (
             <button
               type="button"
@@ -270,7 +276,7 @@ function AttributeRow({
           <span
             className="attribute-note editable"
             title={attribute.note}
-            onDoubleClick={(e) => {
+            onClick={(e) => {
               e.stopPropagation();
               setEditing(target('note'));
             }}

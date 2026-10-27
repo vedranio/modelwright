@@ -12,7 +12,9 @@ import {
   addTransition,
   deleteCta,
   duplicateScreens,
+  setCtaNote,
   setPrimaryCta,
+  setSeesNote,
   setStateNotes,
   deleteScreens,
   deleteSeesItem,
@@ -60,13 +62,16 @@ const transition = (f: Flows, id: string) =>
   );
 const transitionIds = (f: Flows) => f.transitions.map((t) => t.id);
 
-const EMPTY: Flows = { schemaVersion: 2, screens: [], transitions: [], layout: {} };
+const EMPTY: Flows = { schemaVersion: 3, screens: [], transitions: [], layout: {} };
 
 describe('idsIn', () => {
-  it('collects screen, state, CTA and transition ids', () => {
+  it('collects screen, state, information item, CTA and transition ids', () => {
     const ids = idsIn(notesFlows());
-    for (const id of ['login', 'login-error', 'notes-open', 't4']) expect(ids.has(id)).toBe(true);
-    expect(ids.size).toBe(3 + 5 + 7 + 4);
+    for (const id of ['login', 'login-error', 'info_3', 'notes-open', 't4']) {
+      expect(ids.has(id)).toBe(true);
+    }
+    // Items are numbered within each state, so info_1–3 cover them all.
+    expect(ids.size).toBe(3 + 5 + 3 + 7 + 4);
   });
 });
 
@@ -147,7 +152,7 @@ describe('addState', () => {
     expect(state(flows, 'login', must(id))).toEqual({
       id,
       name: NEW_STATE_NAME,
-      sees: ['email field', 'password field'],
+      sees: state(flows, 'login', 'login-default').sees,
       ctas: [],
     });
   });
@@ -247,19 +252,22 @@ describe('makeDefaultState', () => {
   });
 });
 
+const texts = (st: { sees: { text: string }[] }) => st.sees.map((item) => item.text);
+
 describe('sees items', () => {
   it('adds at the end, or after an index, and returns the index', () => {
     const f = frozen();
     const end = addSeesItem(f, 'login', 'login-default');
     expect(end.index).toBe(2);
-    expect(state(valid(end.flows), 'login', 'login-default').sees).toEqual([
+    expect(texts(state(valid(end.flows), 'login', 'login-default'))).toEqual([
       'email field',
       'password field',
       '',
     ]);
+    expect(state(end.flows, 'login', 'login-default').sees[2]?.id).toMatch(/^info_[0-9a-z]{8}$/);
     const mid = addSeesItem(f, 'login', 'login-default', 0, 'logo');
     expect(mid.index).toBe(1);
-    expect(state(mid.flows, 'login', 'login-default').sees).toEqual([
+    expect(texts(state(mid.flows, 'login', 'login-default'))).toEqual([
       'email field',
       'logo',
       'password field',
@@ -279,7 +287,7 @@ describe('sees items', () => {
         'login',
         'login-default',
       ).sees[1],
-    ).toBe('password');
+    ).toEqual({ id: 'info_2', text: 'password' });
     expect(updateSeesItem(f, 'login', 'login-default', 1, 'password field')).toBe(f);
     expect(updateSeesItem(f, 'login', 'login-default', 9, 'x')).toBe(f);
   });
@@ -287,9 +295,39 @@ describe('sees items', () => {
   it('deletes by index', () => {
     const f = frozen();
     expect(
-      state(valid(deleteSeesItem(f, 'login', 'login-default', 0)), 'login', 'login-default').sees,
+      texts(state(valid(deleteSeesItem(f, 'login', 'login-default', 0)), 'login', 'login-default')),
     ).toEqual(['password field']);
     expect(deleteSeesItem(f, 'login', 'login-default', 5)).toBe(f);
+  });
+});
+
+describe('notes on items and CTAs', () => {
+  it('sets, replaces and removes a note on a sees item, by index', () => {
+    const f = frozen();
+    const noted = valid(setSeesNote(f, 'login', 'login-default', 1, 'masked'));
+    expect(state(noted, 'login', 'login-default').sees[1]).toEqual({
+      id: 'info_2',
+      text: 'password field',
+      note: 'masked',
+    });
+    expect(setSeesNote(deepFreeze(noted), 'login', 'login-default', 1, 'masked')).toBe(noted);
+    const cleared = valid(setSeesNote(deepFreeze(noted), 'login', 'login-default', 1, ' '));
+    expect(state(cleared, 'login', 'login-default').sees[1]).toEqual({
+      id: 'info_2',
+      text: 'password field',
+    });
+    expect(setSeesNote(f, 'login', 'login-default', 9, 'x')).toBe(f);
+  });
+
+  it('sets and removes a note on a CTA', () => {
+    const f = frozen();
+    const noted = valid(
+      setCtaNote(f, 'login', 'login-default', 'login-submit', 'disabled until filled'),
+    );
+    expect(state(noted, 'login', 'login-default').ctas[0]?.note).toBe('disabled until filled');
+    const cleared = setCtaNote(deepFreeze(noted), 'login', 'login-default', 'login-submit', '');
+    expect(state(cleared, 'login', 'login-default').ctas[0]).not.toHaveProperty('note');
+    expect(setCtaNote(f, 'login', 'login-default', 'nope', 'x')).toBe(f);
   });
 });
 

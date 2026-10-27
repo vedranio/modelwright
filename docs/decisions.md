@@ -1286,3 +1286,106 @@ The phase 7 brief's "obvious next convenience". Settled with you: both builds th
   - Vitest covers the core (approval, output, cap, exit codes, process groups, stopAll, no command, `stripAnsi`, `announcedUrls`), three contract cases on both clients, and IPC validation.
   - Playwright Electron, through the real login shell, covers: approve, the preview shows the page, Stop and the process gone, start again with no dialog; closing the project and quitting each stop it (by pid); and a crash showing exit 2, its output and Start again.
   - In the web build's browser pane: Start, the dialog, the preview, the log, Stop with the card back, start again with no dialog, and close stopping the server.
+
+## 2026-10-27 — Phase 8 planning decisions
+
+Settled in planning before any code was written; the brief (`docs/phase-8-brief.md`) lists them. Reordering is by dragging a grip; join points remember side and position (side only on Flows); snapping is live, with ⌘ to turn it off; notes on information items and CTAs aren't on the Tab path; one schema bump per file (`erd.json` 2, `flows.json` 3). Item 13 stays a follow-up: it only affects the web build.
+
+## 2026-10-27 — Phase 8 milestone 1: small canvas fixes (items 25, 26, 27, 30)
+
+- **Item 25, a field survives switching apps.** Switching to another app blurred the open field, and blur commits and closes it. Now `InlineField` ignores a blur while `document.hasFocus()` is false (the window itself lost focus): the field stays open, and the browser gives it focus back when the window returns. This replaces the plan's restore-on-focus hook, which would have reopened fields with their text selected and needed every editor to take part.
+  - **Nothing is lost on close or quit.** `Shell.saveOrAsk` first calls `commitOpenField()`, which asks a mounted `InlineField` to commit as a blur would, then flushes. That covers quitting from the Dock while the app is in the background.
+  - **Tested in Playwright by faking the background:** Playwright makes a page always report focus, so the test sets `document.hasFocus()` to false and blurs the field. That the browser gives focus back on return is on the hand-check list.
+  - **Selecting a card now means clicking outside its text,** as on screen cards. Three Playwright tests that clicked an entity's name to select it now click its corner.
+- **Item 26, single click on entity cards** (supersedes "Entity cards stay double-click", 2026-10-07). Name, description, attribute and note open on a click, as screen cards do. React Flow swallows the click that ends a drag, so dragging by the text still moves the card.
+- **Item 27, partial selection.** `Canvas` sets `selectionMode={SelectionMode.Partial}` for both canvases, and views can't override it.
+- **Item 30, the last cardinality.** A new relationship copies the cardinalities of the relationship added last (new ones are appended, so it's the end of the list), via `lastCardinalities`. That's the last line drawn, with any change made to it since, and it needs no preference storage. With no relationships it's `one` → `zero-many`, as before. `addRelationship` and `addEntityWithRelationship` take the cardinalities as an optional argument, defaulting as before.
+
+## 2026-10-27 — Phase 8 milestone 2: drag to reorder (items 28, 34)
+
+- **A grip (Material's `drag_indicator`) leads each row's hover controls,** on attributes, state headers, information items and CTAs. It sits with the other hover controls at the row's right, rather than at its left as planned: the left edge of a CTA row already holds its left connection handle, and hover controls take no space.
+- **No drag library.** `editing/rowDrag.tsx` handles pointer events imperatively: the list is the nearest `[data-rows]` element, its rows are its `[data-row]` children (drafts aren't rows), and classes on the DOM show the dragged row (faded) and the drop line (accent, `--drop-line-w`). Escape cancels. Dropping calls the existing move ops (`moveAttribute`, `moveState`, `moveSeesItem`, `moveCta`) with the offset, so it's one undo step and ⌥↑/⌥↓ is unchanged.
+- **Where a row lands** is pure and tested (`dropIndex`, `dropSlot` in `editing/reorder.ts`): before the first row whose midpoint is below the pointer, measured in screen pixels, so zoom doesn't matter.
+- **A state dragged to the top becomes the default,** as ⌥↑ already does.
+- **Verified in the browser** on a scratch copy of the notes fixture: an attribute moved down (and saved in that order), a CTA moved down, and the Empty state moved above List, becoming the default.
+
+## 2026-10-27 — Phase 8 milestone 3: guides, snapping and ⌥-drag (items 31, 32)
+
+- **One hook for both canvases,** `canvas/useCardDrag.tsx`. It takes over the views' live-drag positions, `onNodeDragStart` and `onNodeDragStop`, and draws the guides through a new `Canvas` prop, `inFlow` (rendered inside React Flow, here as a `ViewportPortal`).
+- **Snapping** (`canvas/snap.ts`, pure and tested) lines up the dragged cards' bounding box with every other card: left, centre or right, and top, middle or bottom. The threshold is 6 screen pixels (`SNAP_DISTANCE_PX / zoom` canvas units), and the nearest candidate wins on each axis. React Flow computes each drag position from the pointer, not from the last position we fed back, so a snap holds while the pointer is within range and lets go beyond it. The drop commits the snapped positions, not React Flow's raw ones. ⌘ held while dragging turns snapping off.
+- **Guides** are 1-unit lines in `--color-guide` (the accent, at 60% opacity, in both themes). Each guide spans every card on the line.
+- **⌥-drag:**
+  - ⌥ held when the drag starts makes it a copy. While ⌥ stays held, the originals show where they were as non-interactive ghost nodes (`ghost:<id>`), and the dragged cards are the copies-to-be.
+  - Dropping with ⌥ still held pastes copies (`pasteEntities`/`pasteScreens` of the dragged cards' fragment, moved by the drop's offset, rounded) and leaves the originals unmoved. The copies and the links between them are selected, as with ⌘D, in one undo step.
+  - Letting go of ⌥ before the drop makes it an ordinary move.
+  - Modifiers are tracked from key and pointer events (`useModifiers`), because React Flow's change events carry none.
+  - Known limit: while dragging, edges stay attached to the dragged cards, so for a moment they follow the copies rather than the originals.
+- **Tests:** Vitest for `snap` and `boundsOf`. Playwright Electron covers an ⌥-drag copy, with the original unmoved and the copy saved, and a grip reorder of an attribute.
+- **Verified in the browser** with scripted mouse events, to read state mid-drag: a card dragged to within 5 units of level snapped to it with a guide showing, and dropped there. An ⌥-drag showed a ghost and left the original, with the copy selected where it was dropped.
+
+## 2026-10-27 — Phase 8 milestone 4: erd.json v2 and flows.json v3
+
+- **`erd.json` schemaVersion 2** adds an optional top-level `anchors` block after `layout`: `{ [relationshipId]: { from?: { side, at }, to?: { side, at } } }`, where `side` is top, right, bottom or left and `at` runs from 0 to 1 along it. Keys must name relationships (`checkAnchorKeys`, like `checkLayoutKeys`). The migration from 1 only changes the version.
+- **`flows.json` schemaVersion 3:**
+  - Information items are `{ id, text, note? }` objects, with ids unique within their state (like CTAs). The migration from 2 numbers each state's items `info_1`, `info_2`, … in order. New items get `info_` plus 8 characters, like every other id.
+  - `Cta` gains an optional `note`.
+  - An optional `anchors` block: `{ [transitionId]: { from?: 'left' | 'right', to?: 'left' | 'right' } }`. A CTA row and the target state fix the heights, so only the side is stored.
+- **`anchors` is optional and left out when empty** (`orderAnchors` in `stringify.ts`, which also puts entries in link order). The plan had it always present, but a file with no fixed join points shouldn't carry an empty block, and existing files re-save with no change but the version.
+- **The design diff still lines information items up by text,** so a build recorded before this phase (its snapshot migrates when read) still diffs item by item. New change kinds:
+  - `information-note-changed`: items pair with the first unpaired item of the same text.
+  - `cta-note-changed`.
+  - Added items and CTAs mention their note.
+  - The diff compares named fields only, so `anchors`, like `layout`, never shows as a change.
+- **`spec.md`** shows an item's or a CTA's note as a nested bullet under it. SKILL.md says those notes are requirements.
+- **Fixtures:** the notes, busy and notes-edited fixtures and the Todo demo were upgraded through the migration itself (parse, then stringify). `fixtures/v1/erd.json` and `fixtures/v2/flows.json` keep the old notes files for the migration tests.
+- **The rest of the app** reads items as objects. Rows are keyed by item id rather than index. `addState` copies the default state's items with their ids (ids only need to be unique within a state), and `pasteScreens` keeps item ids for the same reason.
+- **The bundled CLI was rebuilt.**
+
+## 2026-10-27 — Phase 8 milestone 5: notes on information items and CTAs (items 35, 36)
+
+- **The attribute note pattern, on screen cards:** a "note" hover control (when there's none), and the note as a faint `--text-xs` line under the row that opens with a single click. Enter or clicking away keeps it, Escape drops it, and a blank note removes the key (`setSeesNote`, `setCtaNote`). One `RowNote` component serves both.
+- **An information item's note sits inside its row.** A CTA's note is a list item of its own after the row (`cta-note-line`), so the CTA row and its connection handles keep their height and transitions still leave from the label's line. It isn't a `[data-row]`, so grip dragging ignores it, and the CTA row's drop line still lands between CTAs.
+- **Not on the Tab path,** as with state notes, so item → item and CTA → CTA entry stays as fast as before.
+- **`estimateScreenSize`** adds a 16-unit line per noted item or CTA.
+- **Verified in the browser** on the scratch notes project: a note on "note titles" and one on the "New note" CTA, saved as `note` keys in a migrated v3 `flows.json`, and shown in `spec.md` as nested bullets.
+
+## 2026-10-27 — Phase 8 milestone 6: join points (items 33, 29)
+
+- **ERD (`erd/anchors.ts`, pure and tested):** `anchorPoint` puts an anchor on its card's outline, and `nearestAnchor` finds the closest point on the outline (by distance to each side's segment, not its line), rounded to two decimals. A fixed end sits at its anchor, and a floating end faces it (`floatingEnds` towards a zero-size rectangle at the fixed point). Relationships with a fixed end leave the parallel fan-out. Self-loops stay automatic.
+- **Drawing (item 33):**
+  - ERD: a relationship records `from` as the side handle it was drawn from, at that side's middle. It records `to` only when dropped within 24 units of the target's outline (`dropAnchor`); dropped further in, that end floats.
+  - Flows: a transition records `from` as the CTA handle's side (`cta-left:` or `cta:`). It records `to` when dropped within 24 units of the target's left or right edge (`dropSide`). Reassigning a transition by its tip sets `to` the same way, and clears it for a drop further in.
+- **Moving (item 29):** a selected connector shows round accent grips (`canvas/EndGrip.tsx`, `--end-grip-size`).
+  - ERD: one at each end. Dragging slides the end round its card's outline, corners included, with the line following live. One undo step on drop, and Escape cancels.
+  - Flows: one at the start, which moves it to the nearer side of its card. The tip keeps its reassign grip (item 22); a drop near an edge picks the arrival side.
+  - Both popovers gain **Reset join points** when an end is fixed.
+- **Routing in Flows:** fixed sides narrow `routeTransitionSides`' four candidates first. If every route left cuts through a card, the shortest is still used, since the side was asked for.
+- **Keeping `anchors` valid:**
+  - Each view's `apply` runs `pruneAnchors` (`canvas/anchors.ts`) after every edit, so no delete or cascade has to remember them.
+  - `reverseRelationship` swaps the ends' anchors, because they stay on the same cards.
+  - Duplicate, ⌥-drag and paste copy the anchors of the links they copy.
+  - Revert to last build keeps each link's current join points, like the layout, and restores recorded ones for links that come back.
+- **Tests:** Vitest for the geometry, the ops, pruning, reversing, copying and fixed-side routing. Playwright Electron draws a relationship from User's bottom handle and checks the saved anchor.
+- **Verified in the browser** on the scratch notes project:
+  - The ERD "owns" end dragged to Note's bottom (saved `to: bottom, 0.25`), with the User end facing it.
+  - The Flows "Sign in" start dragged to Login's left (saved `from: 'left'`), routing round the top into Notes.
+  - Reset join points removed the block.
+
+## 2026-10-27 — Phase 8 milestone 7: verification
+
+- **Checks:** `pnpm test` (893 tests), `pnpm typecheck` and `pnpm lint` pass. `pnpm e2e:desktop` and `pnpm e2e:packaged` pass 37 Playwright Electron tests each, against `out/` and the packaged `.app`. `pnpm package` built `modelwright-0.1.0-arm64.dmg`.
+- **New Playwright tests:**
+  - a field left open while the app is in the background, saved on close
+  - ⌥-drag copies
+  - a grip reorder
+  - a relationship drawn from a bottom handle
+  - a project at erd 1 and flows 2 opening and saving at erd 2 and flows 3, with information items becoming `info_1`, …
+- **In the browser:** each item on a scratch copy of the notes fixture, in dark and light themes (milestone entries above). The scratch project was removed from recents afterwards.
+- **For a check by hand in the desktop app,** because simulated input can't prove them:
+  - Switching to another app with a field open and coming back: the browser should give focus back to the field (item 25).
+  - How live snapping feels on a real trackpad, and that ⌘ turns it off (item 31).
+  - ⌥-drag with a real Option key, including letting go of ⌥ before the drop (item 32).
+  - Dragging connector grips and row grips with a trackpad (items 28, 29, 34).
+- **Known limits:**
+  - During an ⌥-drag, edges follow the copies until the drop.
+  - Selecting a card now means clicking outside its text, as on screen cards.

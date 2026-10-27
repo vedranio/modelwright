@@ -1,6 +1,7 @@
 import close from '@material-symbols/svg-400/outlined/close.svg';
 import contrast from '@material-symbols/svg-400/outlined/contrast.svg';
 import darkMode from '@material-symbols/svg-400/outlined/dark_mode.svg';
+import dragIndicator from '@material-symbols/svg-400/outlined/drag_indicator.svg';
 import keyboardArrowDown from '@material-symbols/svg-400/outlined/keyboard_arrow_down.svg';
 import keyboardArrowUp from '@material-symbols/svg-400/outlined/keyboard_arrow_up.svg';
 import keyboardReturn from '@material-symbols/svg-400/outlined/keyboard_return.svg';
@@ -25,6 +26,7 @@ const ICONS = {
   close,
   contrast,
   dark_mode: darkMode,
+  drag_indicator: dragIndicator,
   keyboard_arrow_down: keyboardArrowDown,
   keyboard_arrow_up: keyboardArrowUp,
   keyboard_return: keyboardReturn,

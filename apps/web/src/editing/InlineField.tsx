@@ -1,7 +1,19 @@
-import { useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { shortcutMatches } from '../shortcutRegistry';
 
 export type CommitReason = 'enter' | 'blur';
+
+const COMMIT_EVENT = 'modelwright:commit-field';
+
+/**
+ * Commits the open field, if there is one, as a blur would. A field stays open while the app
+ * is in the background, so saving before a close or quit calls this first. Resolves once
+ * React has applied the commit.
+ */
+export function commitOpenField(): Promise<void> {
+  window.dispatchEvent(new Event(COMMIT_EVENT));
+  return new Promise((resolve) => setTimeout(resolve, 0));
+}
 
 /** Frames to keep retrying focus while the node is still hidden. */
 const FOCUS_ATTEMPTS = 10;
@@ -95,6 +107,18 @@ export function InlineField({
     action();
   };
 
+  // Saving before a close or quit commits a field left open while the app was in the
+  // background (see `commitOpenField`).
+  const latest = useRef({ draft, onCommit });
+  useLayoutEffect(() => {
+    latest.current = { draft, onCommit };
+  });
+  useEffect(() => {
+    const commit = () => settle(() => latest.current.onCommit(latest.current.draft, 'blur'));
+    window.addEventListener(COMMIT_EVENT, commit);
+    return () => window.removeEventListener(COMMIT_EVENT, commit);
+  }, []);
+
   return (
     <input
       ref={ref}
@@ -126,7 +150,12 @@ export function InlineField({
           onMove(draft, e.key === 'ArrowUp' ? -1 : 1);
         }
       }}
-      onBlur={() => settle(() => onCommit(draft, 'blur'))}
+      onBlur={() => {
+        // Switching to another app blurs the field too. It stays open, and the browser gives
+        // it focus back when the window returns, so typing carries on where it left off.
+        if (!document.hasFocus()) return;
+        settle(() => onCommit(draft, 'blur'));
+      }}
       onDoubleClick={(e) => e.stopPropagation()}
     />
   );

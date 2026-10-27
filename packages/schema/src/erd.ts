@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { Id, Layout, checkLayoutKeys, checkUniqueIds } from './common';
+import { Id, Layout, checkAnchorKeys, checkLayoutKeys, checkUniqueIds } from './common';
 
 export const Cardinality = z.enum(['one', 'zero-one', 'many', 'zero-many']);
 export type Cardinality = z.infer<typeof Cardinality>;
@@ -29,13 +29,32 @@ export const Relationship = z.strictObject({
 });
 export type Relationship = z.infer<typeof Relationship>;
 
+export const Side = z.enum(['top', 'right', 'bottom', 'left']);
+export type Side = z.infer<typeof Side>;
+
+/** Where a relationship's end meets its card: a side, and how far along it (0 to 1). */
+export const Anchor = z.strictObject({
+  side: Side,
+  at: z.number().min(0).max(1),
+});
+export type Anchor = z.infer<typeof Anchor>;
+
+/** A relationship's fixed ends; an end not given is placed automatically. Layout, not meaning. */
+export const RelationshipAnchors = z.strictObject({
+  from: Anchor.optional(),
+  to: Anchor.optional(),
+});
+export type RelationshipAnchors = z.infer<typeof RelationshipAnchors>;
+
 /** `.design/erd.json` — the conceptual ERD. */
 export const Erd = z
   .strictObject({
-    schemaVersion: z.literal(1),
+    schemaVersion: z.literal(2),
     entities: z.array(Entity),
     relationships: z.array(Relationship),
     layout: Layout,
+    /** Where relationships join their cards, by relationship id. Added in schemaVersion 2. */
+    anchors: z.record(Id, RelationshipAnchors).optional(),
   })
   .superRefine((erd, ctx) => {
     checkUniqueIds(ctx, erd.entities, ['entities'], 'entity');
@@ -58,5 +77,6 @@ export const Erd = z
     });
 
     checkLayoutKeys(ctx, erd.layout, entityIds, 'entity');
+    checkAnchorKeys(ctx, erd.anchors, new Set(erd.relationships.map((r) => r.id)), 'relationship');
   });
 export type Erd = z.infer<typeof Erd>;

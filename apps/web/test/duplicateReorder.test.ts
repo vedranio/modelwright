@@ -117,7 +117,7 @@ describe('reordering', () => {
     const before = flows();
     const up = moveSeesItem(before, 'login', 'login-error', 2, -1);
     validFlows(up);
-    expect(up.screens[0]?.states[1]?.sees).toEqual([
+    expect(up.screens[0]?.states[1]?.sees.map((item) => item.text)).toEqual([
       'email field',
       'error message',
       'password field',

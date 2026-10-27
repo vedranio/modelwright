@@ -1,3 +1,4 @@
+import { clearTransitionSides } from './anchors';
 import type { TransitionFrom, TransitionTo } from '@modelwright/schema';
 import { LabelField } from '../editing/LabelField';
 import { deletionSummary } from './deletion';
@@ -20,6 +21,8 @@ interface Props {
   /** Every screen in the design, in order. */
   screens: readonly TargetScreen[];
   label: string;
+  /** Whether either end's side is fixed. */
+  anchored: boolean;
 }
 
 /**
@@ -39,7 +42,15 @@ function parseTarget(value: string): TransitionTo {
  * state of one), its label, and Delete. Changes apply as they're made. The state the CTA sits
  * in is listed but can't be chosen: a transition can't lead back into it.
  */
-export function TransitionPopover({ transitionId, fromText, from, to, screens, label }: Props) {
+export function TransitionPopover({
+  transitionId,
+  fromText,
+  from,
+  to,
+  screens,
+  label,
+  anchored,
+}: Props) {
   const { apply, remove } = useFlowsEditor();
   const update = (changes: Parameters<typeof updateTransition>[2]) =>
     apply((flows) => updateTransition(flows, transitionId, changes));
@@ -103,7 +114,18 @@ export function TransitionPopover({ transitionId, fromText, from, to, screens, l
         onCommit={(value) => update({ label: value.trim() })}
       />
       <div className="edge-popover-actions">
-        <span />
+        {anchored ? (
+          <button
+            type="button"
+            className="btn btn-quiet btn-tight"
+            title="Let both ends take the shortest sides again"
+            onClick={() => apply((flows) => clearTransitionSides(flows, transitionId))}
+          >
+            Reset join points
+          </button>
+        ) : (
+          <span />
+        )}
         <button
           type="button"
           className="btn btn-quiet btn-tight edge-delete"

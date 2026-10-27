@@ -49,7 +49,7 @@ export function seesDeletionSummary(
 ) {
   const item = flows.screens.find((s) => s.id === screenId)?.states.find((st) => st.id === stateId)
     ?.sees[index];
-  return item === undefined ? null : deletedMessage(quoted(item));
+  return item === undefined ? null : deletedMessage(quoted(item.text));
 }
 
 /** "Deleted CTA 'Sign in' and 1 transition". */

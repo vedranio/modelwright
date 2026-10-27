@@ -22,13 +22,14 @@ export const NEW_SCREEN_NAME = 'Screen';
 export const DEFAULT_STATE_NAME = 'Default';
 export const NEW_STATE_NAME = 'State';
 
-/** Every id in the document (screens, states, CTAs, transitions), for collision checks. */
+/** Every id in the document (screens, states, items, CTAs, transitions), for collision checks. */
 export function idsIn(flows: Flows): Set<string> {
   const ids = new Set<string>();
   for (const screen of flows.screens) {
     ids.add(screen.id);
     for (const state of screen.states) {
       ids.add(state.id);
+      for (const item of state.sees) ids.add(item.id);
       for (const cta of state.ctas) ids.add(cta.id);
     }
   }
@@ -199,7 +200,7 @@ export function makeDefaultState(flows: Flows, screenId: string, stateId: string
   });
 }
 
-// Sees items: plain strings, addressed by index.
+// Sees (information) items: addressed by index, as the editor shows them in order.
 
 /**
  * Inserts a sees item directly after `afterIndex` when given (and in range), otherwise at the
@@ -213,12 +214,13 @@ export function addSeesItem(
   text = '',
 ): { flows: Flows; index: number | null } {
   let index: number | null = null;
+  const id = newId('info', idsIn(flows));
   const next = mapState(flows, screenId, stateId, (st) => {
     index =
       afterIndex !== undefined && afterIndex >= 0 && afterIndex < st.sees.length
         ? afterIndex + 1
         : st.sees.length;
-    return { ...st, sees: [...st.sees.slice(0, index), text, ...st.sees.slice(index)] };
+    return { ...st, sees: [...st.sees.slice(0, index), { id, text }, ...st.sees.slice(index)] };
   });
   return { flows: next, index };
 }
@@ -231,10 +233,26 @@ export function updateSeesItem(
   text: string,
 ): Flows {
   return mapState(flows, screenId, stateId, (st) =>
-    index < 0 || index >= st.sees.length || st.sees[index] === text
+    index < 0 || index >= st.sees.length || st.sees[index]?.text === text
       ? st
-      : { ...st, sees: st.sees.map((item, i) => (i === index ? text : item)) },
+      : { ...st, sees: st.sees.map((item, i) => (i === index ? { ...item, text } : item)) },
   );
+}
+
+/** Sets the note on the sees item at `index`; a blank note removes it. */
+export function setSeesNote(
+  flows: Flows,
+  screenId: string,
+  stateId: string,
+  index: number,
+  note: string,
+): Flows {
+  return mapState(flows, screenId, stateId, (st) => {
+    const item = st.sees[index];
+    if (!item) return st;
+    const next = withOptional(item, 'note', note);
+    return next === item ? st : { ...st, sees: st.sees.map((x, i) => (i === index ? next : x)) };
+  });
 }
 
 export function deleteSeesItem(
@@ -281,6 +299,22 @@ export function renameCta(
   return mapState(flows, screenId, stateId, (st) => {
     if (!st.ctas.some((c) => c.id === ctaId && c.label !== label)) return st;
     return { ...st, ctas: st.ctas.map((c) => (c.id === ctaId ? { ...c, label } : c)) };
+  });
+}
+
+/** Sets a CTA's note; a blank note removes it. */
+export function setCtaNote(
+  flows: Flows,
+  screenId: string,
+  stateId: string,
+  ctaId: string,
+  note: string,
+): Flows {
+  return mapState(flows, screenId, stateId, (st) => {
+    const cta = st.ctas.find((c) => c.id === ctaId);
+    if (!cta) return st;
+    const next = withOptional(cta, 'note', note);
+    return next === cta ? st : { ...st, ctas: st.ctas.map((c) => (c.id === ctaId ? next : c)) };
   });
 }
 
@@ -457,20 +491,29 @@ export interface ScreenFragment {
   screens: Screen[];
   transitions: Transition[];
   layout: Layout;
+  /** The copied transitions' sides, if any are fixed. */
+  anchors?: Flows['anchors'];
 }
 
 export function screenFragment(flows: Flows, screenIds: Iterable<string>): ScreenFragment {
   const chosen = new Set(screenIds);
   const screens = flows.screens.filter((s) => chosen.has(s.id));
   const kept = new Set(screens.map((s) => s.id));
+  const transitions = flows.transitions.filter(
+    (t) => kept.has(t.from.screenId) && kept.has(t.to.screenId),
+  );
+  const anchors: NonNullable<Flows['anchors']> = {};
+  for (const t of transitions) {
+    const sides = flows.anchors?.[t.id];
+    if (sides) anchors[t.id] = sides;
+  }
   return {
     screens,
-    transitions: flows.transitions.filter(
-      (t) => kept.has(t.from.screenId) && kept.has(t.to.screenId),
-    ),
+    transitions,
     layout: Object.fromEntries(
       screens.flatMap((s) => (flows.layout[s.id] ? [[s.id, flows.layout[s.id] as Position]] : [])),
     ),
+    ...(Object.keys(anchors).length > 0 && { anchors }),
   };
 }
 
@@ -534,6 +577,7 @@ export function pasteScreens(
     };
   });
 
+  const anchors: NonNullable<Flows['anchors']> = { ...flows.anchors };
   const transitions = fragment.transitions.flatMap((t): Transition[] => {
     const fromScreen = screenCopy.get(t.from.screenId);
     const toScreen = screenCopy.get(t.to.screenId);
@@ -542,10 +586,13 @@ export function pasteScreens(
     if (!fromScreen || !toScreen || !fromState || !fromCta) return [];
     const toState =
       t.to.stateId === undefined ? undefined : stateCopy.get(key(t.to.screenId, t.to.stateId));
+    const id = fresh('tr');
+    const sides = fragment.anchors?.[t.id];
+    if (sides) anchors[id] = sides;
     return [
       {
         ...t,
-        id: fresh('tr'),
+        id,
         from: { screenId: fromScreen, stateId: fromState, ctaId: fromCta },
         to:
           toState === undefined ? { screenId: toScreen } : { screenId: toScreen, stateId: toState },
@@ -560,6 +607,7 @@ export function pasteScreens(
       screens: [...flows.screens, ...copies],
       transitions: [...flows.transitions, ...transitions],
       layout,
+      ...(Object.keys(anchors).length > 0 && { anchors }),
     },
   };
 }

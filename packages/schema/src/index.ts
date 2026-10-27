@@ -8,8 +8,28 @@ export {
   type Issue,
   type IssuePath,
 } from './common';
-export { Attribute, Cardinality, Entity, Erd, Relationship } from './erd';
-export { Cta, Flows, Screen, ScreenState, Transition, TransitionFrom, TransitionTo } from './flows';
+export {
+  Anchor,
+  Attribute,
+  Cardinality,
+  Entity,
+  Erd,
+  Relationship,
+  RelationshipAnchors,
+  Side,
+} from './erd';
+export {
+  Cta,
+  FlowSide,
+  Flows,
+  InfoItem,
+  Screen,
+  ScreenState,
+  Transition,
+  TransitionAnchors,
+  TransitionFrom,
+  TransitionTo,
+} from './flows';
 export { Config, DEFAULT_DEVICES, Device, Preview } from './config';
 export { SCHEMAS, type DesignDoc, type DesignDocs } from './documents';
 export { CURRENT_VERSION, migrate, type MigrateResult } from './migrate';

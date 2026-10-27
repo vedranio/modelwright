@@ -10,7 +10,7 @@ function screen(states: { sees: number; ctas: number }[], notes?: string): Scree
     states: states.map((st, i) => ({
       id: `st${i}`,
       name: `State ${i}`,
-      sees: Array.from({ length: st.sees }, (_, j) => `item ${j}`),
+      sees: Array.from({ length: st.sees }, (_, j) => ({ id: `i${j}`, text: `item ${j}` })),
       ctas: Array.from({ length: st.ctas }, (_, j) => ({ id: `c${i}-${j}`, label: `CTA ${j}` })),
     })),
   };

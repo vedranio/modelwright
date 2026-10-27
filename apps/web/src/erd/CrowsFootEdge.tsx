@@ -8,7 +8,8 @@ import {
   type EdgeProps,
   type InternalNode,
 } from '@xyflow/react';
-import type { Cardinality } from '@modelwright/schema';
+import { useState } from 'react';
+import type { Anchor, Cardinality, RelationshipAnchors } from '@modelwright/schema';
 import {
   CORNER_RADIUS,
   orthogonalPath,
@@ -16,7 +17,11 @@ import {
   type Rect,
   type Side,
 } from '../canvas/edgeGeometry';
+import { EndGrip } from '../canvas/EndGrip';
+import { anchorPoint, nearestAnchor, setRelationshipAnchor } from './anchors';
+import { useErdEditor } from './editor';
 import {
+  floatingEnds,
   parallelRoute,
   selfLoop,
   type EdgeEnd,
@@ -40,6 +45,8 @@ export type CrowsFootEdgeType = Edge<
     toName: string;
     /** Whether this is the only thing selected, so its editing popover shows. */
     editing: boolean;
+    /** Ends fixed where they join their cards; the rest float. */
+    anchors?: RelationshipAnchors;
   },
   'crowsfoot'
 >;
@@ -75,21 +82,45 @@ export function CrowsFootEdge({
 }: EdgeProps<CrowsFootEdgeType>) {
   const sourceNode = useInternalNode(source);
   const targetNode = useInternalNode(target);
+  const { apply } = useErdEditor();
+  /** An end being dragged to a new place, shown before it's dropped. */
+  const [moving, setMoving] = useState<{ end: 'from' | 'to'; anchor: Anchor } | null>(null);
   if (!sourceNode || !targetNode || !data) return null;
   const sourceRect = rectOf(sourceNode);
   const targetRect = rectOf(targetNode);
   if (!sourceRect || !targetRect) return null;
 
-  const { path, labelX, labelY, labelSide, ends } =
-    source === target
-      ? looped(sourceRect, data.slot, data.loopSide)
-      : routed(sourceRect, targetRect, data.slot);
+  const loop = source === target;
+  const anchors = moving ? { ...data.anchors, [moving.end]: moving.anchor } : data.anchors;
+  const { path, labelX, labelY, labelSide, ends } = loop
+    ? looped(sourceRect, data.slot, data.loopSide)
+    : routed(sourceRect, targetRect, data.slot, anchors);
+
+  /** A grip for each end of a selected relationship, sliding round its card's outline. */
+  const grip = (end: 'from' | 'to') => {
+    const rect = end === 'from' ? sourceRect : targetRect;
+    const at = end === 'from' ? ends.source : ends.target;
+    const name = end === 'from' ? data.fromName : data.toName;
+    return (
+      <EndGrip
+        key={end}
+        at={at}
+        label={`Move where this joins ${name}`}
+        onDrag={(p) => setMoving(p ? { end, anchor: nearestAnchor(rect, p) } : null)}
+        onDrop={(p) => {
+          setMoving(null);
+          apply((erd) => setRelationshipAnchor(erd, id, end, nearestAnchor(rect, p)));
+        }}
+      />
+    );
+  };
 
   return (
     <>
       <BaseEdge id={id} path={path} className="crowsfoot-line" interactionWidth={16} />
       <Marker end={ends.source} card={data.fromCard} />
       <Marker end={ends.target} card={data.toCard} />
+      {selected && !loop && [grip('from'), grip('to')]}
       {data.editing && (
         <EdgePopoverAnchor at={{ x: labelX, y: labelY }}>
           <EdgePopover
@@ -99,6 +130,7 @@ export function CrowsFootEdge({
             fromCard={data.fromCard}
             toCard={data.toCard}
             label={data.label ?? ''}
+            anchored={Boolean(data.anchors?.from ?? data.anchors?.to)}
           />
         </EdgePopoverAnchor>
       )}
@@ -136,8 +168,38 @@ function Marker({ end, card }: { end: EdgeEnd; card: Cardinality }) {
   );
 }
 
-function routed(sourceRect: Rect, targetRect: Rect, slot: ParallelSlot) {
-  const { ends, center } = parallelRoute(sourceRect, targetRect, slot);
+/** A point as a rectangle with no size, for floating the other end towards a fixed one. */
+const pointRect = ({ x, y }: { x: number; y: number }): Rect => ({ x, y, width: 0, height: 0 });
+
+/**
+ * The ends of a relationship between two cards. With no anchors, they float as parallel
+ * relationships do. A fixed end sits at its anchor, and a floating end faces the fixed one.
+ */
+function anchoredRoute(
+  sourceRect: Rect,
+  targetRect: Rect,
+  slot: ParallelSlot,
+  anchors: RelationshipAnchors | undefined,
+): { ends: { source: EdgeEnd; target: EdgeEnd }; center: number | null } {
+  const from = anchors?.from && anchorPoint(sourceRect, anchors.from);
+  const to = anchors?.to && anchorPoint(targetRect, anchors.to);
+  if (!from && !to) return parallelRoute(sourceRect, targetRect, slot);
+  return {
+    ends: {
+      source: from ?? floatingEnds(sourceRect, pointRect(to as EdgeEnd)).source,
+      target: to ?? floatingEnds(pointRect(from as EdgeEnd), targetRect).target,
+    },
+    center: null,
+  };
+}
+
+function routed(
+  sourceRect: Rect,
+  targetRect: Rect,
+  slot: ParallelSlot,
+  anchors: RelationshipAnchors | undefined,
+) {
+  const { ends, center } = anchoredRoute(sourceRect, targetRect, slot, anchors);
   const leftRight = ends.source.side === 'left' || ends.source.side === 'right';
   const [path, pathLabelX, pathLabelY] = getSmoothStepPath({
     sourceX: ends.source.x,

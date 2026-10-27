@@ -5,6 +5,7 @@ import { revertToBuild } from './buildRecord/revert';
 import { buildStatus } from './buildRecord/status';
 import { useBuildRecord } from './buildRecord/useBuildRecord';
 import { useConfirm } from './ConfirmDialog';
+import { commitOpenField } from './editing/InlineField';
 import { useEditableDoc } from './editing/useEditableDoc';
 import { ProjectName } from './ProjectName';
 import { useDesign } from './useDesign';
@@ -175,6 +176,8 @@ export function Shell({ project, onClose }: Props) {
    * whether it's fine to go on (close the project, or quit).
    */
   async function saveOrAsk(action: 'Close' | 'Quit'): Promise<boolean> {
+    // A field left open while the app was in the background holds text not yet in a document.
+    await commitOpenField();
     const [erdSaved, flowsSaved, configSaved] = await Promise.all([
       erd.flush(),
       flows.flush(),

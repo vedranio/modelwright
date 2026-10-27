@@ -1,6 +1,7 @@
 import { useCallback, useLayoutEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
 import type { NodeChange, OnConnectEnd, ReactFlowInstance, XYPosition } from '@xyflow/react';
-import { parseDesign, type Flows, type TransitionFrom } from '@modelwright/schema';
+import { parseDesign, type FlowSide, type Flows, type TransitionFrom } from '@modelwright/schema';
+import { pruneAnchors } from '../canvas/anchors';
 import { Canvas } from '../canvas/Canvas';
 import { anchorCard, cardRects, nodeUnderPoint, revealCard } from '../canvas/cards';
 import { besideAnchor, nudgeClear } from '../canvas/freeSpot';
@@ -9,12 +10,14 @@ import { decodeCards, encodeCards, pasteShift } from '../canvas/cardClipboard';
 import { UndoRedoButtons } from '../canvas/UndoRedoButtons';
 import { useCardClipboard, viewInFlow } from '../canvas/useCardClipboard';
 import { useCanvasShortcuts } from '../canvas/useCanvasShortcuts';
+import { useCardDrag } from '../canvas/useCardDrag';
 import { useMeasurements } from '../canvas/useMeasurements';
 import { useSelection } from '../canvas/useSelection';
 import { SaveStatusPill } from '../editing/SaveStatusPill';
 import { touchedFlows } from '../editing/touched';
 import { useCanvasHistory } from '../editing/useCanvasHistory';
 import type { EditableDoc } from '../editing/useEditableDoc';
+import { dropSide, handleSide, setTransitionSide } from '../flows/anchors';
 import { deletionSummary } from '../flows/deletion';
 import { connectedCtas, fanPlaces, screensById, transitionEndpoints } from '../flows/endpoints';
 import { SCREEN_WIDTH, estimateScreenSize } from '../flows/metrics';
@@ -88,7 +91,6 @@ function FlowsCanvas({
   edit: EditableDoc<'flows'>;
 }) {
   const [editing, setEditing] = useState<EditTarget | null>(null);
-  const [dragging, setDragging] = useState<Record<string, XYPosition>>({});
   /** The CTA a connection is being dragged from, while one is. */
   const [connecting, setConnecting] = useState<TransitionFrom | null>(null);
   /** The transition under the pointer, highlighted with its two ends. */
@@ -110,7 +112,8 @@ function FlowsCanvas({
       applyDoc((doc) => {
         const placed = withPlacement(doc);
         const next = op(placed);
-        return next === placed ? doc : next;
+        // Sides fixed for transitions that went with this edit go too.
+        return next === placed ? doc : pruneAnchors(next, next.transitions);
       }, options),
     [applyDoc],
   );
@@ -136,14 +139,13 @@ function FlowsCanvas({
     if (reconnecting) lit.delete(reconnecting.transitionId);
     return transitionHighlights(flows, lit);
   }, [flows, hoveredEdge, selection.selectedEdges, reconnecting]);
-  const nodes = useMemo(
-    () =>
+  const placed = useMemo(
+    (): ScreenNodeType[] =>
       flow.nodes.map((n) => {
         const measured = measurements.sizes.get(n.id);
         const highlight = highlights.get(n.id);
         return {
           ...n,
-          position: dragging[n.id] ?? n.position,
           selected: selection.selectedNodes.has(n.id),
           ...(measured && { measured }),
           data: {
@@ -154,8 +156,34 @@ function FlowsCanvas({
           },
         };
       }),
-    [flow, dragging, selection.selectedNodes, measurements.sizes, highlights, connecting],
+    [flow, selection.selectedNodes, measurements.sizes, highlights, connecting],
   );
+  const cardDrag = useCardDrag({
+    nodes: placed,
+    zoom: () => instance.current?.getZoom() ?? 1,
+    onMove: (positions) => apply((doc) => moveScreens(doc, positions), { saveNow: true }),
+    onCopy: (ids, shift) => {
+      let copies: string[] = [];
+      let links: string[] = [];
+      apply(
+        (doc) => {
+          const result = pasteScreens(doc, screenFragment(doc, ids), {
+            x: Math.round(shift.x),
+            y: Math.round(shift.y),
+          });
+          copies = result.ids;
+          links = result.flows.transitions
+            .filter((t) => copies.includes(t.from.screenId))
+            .map((t) => t.id);
+          return result.flows;
+        },
+        { saveNow: true },
+      );
+      selection.select(copies, links);
+    },
+  });
+  const { shown } = cardDrag;
+  const nodes = useMemo(() => shown(placed), [shown, placed]);
   const edges = useMemo(() => {
     // The popover shows when one transition, and nothing else, is selected. Only count what
     // still exists: a deleted item's id can linger in the selection.
@@ -180,16 +208,22 @@ function FlowsCanvas({
     const screenId = connection.fromNode?.id;
     const handleId = connection.fromHandle?.id;
     const point = 'changedTouches' in event ? event.changedTouches[0] : event;
-    if (!screenId || !handleId || !point) return;
+    if (!screenId || !handleId || !point || !instance.current) return;
     const from = ctaForHandle(flows, screenId, handleId);
     if (!from) return;
+    // The line stays on the side of the card it was drawn from.
+    const fromSide = handleSide(handleId);
+    const at = instance.current.screenToFlowPosition({ x: point.clientX, y: point.clientY });
     const under = nodeUnderPoint(point.clientX, point.clientY);
     if (!under) {
-      if (!instance.current) return;
-      const at = instance.current.screenToFlowPosition({ x: point.clientX, y: point.clientY });
       createScreen(at, (doc, position) => {
         const result = addScreenWithTransition(doc, position, from);
-        return { flows: result.flows, id: result.screenId };
+        return {
+          flows: result.transitionId
+            ? setTransitionSide(result.flows, result.transitionId, 'from', fromSide)
+            : result.flows,
+          id: result.screenId,
+        };
       });
       return;
     }
@@ -198,11 +232,15 @@ function FlowsCanvas({
       stateId: under.element.closest<HTMLElement>('[data-state]')?.dataset.state ?? null,
     });
     if (!to) return;
+    // Dropped close to the target's left or right edge, it arrives on that side.
+    const toSide = sideOfDrop(instance.current, to.screenId, at);
     let id: string | null = null;
     apply((doc) => {
       const result = addTransition(doc, from, to);
       id = result.id;
-      return result.flows;
+      if (!id) return result.flows;
+      const sided = setTransitionSide(result.flows, id, 'from', fromSide);
+      return setTransitionSide(sided, id, 'to', toSide);
     });
     // After the click that ends the drag: dropped on its own card, that click would select
     // the card instead.
@@ -246,9 +284,17 @@ function FlowsCanvas({
           screenId: under.node.dataset.id ?? null,
           stateId: under.element.closest<HTMLElement>('[data-state]')?.dataset.state ?? null,
         };
+        const point = view.screenToFlowPosition({ x: e.clientX, y: e.clientY });
         apply((doc) => {
           const to = dropTarget(doc, transition.from, at);
-          return to ? retargetTransition(doc, transitionId, to) : doc;
+          if (!to) return doc;
+          // Its arrival side follows the drop: near an edge, that side; otherwise routed.
+          return setTransitionSide(
+            retargetTransition(doc, transitionId, to),
+            transitionId,
+            'to',
+            sideOfDrop(view, to.screenId, point),
+          );
         });
         // After the click that ends the drag, which would otherwise select the card.
         setTimeout(() => select([], [transitionId]));
@@ -274,12 +320,8 @@ function FlowsCanvas({
   const onNodesChange = (changes: NodeChange<ScreenNodeType>[]) => {
     selection.onNodesChange(changes);
     measurements.onNodesChange(changes);
-    // Positions move live while dragging; the document changes once, on drop.
-    const moved: Record<string, XYPosition> = {};
-    for (const c of changes) {
-      if (c.type === 'position' && c.dragging && c.position) moved[c.id] = c.position;
-    }
-    if (Object.keys(moved).length > 0) setDragging((d) => ({ ...d, ...moved }));
+    // Positions move live while dragging, snapping to line up; the document changes on drop.
+    cardDrag.onNodesChange(changes);
   };
 
   /**
@@ -472,14 +514,9 @@ function FlowsCanvas({
             }}
             onNodesChange={onNodesChange}
             onEdgesChange={selection.onEdgesChange}
-            onNodeDragStop={(_e, _node, dragged) => {
-              apply(
-                (doc) =>
-                  moveScreens(doc, Object.fromEntries(dragged.map((n) => [n.id, n.position]))),
-                { saveNow: true },
-              );
-              setDragging({});
-            }}
+            onNodeDragStart={cardDrag.onNodeDragStart}
+            onNodeDragStop={cardDrag.onNodeDragStop}
+            inFlow={cardDrag.overlay}
             onConnectStart={(_event, { nodeId, handleId }) =>
               setConnecting(nodeId && handleId ? ctaForHandle(flows, nodeId, handleId) : null)
             }
@@ -621,6 +658,7 @@ function toFlow(flows: Flows): { nodes: ScreenNodeType[]; edges: TransitionEdgeT
           screens: targets,
           editing: false,
           ...(t.label !== undefined && { label: t.label }),
+          ...(flows.anchors?.[t.id] && { anchors: flows.anchors[t.id] }),
         },
       },
     ];
@@ -647,4 +685,16 @@ function transitionHighlights(flows: Flows, ids: ReadonlySet<string>): Map<strin
     if (target) of(t.to.screenId).states.add(target);
   }
   return out;
+}
+
+/** The side a drop near a card's left or right edge picks (`dropSide`), or null. */
+function sideOfDrop(
+  view: ReactFlowInstance<ScreenNodeType, TransitionEdgeType>,
+  screenId: string,
+  at: XYPosition,
+): FlowSide | null {
+  const node = view.getInternalNode(screenId);
+  const { width, height } = node?.measured ?? {};
+  if (!node || !width || !height) return null;
+  return dropSide({ ...node.internals.positionAbsolute, width, height }, at);
 }

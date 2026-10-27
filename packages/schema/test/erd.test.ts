@@ -86,3 +86,19 @@ describe('erd.json', () => {
     expect(issuesOf(parseErd(erd))).toHaveLength(2);
   });
 });
+
+describe('erd v2: anchors', () => {
+  it('accepts a side and a position along it for either end', () => {
+    const erd = fixture('erd');
+    erd.anchors = { [erd.relationships[0].id]: { from: { side: 'bottom', at: 0.25 } } };
+    expect(parseErd(erd).ok).toBe(true);
+  });
+
+  it('rejects anchors for an unknown relationship, and a position outside 0–1', () => {
+    const erd = fixture('erd');
+    erd.anchors = { ghost: { to: { side: 'top', at: 0.5 } } };
+    expectIssue(parseErd(erd), ['anchors', 'ghost'], /unknown relationship "ghost"/);
+    erd.anchors = { [erd.relationships[0].id]: { to: { side: 'top', at: 1.5 } } };
+    expect(parseErd(erd).ok).toBe(false);
+  });
+});

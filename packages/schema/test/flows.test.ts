@@ -117,3 +117,29 @@ describe('flows v2: state notes and primary CTA', () => {
     expectIssue(parseFlows(flows), ['screens', 0, 'states', 0, 'primaryCtaId'], /isn't one of/);
   });
 });
+
+describe('flows v3: item and CTA notes, anchors', () => {
+  it('accepts notes on information items and CTAs, and anchors on transitions', () => {
+    const flows = fixture('flows');
+    const state = flows.screens[0].states[0];
+    state.sees[0].note = 'Remembered from last time';
+    state.ctas[0].note = 'Disabled until both fields are filled';
+    flows.anchors = { [flows.transitions[0].id]: { from: 'left', to: 'right' } };
+    expect(parseFlows(flows).ok).toBe(true);
+  });
+
+  it('rejects duplicate information item ids within a state', () => {
+    const flows = fixture('flows');
+    const sees = flows.screens[0].states[0].sees;
+    sees[1].id = sees[0].id;
+    expectIssue(parseFlows(flows), ['screens', 0, 'states', 0, 'sees', 1, 'id'], /Duplicate/);
+  });
+
+  it('rejects anchors for an unknown transition, and a side other than left or right', () => {
+    const flows = fixture('flows');
+    flows.anchors = { ghost: { from: 'left' } };
+    expectIssue(parseFlows(flows), ['anchors', 'ghost'], /unknown transition "ghost"/);
+    flows.anchors = { [flows.transitions[0].id]: { from: 'top' } };
+    expect(parseFlows(flows).ok).toBe(false);
+  });
+});

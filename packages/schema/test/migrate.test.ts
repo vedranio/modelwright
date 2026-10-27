@@ -8,11 +8,24 @@ import { expectIssue, fixture } from './helpers';
 const FIXTURES = fileURLToPath(new URL('./fixtures', import.meta.url));
 
 describe('migrate', () => {
-  it('upgrades a v1 flows.json to v2 without changing anything else', () => {
-    const v1 = JSON.parse(readFileSync(`${FIXTURES}/v1/flows.json`, 'utf8'));
+  it.each(['v1', 'v2'])('upgrades a %s flows.json to v3, giving information items ids', (v) => {
+    const old = JSON.parse(readFileSync(`${FIXTURES}/${v}/flows.json`, 'utf8'));
+    expect(old.schemaVersion).toBe(Number(v.slice(1)));
+    const result = parseFlows(old);
+    expect(result.ok && result.doc).toEqual(fixture('flows'));
+    const login = result.ok ? result.doc.screens[0]?.states[1] : undefined;
+    expect(login?.sees).toEqual([
+      { id: 'info_1', text: 'email field' },
+      { id: 'info_2', text: 'password field' },
+      { id: 'info_3', text: 'error message' },
+    ]);
+  });
+
+  it('upgrades a v1 erd.json to v2 without changing anything else', () => {
+    const v1 = JSON.parse(readFileSync(`${FIXTURES}/v1/erd.json`, 'utf8'));
     expect(v1.schemaVersion).toBe(1);
-    const result = parseFlows(v1);
-    expect(result.ok && result.doc).toEqual({ ...fixture('flows'), schemaVersion: 2 });
+    const result = parseErd(v1);
+    expect(result.ok && result.doc).toEqual(fixture('erd'));
   });
 
   it.each(DESIGN_KINDS)('is a no-op for a current %s document', (kind) => {
@@ -23,11 +36,11 @@ describe('migrate', () => {
   });
 
   it('rejects a newer schemaVersion with a clear message', () => {
-    const erd = { ...fixture('erd'), schemaVersion: 2 };
+    const erd = { ...fixture('erd'), schemaVersion: 3 };
     expectIssue(
       parseErd(erd),
       ['schemaVersion'],
-      /written by a newer modelwright \(schemaVersion 2\); this build supports up to 1/,
+      /written by a newer modelwright \(schemaVersion 3\); this build supports up to 2/,
     );
   });
 

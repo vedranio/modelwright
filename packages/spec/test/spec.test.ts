@@ -114,7 +114,7 @@ describe('renderSpec', () => {
 
 describe('relationships', () => {
   const erdWith = (fromCard: Cardinality, toCard: Cardinality, label?: string): Erd => ({
-    schemaVersion: 1,
+    schemaVersion: 2,
     entities: [
       { id: 'a', name: 'Person', attributes: [] },
       { id: 'b', name: 'Category', attributes: [] },
@@ -178,7 +178,7 @@ describe('relationships', () => {
 describe('identifiers and text', () => {
   it('makes safe, distinct identifiers from ids with punctuation, and keeps names as labels', () => {
     const erd: Erd = {
-      schemaVersion: 1,
+      schemaVersion: 2,
       entities: [
         { id: 'line-item', name: 'Line item', attributes: [] },
         { id: 'line_item', name: 'Line "item" (old)', attributes: [] },
@@ -199,7 +199,7 @@ describe('identifiers and text', () => {
 
   it('keeps Mermaid keywords and punctuation out of flowchart identifiers', async () => {
     const flows: Flows = {
-      schemaVersion: 2,
+      schemaVersion: 3,
       screens: [
         {
           id: 'end',
